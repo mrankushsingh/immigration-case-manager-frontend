@@ -25,9 +25,11 @@ export default function Financial() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     console.log('📊 Financial component mounted, loading data...');
+    setMounted(true);
     loadFinancialData();
   }, []);
 
@@ -76,7 +78,19 @@ export default function Financial() {
   };
 
   // Always render something - never blank
-  console.log('📊 Financial render state:', { loading, error, hasSummary: !!summary });
+  console.log('📊 Financial render state:', { loading, error, hasSummary: !!summary, mounted });
+
+  // If not mounted yet, show nothing (prevents flash)
+  if (!mounted) {
+    return (
+      <div className="min-h-[600px] flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
+          <p className="text-gray-700 font-medium text-lg">Initializing...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading state immediately
   if (loading) {
