@@ -118,17 +118,18 @@ export default function Financial() {
     percentage: pm.percentage,
   }));
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 bg-clip-text text-transparent mb-2 tracking-tight">
-          Financial Overview
-        </h2>
-        <p className="text-amber-700/80 text-base sm:text-lg font-medium">
-          Track income, payments, and financial metrics
-        </p>
-      </div>
+  try {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 bg-clip-text text-transparent mb-2 tracking-tight">
+            Financial Overview
+          </h2>
+          <p className="text-amber-700/80 text-base sm:text-lg font-medium">
+            Track income, payments, and financial metrics
+          </p>
+        </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
