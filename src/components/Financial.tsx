@@ -24,6 +24,7 @@ const COLORS = ['#FFD700', '#F59E0B', '#D97706', '#92400E', '#78350F', '#451A03'
 export default function Financial() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadFinancialData();
@@ -32,11 +33,14 @@ export default function Financial() {
   const loadFinancialData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await api.getFinancialSummary();
       setSummary(data);
     } catch (error: any) {
       console.error('Failed to load financial data:', error);
-      showToast(error.message || 'Failed to load financial data', 'error');
+      const errorMessage = error.message || 'Failed to load financial data';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -60,7 +64,27 @@ export default function Financial() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading financial data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+          <p className="text-red-800 font-semibold mb-2">Error loading financial data</p>
+          <p className="text-red-600 text-sm mb-4">{error}</p>
+          <button
+            onClick={loadFinancialData}
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -69,6 +93,12 @@ export default function Financial() {
     return (
       <div className="text-center py-12">
         <p className="text-gray-600">No financial data available</p>
+        <button
+          onClick={loadFinancialData}
+          className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+        >
+          Refresh
+        </button>
       </div>
     );
   }
