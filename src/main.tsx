@@ -69,8 +69,15 @@ if (!rootElement) {
   throw new Error('Root element not found');
 }
 
+console.log('🚀 Starting application...');
+console.log('React version:', React.version);
+console.log('Root element found:', rootElement);
+
 try {
-  ReactDOM.createRoot(rootElement).render(
+  const root = ReactDOM.createRoot(rootElement);
+  console.log('✅ React root created');
+  
+  root.render(
     <React.StrictMode>
       <ErrorBoundary>
         <BrowserRouter>
@@ -79,16 +86,19 @@ try {
       </ErrorBoundary>
     </React.StrictMode>
   );
+  
+  console.log('✅ App rendered successfully');
 } catch (error) {
-  console.error('Failed to render app:', error);
+  console.error('❌ Failed to render app:', error);
   rootElement.innerHTML = `
-    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #000; color: #fff; padding: 20px; text-align: center;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #000; color: #fff; padding: 20px; text-align: center; font-family: system-ui, -apple-system, sans-serif;">
       <div>
-        <h1 style="font-size: 24px; margin-bottom: 16px;">Failed to load application</h1>
-        <p style="color: #999; margin-bottom: 20px;">${error instanceof Error ? error.message : 'Unknown error'}</p>
-        <button onclick="window.location.reload()" style="padding: 10px 20px; background: #F59E0B; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        <h1 style="font-size: 24px; margin-bottom: 16px; color: #F59E0B;">Failed to load application</h1>
+        <p style="color: #999; margin-bottom: 20px; font-size: 14px;">${error instanceof Error ? error.message : 'Unknown error'}</p>
+        <button onclick="window.location.reload()" style="padding: 12px 24px; background: #F59E0B; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">
           Reload Page
         </button>
+        <p style="color: #666; margin-top: 20px; font-size: 12px;">Check browser console (F12) for details</p>
       </div>
     </div>
   `;
