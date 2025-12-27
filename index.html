@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo_AB.svg" />
+    <!-- Apple Touch Icons for iOS -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="114x114" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="76x76" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="60x60" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" sizes="57x57" href="/logo_AB.svg" />
+    <link rel="apple-touch-icon" href="/logo_AB.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    <meta name="theme-color" content="#F59E0B" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- iOS Safari PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BERLIKU" />
+    <!-- iOS Splash Screens -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="/logo_AB.svg" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" href="/logo_AB.svg" />
+    <title>BERLIKU LAW FIRM</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register service worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then((registration) => {
+              console.log('Service Worker registered successfully:', registration.scope);
+              
+              // Check for updates
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('New service worker available. Please refresh the page.');
+                    }
+                  });
+                }
+              });
+            })
+            .catch((registrationError) => {
+              console.error('Service Worker registration failed:', registrationError);
+            });
+        });
+      }
+
+      // Prompt user to install PWA
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log('PWA install prompt available');
+      });
+    </script>
+  </body>
+</html>
+
