@@ -26,7 +26,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showRecursoModal, setShowRecursoModal] = useState(false);
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
-  const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -893,40 +892,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           </div>
           <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">{reminders.filter((r) => r.reminder_type !== 'REQUERIMIENTO').length}</p>
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">{t('dashboard.recordatorioDesc')}</p>
-        </div>
-
-        {/* Overview Box */}
-        <div 
-          onClick={() => setShowOverviewModal(true)}
-          className="glass-gold rounded-2xl p-5 sm:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl"
-          style={{ animationDelay: '0.8s' }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <BarChart3 className="w-6 h-6 text-amber-800" />
-            </div>
-            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Overview</span>
-          </div>
-          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">
-            {clients.length + templates.length}
-          </p>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-              <span className="text-xs text-amber-700 font-medium">
-                {clients.length} Clients
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-              <span className="text-xs text-blue-700 font-medium">
-                {templates.length} Templates
-              </span>
-            </div>
-          </div>
-          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">
-            Quick summary of your case management
-          </p>
         </div>
 
         {/* PAGOS Box */}
