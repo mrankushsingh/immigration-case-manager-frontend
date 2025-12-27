@@ -2359,6 +2359,92 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         </div>
       )}
 
+      {/* Overview Modal */}
+      {showOverviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-amber-900">Overview</h2>
+                  <p className="text-amber-700 mt-1">Quick summary of your case management</p>
+                </div>
+                <button
+                  onClick={() => setShowOverviewModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <h3 className="text-sm font-semibold text-amber-900">Total Cases</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-800">{clients.length}</p>
+                  <p className="text-xs text-amber-600 mt-1">Active clients</p>
+                </div>
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <h3 className="text-sm font-semibold text-blue-900">Templates</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-800">{templates.length}</p>
+                  <p className="text-xs text-blue-600 mt-1">Case templates</p>
+                </div>
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                    <h3 className="text-sm font-semibold text-orange-900">Pending</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-800">{awaitingSubmission.length}</p>
+                  <p className="text-xs text-orange-600 mt-1">Awaiting submission</p>
+                </div>
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                    <h3 className="text-sm font-semibold text-purple-900">Reminders</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-800">{reminders.length}</p>
+                  <p className="text-xs text-purple-600 mt-1">Active reminders</p>
+                </div>
+              </div>
+              <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <h3 className="text-sm font-semibold text-green-900">Ready to Submit</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-green-800">{readyToSubmit.length}</p>
+                  <p className="text-xs text-green-600 mt-1">Cases ready</p>
+                </div>
+                <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                    <h3 className="text-sm font-semibold text-indigo-900">Submitted</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-indigo-800">{submittedToAdmin.length}</p>
+                  <p className="text-xs text-indigo-600 mt-1">To administration</p>
+                </div>
+                <div className="bg-teal-50 border-2 border-teal-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-teal-500"></div>
+                    <h3 className="text-sm font-semibold text-teal-900">Total Status</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-teal-800">
+                    {clients.length + templates.length + reminders.length}
+                  </p>
+                  <p className="text-xs text-teal-600 mt-1">Combined items</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PAGOS Modal */}
       {showPagosModal && paymentsUnlocked && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
