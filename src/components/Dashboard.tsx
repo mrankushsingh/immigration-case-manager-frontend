@@ -688,6 +688,29 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return false;
   }).length;
 
+  // Calculate total revenue (all payments received across all time)
+  const totalRevenue = clients.reduce((total, client) => {
+    if (client.payment?.payments) {
+      return total + client.payment.payments.reduce((sum, p) => sum + p.amount, 0);
+    }
+    return total;
+  }, 0);
+
+  // Calculate total expected revenue (all fees)
+  const totalExpectedRevenue = clients.reduce((total, client) => {
+    return total + (client.payment?.totalFee || 0);
+  }, 0);
+
+  // Calculate collection rate (percentage of expected revenue collected)
+  const collectionRate = totalExpectedRevenue > 0 
+    ? ((totalRevenue / totalExpectedRevenue) * 100).toFixed(1)
+    : 0;
+
+  // Total number of payments across all time
+  const totalPaymentCount = clients.reduce((total, client) => {
+    return total + (client.payment?.payments?.length || 0);
+  }, 0);
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
@@ -717,7 +740,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">New clients</p>
             </div>
             <div>
-              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">${monthlyPaymentsReceived.toLocaleString()}</p>
+              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">€{monthlyPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">Payments received</p>
             </div>
           </div>
@@ -2814,7 +2837,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         <p className="text-xs text-green-600">This month</p>
                       </div>
                     </div>
-                    <p className="text-4xl font-bold text-green-900 mb-1">${monthlyPaymentsReceived.toLocaleString()}</p>
+                    <p className="text-4xl font-bold text-green-900 mb-1">€{monthlyPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <p className="text-sm text-green-700">
                       {monthlyPaymentCount} {monthlyPaymentCount === 1 ? 'payment' : 'payments'} received
                     </p>
@@ -2831,7 +2854,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         <p className="text-xs text-orange-600">This month</p>
                       </div>
                     </div>
-                    <p className="text-4xl font-bold text-orange-900 mb-1">${monthlyDueAmount.toLocaleString()}</p>
+                    <p className="text-4xl font-bold text-orange-900 mb-1">€{monthlyDueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <p className="text-sm text-orange-700">
                       {monthlyDueCount} {monthlyDueCount === 1 ? 'client' : 'clients'} with pending payments
                     </p>
@@ -2870,33 +2893,107 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               </div>
 
-              {/* Payment Summary */}
+              {/* Financial Overview */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-amber-900 mb-4">Payment Summary</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                      <h4 className="text-sm font-semibold text-amber-900">Total Due</h4>
+                <h3 className="text-lg font-semibold text-amber-900 mb-4">Financial Overview</h3>
+                
+                {/* Primary Financial Metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  {/* Total Revenue */}
+                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-300 rounded-xl p-5 shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-emerald-200 p-2.5 rounded-lg">
+                        <DollarSign className="w-6 h-6 text-emerald-800" />
+                      </div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
                     </div>
-                    <p className="text-2xl font-bold text-amber-800">€{overallPaymentStats.totalDue.toFixed(2)}</p>
-                    <p className="text-xs text-amber-600 mt-1">{overallPaymentStats.dueCount} {overallPaymentStats.dueCount === 1 ? 'client' : 'clients'}</p>
+                    <h4 className="text-xs font-semibold text-emerald-900 uppercase tracking-wider mb-1">Total Revenue</h4>
+                    <p className="text-3xl font-bold text-emerald-900 mb-1">€{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-emerald-700 font-medium">All payments received</p>
+                    <div className="mt-2 pt-2 border-t border-emerald-200">
+                      <p className="text-xs text-emerald-600">{totalPaymentCount} {totalPaymentCount === 1 ? 'transaction' : 'transactions'}</p>
+                    </div>
                   </div>
+
+                  {/* Expected Revenue */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-xl p-5 shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-blue-200 p-2.5 rounded-lg">
+                        <FileText className="w-6 h-6 text-blue-800" />
+                      </div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+                    </div>
+                    <h4 className="text-xs font-semibold text-blue-900 uppercase tracking-wider mb-1">Expected Revenue</h4>
+                    <p className="text-3xl font-bold text-blue-900 mb-1">€{totalExpectedRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-blue-700 font-medium">Total fees expected</p>
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <p className="text-xs text-blue-600">{clients.length} {clients.length === 1 ? 'client' : 'clients'}</p>
+                    </div>
+                  </div>
+
+                  {/* Total Due */}
+                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 border-2 border-amber-300 rounded-xl p-5 shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-amber-200 p-2.5 rounded-lg">
+                        <Clock className="w-6 h-6 text-amber-800" />
+                      </div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                    </div>
+                    <h4 className="text-xs font-semibold text-amber-900 uppercase tracking-wider mb-1">Total Due</h4>
+                    <p className="text-3xl font-bold text-amber-900 mb-1">€{overallPaymentStats.totalDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-amber-700 font-medium">Outstanding payments</p>
+                    <div className="mt-2 pt-2 border-t border-amber-200">
+                      <p className="text-xs text-amber-600">{overallPaymentStats.dueCount} {overallPaymentStats.dueCount === 1 ? 'client' : 'clients'}</p>
+                    </div>
+                  </div>
+
+                  {/* Collection Rate */}
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 rounded-xl p-5 shadow-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-purple-200 p-2.5 rounded-lg">
+                        <CheckCircle className="w-6 h-6 text-purple-800" />
+                      </div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
+                    </div>
+                    <h4 className="text-xs font-semibold text-purple-900 uppercase tracking-wider mb-1">Collection Rate</h4>
+                    <p className="text-3xl font-bold text-purple-900 mb-1">{collectionRate}%</p>
+                    <p className="text-xs text-purple-700 font-medium">Revenue collected</p>
+                    <div className="mt-2 pt-2 border-t border-purple-200">
+                      <div className="w-full bg-purple-200 rounded-full h-1.5">
+                        <div 
+                          className="bg-purple-600 h-1.5 rounded-full transition-all" 
+                          style={{ width: `${Math.min(parseFloat(collectionRate.toString()), 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Secondary Payment Metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-3 h-3 rounded-full bg-green-500"></div>
                       <h4 className="text-sm font-semibold text-green-900">Total Advance</h4>
                     </div>
-                    <p className="text-2xl font-bold text-green-800">€{overallPaymentStats.totalAdvance.toFixed(2)}</p>
-                    <p className="text-xs text-green-600 mt-1">{overallPaymentStats.advanceCount} {overallPaymentStats.advanceCount === 1 ? 'client' : 'clients'}</p>
+                    <p className="text-2xl font-bold text-green-800">€{overallPaymentStats.totalAdvance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-green-600 mt-1">{overallPaymentStats.advanceCount} {overallPaymentStats.advanceCount === 1 ? 'client' : 'clients'} paid in advance</p>
                   </div>
                   <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                      <h4 className="text-sm font-semibold text-gray-900">No Due</h4>
+                      <h4 className="text-sm font-semibold text-gray-900">Fully Paid</h4>
                     </div>
                     <p className="text-2xl font-bold text-gray-800">{overallPaymentStats.noDueCount}</p>
-                    <p className="text-xs text-gray-600 mt-1">{overallPaymentStats.noDueCount === 1 ? 'client' : 'clients'}</p>
+                    <p className="text-xs text-gray-600 mt-1">{overallPaymentStats.noDueCount === 1 ? 'client' : 'clients'} with no outstanding balance</p>
+                  </div>
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                      <h4 className="text-sm font-semibold text-indigo-900">Pending Collection</h4>
+                    </div>
+                    <p className="text-2xl font-bold text-indigo-800">€{(totalExpectedRevenue - totalRevenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-indigo-600 mt-1">Amount yet to be collected</p>
                   </div>
                 </div>
               </div>
