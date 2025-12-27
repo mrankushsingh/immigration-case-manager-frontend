@@ -36,6 +36,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Ensure React is available globally BEFORE any modules load
+      // This prevents "Cannot read properties of undefined" errors
+      window.__REACT_LOADED__ = false;
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Register service worker for PWA
