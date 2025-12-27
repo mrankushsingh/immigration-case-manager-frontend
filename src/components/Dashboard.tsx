@@ -412,6 +412,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const loadData = async () => {
     try {
       setLoading(true);
+      
+      // Check if user is authenticated before making API calls
+      const { getCurrentUser } = await import('../utils/firebase.js');
+      const user = getCurrentUser();
+      
+      if (!user) {
+        console.error('❌ User not authenticated. Redirecting to login...');
+        showToast('Please log in to access the dashboard', 'error');
+        // Redirect to login will be handled by App.tsx based on isAuthenticated state
+        return;
+      }
+      
       const [templatesData, clientsData, remindersData] = await Promise.all([
         api.getCaseTemplates(),
         api.getClients(),
@@ -428,7 +440,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     } catch (error: any) {
       console.error('❌ Failed to load data:', error);
       const errorMessage = error.message || 'Failed to load data';
-      showToast(`Error loading data: ${errorMessage}`, 'error');
+      
+      // Check if it's an authentication error
+      if (errorMessage.includes('Authentication') || errorMessage.includes('log in') || errorMessage.includes('not authenticated')) {
+        showToast('Please log in to access the dashboard', 'error');
+        // The App component will handle redirect based on isAuthenticated state
+      } else {
+        showToast(`Error loading data: ${errorMessage}`, 'error');
+      }
+      
       // Set empty arrays on error to prevent showing stale data
       setTemplates([]);
       setClients([]);
