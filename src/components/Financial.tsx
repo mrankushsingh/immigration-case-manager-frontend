@@ -165,7 +165,7 @@ export default function Financial() {
   }));
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in" style={{ minHeight: '600px', backgroundColor: '#ffffff' }}>
       {/* Header */}
       <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 bg-clip-text text-transparent mb-2 tracking-tight">
