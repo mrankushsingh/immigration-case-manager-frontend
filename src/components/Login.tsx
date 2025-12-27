@@ -3,6 +3,7 @@ import { Mail, Lock, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { loginWithEmail, isFirebaseAvailable } from '../utils/firebase';
 import Logo from './Logo';
 import LanguageSelector from './LanguageSelector';
+import PixelSnow from './PixelSnow';
 import { t } from '../utils/i18n';
 
 interface LoginProps {
