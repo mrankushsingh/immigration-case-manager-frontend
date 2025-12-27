@@ -88,7 +88,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           speed={1.25}
           density={0.3}
           direction={125}
-          brightness={0.6}
+          brightness={1}
         />
       </div>
 

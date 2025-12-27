@@ -79,7 +79,7 @@ export default function PixelSnow({
         const baseSpeed = speed * (0.5 + Math.random() * 0.5);
         this.speedX = Math.cos(angle) * baseSpeed;
         this.speedY = Math.sin(angle) * baseSpeed;
-        this.opacity = 0.3 + Math.random() * 0.7;
+        this.opacity = 0.5 + Math.random() * 0.5;
       }
 
       update(canvasWidth: number, canvasHeight: number) {
