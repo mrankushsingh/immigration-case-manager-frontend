@@ -1086,10 +1086,11 @@ export default function ClientDetailsModal({ client, onClose, onSuccess }: Props
         // Clear the reminder date since payment is complete
         await api.updateClient(client.id, { custom_reminder_date: null });
         setCustomReminderDate('');
+        await loadClient();
       }
       
-      await loadClient();
-      onSuccess();
+      // Don't call onSuccess() here - loadClient() already updates the modal state
+      // Calling onSuccess() would trigger a full dashboard reload which closes the modal
       showToast(`Payment of €${amount} added successfully`, 'success');
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to add payment';
