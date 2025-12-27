@@ -28,12 +28,13 @@ export default function PixelSnow({
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return;
+    if (!ctx || !canvas) return;
 
     // Set canvas size
     const resizeCanvas = () => {
+      if (!canvas) return;
       const container = canvas.parentElement;
-      if (container) {
+      if (container && canvas) {
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
       }
@@ -65,10 +66,14 @@ export default function PixelSnow({
       speedX: number;
       speedY: number;
       opacity: number;
+      canvasWidth: number;
+      canvasHeight: number;
 
-      constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
+      constructor(canvasWidth: number, canvasHeight: number) {
+        this.canvasWidth = canvasWidth;
+        this.canvasHeight = canvasHeight;
+        this.x = Math.random() * canvasWidth;
+        this.y = Math.random() * canvasHeight;
         this.size = minFlakeSize + Math.random() * (flakeSize * pixelResolution);
         const angle = (direction * Math.PI) / 180;
         const baseSpeed = speed * (0.5 + Math.random() * 0.5);
@@ -77,18 +82,20 @@ export default function PixelSnow({
         this.opacity = 0.3 + Math.random() * 0.7;
       }
 
-      update() {
+      update(canvasWidth: number, canvasHeight: number) {
+        this.canvasWidth = canvasWidth;
+        this.canvasHeight = canvasHeight;
         this.x += this.speedX;
         this.y += this.speedY;
 
         // Wrap around edges
-        if (this.x < 0) this.x = canvas.width;
-        if (this.x > canvas.width) this.x = 0;
-        if (this.y < 0) this.y = canvas.height;
-        if (this.y > canvas.height) this.y = 0;
+        if (this.x < 0) this.x = canvasWidth;
+        if (this.x > canvasWidth) this.x = 0;
+        if (this.y < 0) this.y = canvasHeight;
+        if (this.y > canvasHeight) this.y = 0;
       }
 
-      draw() {
+      draw(ctx: CanvasRenderingContext2D, rgbaColor: string) {
         ctx.fillStyle = rgbaColor.replace(')', `, ${this.opacity})`);
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -100,17 +107,19 @@ export default function PixelSnow({
     const snowflakeCount = Math.floor((canvas.width * canvas.height * density) / 10000);
     const snowflakes: Snowflake[] = [];
     for (let i = 0; i < snowflakeCount; i++) {
-      snowflakes.push(new Snowflake());
+      snowflakes.push(new Snowflake(canvas.width, canvas.height));
     }
 
     // Animation loop
     let animationId: number;
     const animate = () => {
+      if (!canvas || !ctx) return;
+      
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       snowflakes.forEach((flake) => {
-        flake.update();
-        flake.draw();
+        flake.update(canvas.width, canvas.height);
+        flake.draw(ctx, rgbaColor);
       });
 
       animationId = requestAnimationFrame(animate);
