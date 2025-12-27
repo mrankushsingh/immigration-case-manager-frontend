@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { FileText, Users as UsersIcon, LayoutDashboard, Menu, X, LogOut, UserCog, Shield, DollarSign } from 'lucide-react';
+import { FileText, Users as UsersIcon, LayoutDashboard, Menu, X, LogOut, UserCog, Shield } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import Templates from './components/Templates';
 import Clients from './components/Clients';
 import Users from './components/Users';
-import Financial from './components/Financial';
 import Notifications from './components/Notifications';
 import ClientDetailsModal from './components/ClientDetailsModal';
 import Login from './components/Login';
@@ -17,7 +16,7 @@ import { Client } from './types';
 import { t } from './utils/i18n';
 import { api } from './utils/api';
 
-type View = 'dashboard' | 'templates' | 'clients' | 'users' | 'financial';
+type View = 'dashboard' | 'templates' | 'clients' | 'users';
 
 function App() {
   const navigate = useNavigate();
@@ -289,19 +288,6 @@ function App() {
                     <span>{t('common.clients')}</span>
                   </div>
                 </button>
-                <button
-                  onClick={() => setCurrentView('financial')}
-                  className={`px-4 sm:px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                    currentView === 'financial'
-                      ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-amber-900 shadow-lg shadow-yellow-500/30 scale-105'
-                      : 'text-white/80 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <DollarSign className="w-4 h-4" />
-                    <span>Financial</span>
-                  </div>
-                </button>
                 {currentUserRole === 'admin' && (
                   <button
                     onClick={() => setCurrentView('users')}
@@ -419,22 +405,6 @@ function App() {
                                 <span>{t('common.clients')}</span>
                               </div>
                             </button>
-                            <button
-                              onClick={() => {
-                                setCurrentView('financial');
-                                setMobileMenuOpen(false);
-                              }}
-                              className={`w-full px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 text-left ${
-                                currentView === 'financial'
-                                        ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-amber-900 shadow-lg'
-                                        : 'text-white/80 hover:bg-white/10'
-                                    }`}
-                              >
-                                <div className="flex items-center space-x-3">
-                                  <DollarSign className="w-5 h-5" />
-                                  <span>Financial</span>
-                                </div>
-                              </button>
                   {currentUserRole === 'admin' && (
                     <button
                       onClick={() => {
@@ -502,7 +472,6 @@ function App() {
               <>
           {currentView === 'templates' && <Templates />}
           {currentView === 'clients' && <Clients />}
-          {currentView === 'financial' && <Financial />}
                 {currentView === 'users' && currentUserRole === 'admin' && <Users />}
                 {currentView === 'users' && currentUserRole !== 'admin' && (
                   <div className="flex items-center justify-center h-64">
