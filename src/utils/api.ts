@@ -22,7 +22,10 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 
 export const api = {
   async getCaseTemplates() {
-    const response = await fetch(`${API_URL}/case-templates`);
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/case-templates`, {
+      headers,
+    });
     if (!response.ok) throw new Error('Failed to fetch templates');
     return response.json();
   },
@@ -63,13 +66,19 @@ export const api = {
   },
 
   async getClients() {
-    const response = await fetch(`${API_URL}/clients`);
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/clients`, {
+      headers,
+    });
     if (!response.ok) throw new Error('Failed to fetch clients');
     return response.json();
   },
 
   async getClient(id: string) {
-    const response = await fetch(`${API_URL}/clients/${id}`);
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/clients/${id}`, {
+      headers,
+    });
     if (!response.ok) throw new Error('Failed to fetch client');
     return response.json();
   },
