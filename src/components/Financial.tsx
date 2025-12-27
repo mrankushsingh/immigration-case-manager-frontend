@@ -80,13 +80,13 @@ export default function Financial() {
   // Always render something - never blank
   console.log('📊 Financial render state:', { loading, error, hasSummary: !!summary, mounted });
 
-  // If not mounted yet, show nothing (prevents flash)
+  // If not mounted yet, show loading
   if (!mounted) {
     return (
-      <div className="min-h-[600px] flex items-center justify-center bg-white">
+      <div className="min-h-[600px] flex items-center justify-center bg-white" style={{ backgroundColor: '#ffffff' }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
-          <p className="text-gray-700 font-medium text-lg">Initializing...</p>
+          <p className="text-gray-700 font-medium text-lg">Initializing Financial Dashboard...</p>
         </div>
       </div>
     );
