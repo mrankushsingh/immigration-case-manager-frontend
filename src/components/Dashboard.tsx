@@ -432,11 +432,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setTemplates(templatesData);
       setClients(clientsData);
       setReminders(remindersData);
-      console.log('✅ Data loaded successfully:', {
-        templates: templatesData.length,
-        clients: clientsData.length,
-        reminders: remindersData.length,
-      });
     } catch (error: any) {
       console.error('❌ Failed to load data:', error);
       const errorMessage = error.message || 'Failed to load data';

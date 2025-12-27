@@ -19,7 +19,6 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     const token = await getIdToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('✅ Authentication token retrieved successfully');
     } else {
       console.error('❌ Failed to get ID token. User may not be authenticated.');
       throw new Error('Failed to get authentication token. Please log in again.');
