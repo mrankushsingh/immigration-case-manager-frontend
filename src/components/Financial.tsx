@@ -103,23 +103,22 @@ export default function Financial() {
     );
   }
 
-  // Prepare chart data
-  const monthlyChartData = summary.monthlyData.map((item) => ({
-    month: formatMonth(item.month),
-    income: item.totalIncome,
-    paid: item.totalPaid,
-    pending: item.pendingAmount,
+  // Prepare chart data with safe defaults
+  const monthlyChartData = (summary.monthlyData || []).map((item) => ({
+    month: formatMonth(item.month || ''),
+    income: item.totalIncome || 0,
+    paid: item.totalPaid || 0,
+    pending: item.pendingAmount || 0,
   }));
 
-  const paymentMethodData = summary.paymentMethods.map((pm) => ({
-    name: pm.method,
-    value: pm.totalAmount,
-    count: pm.count,
-    percentage: pm.percentage,
+  const paymentMethodData = (summary.paymentMethods || []).map((pm) => ({
+    name: pm.method || 'Unknown',
+    value: pm.totalAmount || 0,
+    count: pm.count || 0,
+    percentage: pm.percentage || 0,
   }));
 
-  try {
-    return (
+  return (
       <div className="space-y-6">
         {/* Header */}
         <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
