@@ -34,13 +34,26 @@ export default function Financial() {
     try {
       setLoading(true);
       setError(null);
+      console.log('📊 Loading financial data...');
       const data = await api.getFinancialSummary();
+      console.log('✅ Financial data loaded:', data);
       setSummary(data);
     } catch (error: any) {
-      console.error('Failed to load financial data:', error);
+      console.error('❌ Failed to load financial data:', error);
       const errorMessage = error.message || 'Failed to load financial data';
       setError(errorMessage);
       showToast(errorMessage, 'error');
+      // Set empty summary to show "no data" state instead of blank
+      setSummary({
+        totalRevenue: 0,
+        totalPaid: 0,
+        totalPending: 0,
+        totalClients: 0,
+        averagePayment: 0,
+        monthlyData: [],
+        paymentMethods: [],
+        topClients: [],
+      });
     } finally {
       setLoading(false);
     }
