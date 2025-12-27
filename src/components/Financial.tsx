@@ -181,7 +181,7 @@ export default function Financial() {
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value: number | undefined) => formatCurrency(value || 0)}
               />
               <Legend />
               <Line
@@ -228,12 +228,12 @@ export default function Financial() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percentage }) => `${name}: ${percentage.toFixed(1)}%`}
+                label={({ name, percent }) => `${name}: ${(percent || 0).toFixed(1)}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {paymentMethodData.map((entry, index) => (
+                {paymentMethodData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -243,7 +243,7 @@ export default function Financial() {
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value: number | undefined) => formatCurrency(value || 0)}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -269,7 +269,7 @@ export default function Financial() {
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value: number | undefined) => formatCurrency(value || 0)}
               />
               <Legend />
               <Bar dataKey="paid" fill="#10B981" name="Paid" radius={[8, 8, 0, 0]} />
