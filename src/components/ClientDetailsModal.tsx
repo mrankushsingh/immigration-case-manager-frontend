@@ -16,6 +16,16 @@ export default function ClientDetailsModal({ client, onClose, onSuccess }: Props
   const [clientData, setClientData] = useState<Client>(client);
   const [uploading, setUploading] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  // Helper function to convert relative file URLs to absolute backend URLs
+  const getFileUrl = (fileUrl: string): string => {
+    if (fileUrl.startsWith('/uploads/')) {
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const backendBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/+$/, '') || window.location.origin;
+      return backendBaseUrl + fileUrl;
+    }
+    return fileUrl;
+  };
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showAdditionalDocForm, setShowAdditionalDocForm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', note: '' });
@@ -1280,19 +1290,17 @@ export default function ClientDetailsModal({ client, onClose, onSuccess }: Props
   };
 
   const handleDownload = (fileUrl: string, fileName: string) => {
+    // Convert relative URLs to absolute backend URLs
+    const url = getFileUrl(fileUrl);
     const link = document.createElement('a');
-    link.href = fileUrl;
+    link.href = url;
     link.download = fileName;
     link.click();
   };
 
   const handleViewDocument = (fileUrl: string, fileName: string) => {
-    // Handle relative URLs (if fileUrl starts with /uploads, it's relative to the server)
-    let url = fileUrl;
-    if (fileUrl.startsWith('/uploads/')) {
-      // For relative paths, use the current origin
-      url = window.location.origin + fileUrl;
-    }
+    // Convert relative URLs to absolute backend URLs
+    const url = getFileUrl(fileUrl);
     // Always show document in modal
     setViewingDocument({ url, fileName });
   };
@@ -1322,7 +1330,8 @@ export default function ClientDetailsModal({ client, onClose, onSuccess }: Props
       // Fetch and add required documents
       for (const doc of submittedRequiredDocs) {
         try {
-          const response = await fetch(doc.fileUrl!);
+          const fileUrl = getFileUrl(doc.fileUrl!);
+          const response = await fetch(fileUrl);
           const blob = await response.blob();
           const fileName = doc.fileName || `${doc.code || doc.name}.pdf`;
           zip.file(`Required_Documents/${fileName}`, blob);
@@ -1335,7 +1344,8 @@ export default function ClientDetailsModal({ client, onClose, onSuccess }: Props
       for (const doc of additionalDocs) {
         try {
           if (!doc.fileUrl) continue;
-          const response = await fetch(doc.fileUrl);
+          const fileUrl = getFileUrl(doc.fileUrl);
+          const response = await fetch(fileUrl);
           const blob = await response.blob();
           zip.file(`Additional_Documents/${doc.fileName}`, blob);
         } catch (err) {
@@ -1781,14 +1791,14 @@ export default function ClientDetailsModal({ client, onClose, onSuccess }: Props
                         {doc.submitted && doc.fileUrl ? (
                           <>
                             <button
-                              onClick={() => window.open(doc.fileUrl, '_blank')}
+                              onClick={() => window.open(getFileUrl(doc.fileUrl!), '_blank')}
                               className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                               title="View document"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <a
-                              href={doc.fileUrl}
+                              href={getFileUrl(doc.fileUrl!)}
                               download={doc.fileName}
                               className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                               title="Download document"
