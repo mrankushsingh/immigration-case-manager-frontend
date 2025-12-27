@@ -894,11 +894,45 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">{t('dashboard.recordatorioDesc')}</p>
         </div>
 
+        {/* Overview Box */}
+        <div 
+          onClick={() => setShowOverviewModal(true)}
+          className="glass-gold rounded-2xl p-5 sm:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl"
+          style={{ animationDelay: '0.8s' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
+              <BarChart3 className="w-6 h-6 text-amber-800" />
+            </div>
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Overview</span>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">
+            {clients.length + templates.length}
+          </p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+              <span className="text-xs text-amber-700 font-medium">
+                {clients.length} Clients
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+              <span className="text-xs text-blue-700 font-medium">
+                {templates.length} Templates
+              </span>
+            </div>
+          </div>
+          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">
+            Quick summary of your case management
+          </p>
+        </div>
+
         {/* PAGOS Box */}
         <div 
           onClick={handlePaymentsClick}
           className="glass-gold rounded-2xl p-5 sm:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl relative"
-          style={{ animationDelay: '0.8s' }}
+          style={{ animationDelay: '0.9s' }}
         >
           {!paymentsUnlocked && (
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
@@ -2442,42 +2476,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               )}
               
-              {/* Overview Box - Same style as Payment Statistics */}
-              <div className="mb-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <h3 className="text-sm font-semibold text-gray-900">Total Cases</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-800">{clients.length}</p>
-                  <p className="text-xs text-gray-600 mt-1">Active clients</p>
-                </div>
-                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <h3 className="text-sm font-semibold text-gray-900">Templates</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-800">{templates.length}</p>
-                  <p className="text-xs text-gray-600 mt-1">Case templates</p>
-                </div>
-                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                    <h3 className="text-sm font-semibold text-gray-900">Pending</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-800">{awaitingSubmission.length}</p>
-                  <p className="text-xs text-gray-600 mt-1">Awaiting submission</p>
-                </div>
-                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <h3 className="text-sm font-semibold text-gray-900">Reminders</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-800">{reminders.length}</p>
-                  <p className="text-xs text-gray-600 mt-1">Active reminders</p>
-                </div>
-              </div>
-
               {/* Payment Statistics Summary */}
               <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
