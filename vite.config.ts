@@ -27,6 +27,7 @@ export default defineConfig({
           // Vendor chunks - split by library type
           if (id.includes('node_modules')) {
             // React core libraries - MUST be in the same chunk for recharts to work
+            // This chunk loads FIRST to ensure React is available globally
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'react-vendor';
             }
@@ -34,9 +35,9 @@ export default defineConfig({
             if (id.includes('recharts')) {
               return 'react-vendor';
             }
-            // Lucide icons (can be large)
+            // Lucide icons - also needs React, put in react-vendor to ensure React is available
             if (id.includes('lucide-react')) {
-              return 'icons';
+              return 'react-vendor';
             }
             // Firebase (large SDK)
             if (id.includes('firebase')) {
