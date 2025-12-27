@@ -8,13 +8,26 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   
   // Try to get Firebase ID token
   try {
-    const { getIdToken } = await import('./firebase.js');
+    const { getIdToken, getCurrentUser } = await import('./firebase.js');
+    const user = getCurrentUser();
+    
+    if (!user) {
+      console.warn('⚠️  No authenticated user found. User must be logged in to access API.');
+      throw new Error('User not authenticated. Please log in.');
+    }
+    
     const token = await getIdToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+      console.log('✅ Authentication token retrieved successfully');
+    } else {
+      console.error('❌ Failed to get ID token. User may not be authenticated.');
+      throw new Error('Failed to get authentication token. Please log in again.');
     }
-  } catch (error) {
-    // Firebase not configured or user not logged in
+  } catch (error: any) {
+    console.error('❌ Authentication error:', error.message || error);
+    // Re-throw to let calling code handle it
+    throw new Error(error.message || 'Authentication required. Please log in.');
   }
   
   return headers;
@@ -74,20 +87,27 @@ export const api = {
   },
 
   async getClients() {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_URL}/clients`, {
-      headers,
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to fetch clients' }));
-      console.error('❌ getClients error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: error.error || error.message,
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_URL}/clients`, {
+        headers,
       });
-      throw new Error(error.error || error.message || `Failed to fetch clients: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to fetch clients' }));
+        console.error('❌ getClients error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: error.error || error.message,
+        });
+        throw new Error(error.error || error.message || `Failed to fetch clients: ${response.status} ${response.statusText}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      if (error.message.includes('Authentication') || error.message.includes('log in')) {
+        throw error; // Re-throw auth errors
+      }
+      throw error;
     }
-    return response.json();
   },
 
   async getClient(id: string) {
