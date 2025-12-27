@@ -26,7 +26,15 @@ export const api = {
     const response = await fetch(`${API_URL}/case-templates`, {
       headers,
     });
-    if (!response.ok) throw new Error('Failed to fetch templates');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to fetch templates' }));
+      console.error('❌ getCaseTemplates error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: error.error || error.message,
+      });
+      throw new Error(error.error || error.message || `Failed to fetch templates: ${response.status} ${response.statusText}`);
+    }
     return response.json();
   },
 
@@ -70,7 +78,15 @@ export const api = {
     const response = await fetch(`${API_URL}/clients`, {
       headers,
     });
-    if (!response.ok) throw new Error('Failed to fetch clients');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to fetch clients' }));
+      console.error('❌ getClients error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: error.error || error.message,
+      });
+      throw new Error(error.error || error.message || `Failed to fetch clients: ${response.status} ${response.statusText}`);
+    }
     return response.json();
   },
 

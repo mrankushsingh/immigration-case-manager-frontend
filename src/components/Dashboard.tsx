@@ -411,6 +411,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const loadData = async () => {
     try {
+      setLoading(true);
       const [templatesData, clientsData, remindersData] = await Promise.all([
         api.getCaseTemplates(),
         api.getClients(),
@@ -419,8 +420,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setTemplates(templatesData);
       setClients(clientsData);
       setReminders(remindersData);
-    } catch (error) {
-      console.error('Failed to load data:', error);
+      console.log('✅ Data loaded successfully:', {
+        templates: templatesData.length,
+        clients: clientsData.length,
+        reminders: remindersData.length,
+      });
+    } catch (error: any) {
+      console.error('❌ Failed to load data:', error);
+      const errorMessage = error.message || 'Failed to load data';
+      showToast(`Error loading data: ${errorMessage}`, 'error');
+      // Set empty arrays on error to prevent showing stale data
+      setTemplates([]);
+      setClients([]);
+      setReminders([]);
     } finally {
       setLoading(false);
     }
