@@ -78,12 +78,14 @@ export default function Financial() {
   // Always render something - never blank
   console.log('📊 Financial render state:', { loading, error, hasSummary: !!summary });
 
+  // Show loading state immediately
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="min-h-[600px] flex items-center justify-center bg-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading financial data...</p>
+          <p className="text-gray-700 font-medium text-lg">Loading financial data...</p>
+          <p className="text-gray-500 text-sm mt-2">Please wait...</p>
         </div>
       </div>
     );
