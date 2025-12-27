@@ -22,6 +22,13 @@ export default defineConfig({
       transformMixedEsModules: true,
     },
     rollupOptions: {
+      external: [],
+      output: {
+        globals: {
+          'react': 'React',
+          'react-dom': 'ReactDOM',
+        },
+    rollupOptions: {
       output: {
         manualChunks(id) {
           // Vendor chunks - split by library type
