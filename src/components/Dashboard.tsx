@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate, Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
@@ -628,100 +628,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           {t('dashboard.title')}
         </h2>
         <p className="text-amber-700/80 text-base sm:text-lg font-medium">{t('dashboard.subtitle')}</p>
-      </div>
-
-      {/* Overview Box */}
-      <div className="glass-gold rounded-2xl p-6 sm:p-8 border border-amber-200/50 shadow-xl">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <BarChart3 className="w-6 h-6 text-amber-800" />
-            </div>
-            <div>
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Overview</h3>
-              <p className="text-sm text-gray-600">Quick summary of your case management</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {/* Total Cases */}
-          <div className="bg-white/50 rounded-xl p-4 border border-amber-200/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Cases</span>
-              <FileText className="w-4 h-4 text-amber-700" />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{clients.length}</p>
-            <p className="text-xs text-gray-500 mt-1">Active clients</p>
-          </div>
-
-          {/* Total Templates */}
-          <div className="bg-white/50 rounded-xl p-4 border border-amber-200/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Templates</span>
-              <FileText className="w-4 h-4 text-amber-700" />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{templates.length}</p>
-            <p className="text-xs text-gray-500 mt-1">Case templates</p>
-          </div>
-
-          {/* Pending Actions */}
-          <div className="bg-white/50 rounded-xl p-4 border border-amber-200/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Pending</span>
-              <Clock className="w-4 h-4 text-orange-600" />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{awaitingSubmission.length}</p>
-            <p className="text-xs text-gray-500 mt-1">Awaiting submission</p>
-          </div>
-
-          {/* Reminders */}
-          <div className="bg-white/50 rounded-xl p-4 border border-amber-200/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Reminders</span>
-              <Bell className="w-4 h-4 text-amber-700" />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{reminders.length}</p>
-            <p className="text-xs text-gray-500 mt-1">Active reminders</p>
-          </div>
-        </div>
-
-        {/* Additional Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-6">
-          {/* Ready to Submit */}
-          <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl p-4 border border-green-200/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">Ready</span>
-              <CheckCircle className="w-4 h-4 text-green-700" />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-green-900">{readyToSubmit.length}</p>
-            <p className="text-xs text-green-700 mt-1">Ready to submit</p>
-          </div>
-
-          {/* Submitted */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-200/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Submitted</span>
-              <Send className="w-4 h-4 text-blue-700" />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-900">{submittedToAdmin.length}</p>
-            <p className="text-xs text-blue-700 mt-1">To administration</p>
-          </div>
-
-          {/* Payment Stats */}
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-4 border border-amber-200/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Payments</span>
-              <TrendingUp className="w-4 h-4 text-amber-700" />
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-amber-900">
-              {overallPaymentStats.dueCount + overallPaymentStats.advanceCount}
-            </p>
-            <p className="text-xs text-amber-700 mt-1">
-              {overallPaymentStats.dueCount} due, {overallPaymentStats.advanceCount} advance
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Stats Cards */}
