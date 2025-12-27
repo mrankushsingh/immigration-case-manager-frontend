@@ -26,6 +26,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showRecursoModal, setShowRecursoModal] = useState(false);
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
+  const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
