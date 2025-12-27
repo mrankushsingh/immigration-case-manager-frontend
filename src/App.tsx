@@ -63,10 +63,21 @@ function App() {
       console.error('Firebase Authentication is not configured. Please set Firebase environment variables.');
       // Don't set authenticated - user must configure Firebase
       setIsAuthChecking(false);
+      setIsAuthenticated(false);
       return;
     }
 
     let isFirstAuthCheck = true;
+    let timeoutId: NodeJS.Timeout;
+
+    // Set a timeout to ensure we don't wait forever
+    timeoutId = setTimeout(() => {
+      if (isFirstAuthCheck) {
+        console.warn('Auth check timeout - proceeding with current state');
+        isFirstAuthCheck = false;
+        setIsAuthChecking(false);
+      }
+    }, 5000); // 5 second timeout
 
     // Listen to Firebase auth state changes (async)
     // This is the reliable way to check auth state - it waits for Firebase to restore session
@@ -82,11 +93,15 @@ function App() {
       // This ensures we wait for Firebase to restore the session before showing login/dashboard
       if (isFirstAuthCheck) {
         isFirstAuthCheck = false;
+        clearTimeout(timeoutId);
         setIsAuthChecking(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, []);
 
   const loadCurrentUserRole = async () => {
