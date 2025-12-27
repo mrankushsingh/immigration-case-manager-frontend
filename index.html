@@ -36,15 +36,10 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module">
-      // CRITICAL: Import React FIRST and make it globally available
-      // This must happen before any other modules load
-      import React from 'react';
-      if (typeof window !== 'undefined') {
-        window.React = React;
-        window.__REACT_LOADED__ = true;
-        console.log('✅ React pre-loaded globally');
-      }
+    <script>
+      // CRITICAL: This script runs synchronously before any modules load
+      // It ensures React will be available when vendor chunks load
+      window.__REACT_PRELOAD__ = true;
     </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>

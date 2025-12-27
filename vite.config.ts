@@ -44,12 +44,13 @@ export default defineConfig({
             if (id.includes('jszip')) {
               return 'react-vendor';
             }
-            // Firebase (large SDK)
+            // Firebase (large SDK) - doesn't need React, separate chunk
             if (id.includes('firebase')) {
               return 'firebase';
             }
-            // Other vendor libraries - these should NOT use React
-            return 'vendor';
+            // Put ALL other vendor libraries in react-vendor to ensure React is available
+            // This prevents "Cannot read properties of undefined" errors
+            return 'react-vendor';
           }
           
           // Large component chunks - split by feature
