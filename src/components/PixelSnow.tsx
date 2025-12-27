@@ -27,7 +27,7 @@ export default function PixelSnow({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx || !canvas) return;
 
     // Set canvas size
@@ -144,6 +144,7 @@ export default function PixelSnow({
         height: '100%',
         pointerEvents: 'none',
         zIndex: 1,
+        backgroundColor: 'transparent',
       }}
     />
   );
