@@ -2,14 +2,25 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({
+    jsxRuntime: 'automatic',
+  })],
+  resolve: {
+    alias: {
+      'react': 'react',
+      'react-dom': 'react-dom',
+    },
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'recharts'],
+  },
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
           // Vendor chunks - split by library type
           if (id.includes('node_modules')) {
-            // React core libraries
+            // React core libraries - ensure they're in the same chunk
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'react-vendor';
             }
