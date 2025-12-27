@@ -2442,6 +2442,42 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               )}
               
+              {/* Overview Box - Same style as Payment Statistics */}
+              <div className="mb-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <h3 className="text-sm font-semibold text-gray-900">Total Cases</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-800">{clients.length}</p>
+                  <p className="text-xs text-gray-600 mt-1">Active clients</p>
+                </div>
+                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <h3 className="text-sm font-semibold text-gray-900">Templates</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-800">{templates.length}</p>
+                  <p className="text-xs text-gray-600 mt-1">Case templates</p>
+                </div>
+                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                    <h3 className="text-sm font-semibold text-gray-900">Pending</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-800">{awaitingSubmission.length}</p>
+                  <p className="text-xs text-gray-600 mt-1">Awaiting submission</p>
+                </div>
+                <div className="bg-white/80 border-2 border-amber-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <h3 className="text-sm font-semibold text-gray-900">Reminders</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-800">{reminders.length}</p>
+                  <p className="text-xs text-gray-600 mt-1">Active reminders</p>
+                </div>
+              </div>
+
               {/* Payment Statistics Summary */}
               <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
