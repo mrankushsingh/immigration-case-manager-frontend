@@ -27,6 +27,7 @@ export default function Financial() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('📊 Financial component mounted, loading data...');
     loadFinancialData();
   }, []);
 
@@ -74,12 +75,15 @@ export default function Financial() {
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
 
+  // Always render something - never blank
+  console.log('📊 Financial render state:', { loading, error, hasSummary: !!summary });
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading financial data...</p>
+          <p className="text-gray-600 font-medium">Loading financial data...</p>
         </div>
       </div>
     );
@@ -87,16 +91,21 @@ export default function Financial() {
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-          <p className="text-red-800 font-semibold mb-2">Error loading financial data</p>
-          <p className="text-red-600 text-sm mb-4">{error}</p>
-          <button
-            onClick={loadFinancialData}
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
-          >
-            Retry
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+        <div className="bg-white border border-red-200 rounded-xl shadow-lg p-8 max-w-md w-full">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-600 text-2xl">⚠️</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Error loading financial data</h2>
+            <p className="text-red-600 text-sm mb-6">{error}</p>
+            <button
+              onClick={loadFinancialData}
+              className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -104,14 +113,22 @@ export default function Financial() {
 
   if (!summary) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-600">No financial data available</p>
-        <button
-          onClick={loadFinancialData}
-          className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
-        >
-          Refresh
-        </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 max-w-md w-full">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-amber-600 text-2xl">📊</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">No financial data available</h2>
+            <p className="text-gray-600 text-sm mb-6">Start adding clients and payments to see financial insights</p>
+            <button
+              onClick={loadFinancialData}
+              className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-semibold"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
