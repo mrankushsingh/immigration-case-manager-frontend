@@ -106,7 +106,6 @@ export default function PixelSnow({
     // Animation loop
     let animationId: number;
     const animate = () => {
-      ctx.fillStyle = 'transparent';
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       snowflakes.forEach((flake) => {
