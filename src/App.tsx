@@ -60,39 +60,55 @@ function App() {
   useEffect(() => {
     let isFirstAuthCheck = true;
     let timeoutId: NodeJS.Timeout;
+    let mounted = true;
 
     // Set a timeout to ensure we don't wait forever
     timeoutId = setTimeout(() => {
-      if (isFirstAuthCheck) {
+      if (isFirstAuthCheck && mounted) {
         console.warn('Auth check timeout - proceeding with current state');
         isFirstAuthCheck = false;
         setIsAuthChecking(false);
       }
-    }, 5000); // 5 second timeout
+    }, 3000); // 3 second timeout (reduced from 5)
 
-    // Listen to Firebase auth state changes
-    // onAuthChange handles the case when Firebase is not configured (calls callback immediately with null)
-    const unsubscribe = onAuthChange((user) => {
-      setIsAuthenticated(!!user);
-      if (user) {
-        loadCurrentUserRole();
-      } else {
-        setCurrentUserRole(null);
-      }
-      
-      // Auth check is complete after first auth state change
-      // This ensures we wait for Firebase to restore the session before showing login/dashboard
-      if (isFirstAuthCheck) {
-        isFirstAuthCheck = false;
+    try {
+      // Listen to Firebase auth state changes
+      // onAuthChange handles the case when Firebase is not configured (calls callback immediately with null)
+      const unsubscribe = onAuthChange((user) => {
+        if (!mounted) return;
+        
+        setIsAuthenticated(!!user);
+        if (user) {
+          loadCurrentUserRole();
+        } else {
+          setCurrentUserRole(null);
+        }
+        
+        // Auth check is complete after first auth state change
+        // This ensures we wait for Firebase to restore the session before showing login/dashboard
+        if (isFirstAuthCheck) {
+          isFirstAuthCheck = false;
+          clearTimeout(timeoutId);
+          setIsAuthChecking(false);
+        }
+      });
+
+      return () => {
+        mounted = false;
         clearTimeout(timeoutId);
+        unsubscribe();
+      };
+    } catch (error) {
+      console.error('Error setting up auth listener:', error);
+      if (mounted) {
         setIsAuthChecking(false);
+        setIsAuthenticated(false);
       }
-    });
-
-    return () => {
-      clearTimeout(timeoutId);
-      unsubscribe();
-    };
+      return () => {
+        mounted = false;
+        clearTimeout(timeoutId);
+      };
+    }
   }, []);
 
   const loadCurrentUserRole = async () => {
