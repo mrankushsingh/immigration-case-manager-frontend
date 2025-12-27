@@ -36,10 +36,15 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Ensure React is available globally BEFORE any modules load
-      // This prevents "Cannot read properties of undefined" errors
-      window.__REACT_LOADED__ = false;
+    <script type="module">
+      // CRITICAL: Import React FIRST and make it globally available
+      // This must happen before any other modules load
+      import React from 'react';
+      if (typeof window !== 'undefined') {
+        window.React = React;
+        window.__REACT_LOADED__ = true;
+        console.log('✅ React pre-loaded globally');
+      }
     </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>

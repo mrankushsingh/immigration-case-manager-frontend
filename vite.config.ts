@@ -23,7 +23,8 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        manualChunks(id) {
+        // Ensure react-vendor loads first by making it a dependency
+        manualChunks: (id) => {
           // Vendor chunks - split by library type
           if (id.includes('node_modules')) {
             // React core libraries - MUST be in the same chunk for recharts to work
@@ -39,11 +40,15 @@ export default defineConfig({
             if (id.includes('lucide-react')) {
               return 'react-vendor';
             }
+            // jszip might be used with React components, put in react-vendor to be safe
+            if (id.includes('jszip')) {
+              return 'react-vendor';
+            }
             // Firebase (large SDK)
             if (id.includes('firebase')) {
               return 'firebase';
             }
-            // Other vendor libraries
+            // Other vendor libraries - these should NOT use React
             return 'vendor';
           }
           
