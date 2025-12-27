@@ -58,15 +58,6 @@ function App() {
   }, [currentView, navigate, location.pathname, isAuthenticated]);
 
   useEffect(() => {
-    // Check if Firebase is available
-    if (!isFirebaseAvailable()) {
-      console.error('Firebase Authentication is not configured. Please set Firebase environment variables.');
-      // Don't set authenticated - user must configure Firebase
-      setIsAuthChecking(false);
-      setIsAuthenticated(false);
-      return;
-    }
-
     let isFirstAuthCheck = true;
     let timeoutId: NodeJS.Timeout;
 
@@ -79,8 +70,8 @@ function App() {
       }
     }, 5000); // 5 second timeout
 
-    // Listen to Firebase auth state changes (async)
-    // This is the reliable way to check auth state - it waits for Firebase to restore session
+    // Listen to Firebase auth state changes
+    // onAuthChange handles the case when Firebase is not configured (calls callback immediately with null)
     const unsubscribe = onAuthChange((user) => {
       setIsAuthenticated(!!user);
       if (user) {
