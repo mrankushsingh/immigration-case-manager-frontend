@@ -127,3 +127,37 @@ export interface Reminder {
   updated_at: string;
 }
 
+// Financial Types
+export interface MonthlyIncome {
+  month: string; // Format: "YYYY-MM"
+  totalIncome: number;
+  totalPaid: number;
+  pendingAmount: number;
+  clientCount: number;
+  paymentCount: number;
+}
+
+export interface FinancialSummary {
+  totalRevenue: number;
+  totalPaid: number;
+  totalPending: number;
+  totalClients: number;
+  averagePayment: number;
+  monthlyData: MonthlyIncome[];
+  paymentMethods: PaymentMethodSummary[];
+  topClients: TopClient[];
+}
+
+export interface PaymentMethodSummary {
+  method: string;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}
+
+export interface TopClient {
+  clientId: string;
+  clientName: string;
+  totalPaid: number;
+  paymentCount: number;
+}

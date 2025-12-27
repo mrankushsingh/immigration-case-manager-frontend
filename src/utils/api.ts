@@ -958,5 +958,17 @@ export const api = {
     }
     return response.json();
   },
+
+  async getFinancialSummary() {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/financial/summary`, {
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to fetch financial summary' }));
+      throw new Error(error.error || 'Failed to fetch financial summary');
+    }
+    return response.json();
+  },
 };
 
