@@ -1,5 +1,6 @@
 // Use environment variable in production, relative path in development
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// Remove trailing slash to prevent double slashes in URLs
+const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 
 // Helper function to get auth headers
 async function getAuthHeaders(): Promise<HeadersInit> {
