@@ -151,10 +151,9 @@ export default function Financial() {
   }));
 
   return (
-    <div className="min-h-[600px] bg-white p-6">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-amber-800 via-amber-700 to-amber-800 bg-clip-text text-transparent mb-2 tracking-tight">
             Financial Overview
           </h2>
@@ -377,7 +376,6 @@ export default function Financial() {
           </div>
         </div>
       </div>
-    </div>
   );
 }
 
