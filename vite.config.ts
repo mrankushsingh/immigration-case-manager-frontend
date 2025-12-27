@@ -30,9 +30,9 @@ export default defineConfig({
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'react-vendor';
             }
-            // recharts should be in vendor chunk, not separate
+            // recharts MUST be in the same chunk as React to access React.forwardRef
             if (id.includes('recharts')) {
-              return 'vendor';
+              return 'react-vendor';
             }
             // Lucide icons (can be large)
             if (id.includes('lucide-react')) {
