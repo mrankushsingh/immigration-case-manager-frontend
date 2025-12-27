@@ -4,9 +4,25 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
 
-// Ensure React is available globally for libraries that need it
+// CRITICAL: Ensure React is available globally IMMEDIATELY
+// This must happen before any vendor code tries to use React.useState or React.forwardRef
+// Libraries like recharts and lucide-react may access React from the global scope
 if (typeof window !== 'undefined') {
   (window as any).React = React;
+  (window as any).ReactDOM = ReactDOM;
+  (window as any).__REACT_LOADED__ = true;
+  
+  // Also ensure React is available as a global for CommonJS modules
+  if (typeof global !== 'undefined') {
+    (global as any).React = React;
+  }
+  
+  // For Node.js-like environments
+  if (typeof globalThis !== 'undefined') {
+    (globalThis as any).React = React;
+  }
+  
+  console.log('✅ React made available globally');
 }
 
 // Error boundary for catching rendering errors
