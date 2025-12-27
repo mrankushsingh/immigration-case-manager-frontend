@@ -6,23 +6,33 @@ export default defineConfig({
     jsxRuntime: 'automatic',
   })],
   resolve: {
-    alias: {
-      'react': 'react',
-      'react-dom': 'react-dom',
-    },
+    dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'recharts'],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
   },
   build: {
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
           // Vendor chunks - split by library type
           if (id.includes('node_modules')) {
-            // React core libraries - ensure they're in the same chunk
+            // React core libraries - MUST be in the same chunk for recharts to work
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'react-vendor';
+            }
+            // recharts should be in vendor chunk, not separate
+            if (id.includes('recharts')) {
+              return 'vendor';
             }
             // Lucide icons (can be large)
             if (id.includes('lucide-react')) {

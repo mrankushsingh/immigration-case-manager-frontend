@@ -4,6 +4,11 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
 
+// Ensure React is available globally for libraries that need it
+if (typeof window !== 'undefined') {
+  (window as any).React = React;
+}
+
 // Error boundary for catching rendering errors
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
