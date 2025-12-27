@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3 } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate, Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
@@ -27,6 +27,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
+  const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [reminderForm, setReminderForm] = useState({
@@ -621,6 +622,72 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return acc;
   }, { totalDue: 0, totalAdvance: 0, dueCount: 0, advanceCount: 0, noDueCount: 0 });
 
+  // Calculate monthly statistics
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  // Total clients created this month (new clients)
+  const monthlyNewClients = clients.filter((client) => {
+    const createdDate = new Date(client.created_at);
+    return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
+  }).length;
+
+  // Total clients in this month (all clients that exist)
+  const monthlyTotalClients = clients.length;
+
+  // Total payments received this month
+  const monthlyPaymentsReceived = clients.reduce((total, client) => {
+    if (client.payment?.payments) {
+      const monthPayments = client.payment.payments.filter((payment) => {
+        const paymentDate = new Date(payment.date);
+        return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
+      });
+      return total + monthPayments.reduce((sum, p) => sum + p.amount, 0);
+    }
+    return total;
+  }, 0);
+
+  // Total payment count received this month
+  const monthlyPaymentCount = clients.reduce((total, client) => {
+    if (client.payment?.payments) {
+      const monthPayments = client.payment.payments.filter((payment) => {
+        const paymentDate = new Date(payment.date);
+        return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
+      });
+      return total + monthPayments.length;
+    }
+    return total;
+  }, 0);
+
+  // Total due amount for this month (payments that became due this month)
+  // This calculates the amount that should have been paid this month based on client creation dates
+  // and payment schedules, or we can use the overall due amount for clients created this month
+  const monthlyDueAmount = clients.reduce((total, client) => {
+    const createdDate = new Date(client.created_at);
+    // If client was created this month, include their due amount
+    if (createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear) {
+      const totalFee = client.payment?.totalFee || 0;
+      const paidAmount = client.payment?.paidAmount || 0;
+      const remaining = totalFee - paidAmount;
+      if (remaining > 0) {
+        return total + remaining;
+      }
+    }
+    return total;
+  }, 0);
+
+  // Total due count for this month (clients with pending payments created this month)
+  const monthlyDueCount = clients.filter((client) => {
+    const createdDate = new Date(client.created_at);
+    if (createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear) {
+      const totalFee = client.payment?.totalFee || 0;
+      const paidAmount = client.payment?.paidAmount || 0;
+      return totalFee > paidAmount;
+    }
+    return false;
+  }).length;
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
@@ -632,6 +699,30 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+        {/* Overview Box */}
+        <div 
+          onClick={() => setShowOverviewModal(true)}
+          className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
+          style={{ animationDelay: '0s' }}
+        >
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+            </div>
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Overview</span>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">{monthlyNewClients}</p>
+              <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">New clients</p>
+            </div>
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">${monthlyPaymentsReceived.toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">Payments received</p>
+            </div>
+          </div>
+        </div>
+
         <div 
           onClick={() => onNavigate?.('templates')}
           className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
@@ -2648,6 +2739,167 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overview Modal */}
+      {showOverviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-amber-900">Overview</h2>
+                  <p className="text-amber-700 mt-1">Monthly statistics and summary</p>
+                </div>
+                <button
+                  onClick={() => setShowOverviewModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Monthly Statistics */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-amber-900 mb-4">
+                  {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Statistics
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Total Clients This Month */}
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-blue-200 p-3 rounded-lg">
+                        <Users className="w-6 h-6 text-blue-800" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-blue-900 uppercase tracking-wider">Total Clients</h4>
+                        <p className="text-xs text-blue-600">This month</p>
+                      </div>
+                    </div>
+                    <p className="text-4xl font-bold text-blue-900 mb-1">{monthlyTotalClients}</p>
+                    <p className="text-sm text-blue-700">
+                      {monthlyTotalClients === 1 ? 'client' : 'clients'} total
+                    </p>
+                  </div>
+
+                  {/* New Clients This Month */}
+                  <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-amber-200 p-3 rounded-lg">
+                        <Users className="w-6 h-6 text-amber-800" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-amber-900 uppercase tracking-wider">New Clients</h4>
+                        <p className="text-xs text-amber-600">This month</p>
+                      </div>
+                    </div>
+                    <p className="text-4xl font-bold text-amber-900 mb-1">{monthlyNewClients}</p>
+                    <p className="text-sm text-amber-700">
+                      {monthlyNewClients === 1 ? 'client' : 'clients'} created this month
+                    </p>
+                  </div>
+
+                  {/* Total Payments Received This Month */}
+                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-green-200 p-3 rounded-lg">
+                        <DollarSign className="w-6 h-6 text-green-800" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-green-900 uppercase tracking-wider">Payments Received</h4>
+                        <p className="text-xs text-green-600">This month</p>
+                      </div>
+                    </div>
+                    <p className="text-4xl font-bold text-green-900 mb-1">${monthlyPaymentsReceived.toLocaleString()}</p>
+                    <p className="text-sm text-green-700">
+                      {monthlyPaymentCount} {monthlyPaymentCount === 1 ? 'payment' : 'payments'} received
+                    </p>
+                  </div>
+
+                  {/* Total Due This Month */}
+                  <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-orange-200 p-3 rounded-lg">
+                        <Clock className="w-6 h-6 text-orange-800" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-orange-900 uppercase tracking-wider">Total Due</h4>
+                        <p className="text-xs text-orange-600">This month</p>
+                      </div>
+                    </div>
+                    <p className="text-4xl font-bold text-orange-900 mb-1">${monthlyDueAmount.toLocaleString()}</p>
+                    <p className="text-sm text-orange-700">
+                      {monthlyDueCount} {monthlyDueCount === 1 ? 'client' : 'clients'} with pending payments
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Overall Statistics */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-amber-900 mb-4">Overall Statistics</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-5 h-5 text-blue-700" />
+                      <h4 className="text-sm font-semibold text-blue-900">Total Clients</h4>
+                    </div>
+                    <p className="text-3xl font-bold text-blue-900">{clients.length}</p>
+                    <p className="text-xs text-blue-600 mt-1">All time</p>
+                  </div>
+                  <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-5 h-5 text-purple-700" />
+                      <h4 className="text-sm font-semibold text-purple-900">Templates</h4>
+                    </div>
+                    <p className="text-3xl font-bold text-purple-900">{templates.length}</p>
+                    <p className="text-xs text-purple-600 mt-1">Case templates</p>
+                  </div>
+                  <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Bell className="w-5 h-5 text-amber-700" />
+                      <h4 className="text-sm font-semibold text-amber-900">Reminders</h4>
+                    </div>
+                    <p className="text-3xl font-bold text-amber-900">{reminders.length}</p>
+                    <p className="text-xs text-amber-600 mt-1">Active reminders</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Summary */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-amber-900 mb-4">Payment Summary</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                      <h4 className="text-sm font-semibold text-amber-900">Total Due</h4>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-800">€{overallPaymentStats.totalDue.toFixed(2)}</p>
+                    <p className="text-xs text-amber-600 mt-1">{overallPaymentStats.dueCount} {overallPaymentStats.dueCount === 1 ? 'client' : 'clients'}</p>
+                  </div>
+                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      <h4 className="text-sm font-semibold text-green-900">Total Advance</h4>
+                    </div>
+                    <p className="text-2xl font-bold text-green-800">€{overallPaymentStats.totalAdvance.toFixed(2)}</p>
+                    <p className="text-xs text-green-600 mt-1">{overallPaymentStats.advanceCount} {overallPaymentStats.advanceCount === 1 ? 'client' : 'clients'}</p>
+                  </div>
+                  <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                      <h4 className="text-sm font-semibold text-gray-900">No Due</h4>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-800">{overallPaymentStats.noDueCount}</p>
+                    <p className="text-xs text-gray-600 mt-1">{overallPaymentStats.noDueCount === 1 ? 'client' : 'clients'}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
