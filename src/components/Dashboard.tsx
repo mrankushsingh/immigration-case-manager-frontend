@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
 import { CaseTemplate, Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
@@ -40,6 +41,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     clientsWhoPaid: number;
   } | null>(null);
   const [loadingMonthlySummary, setLoadingMonthlySummary] = useState(false);
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [loadingTrendData, setLoadingTrendData] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [reminderForm, setReminderForm] = useState({
@@ -448,6 +451,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     };
     fetchMonthlySummary();
   }, [selectedMonth, selectedYear, showOverviewModal]);
+
+  // Fetch trend data when overview modal opens
+  useEffect(() => {
+    const fetchTrendData = async () => {
+      if (showOverviewModal) {
+        try {
+          setLoadingTrendData(true);
+          const response = await api.getMonthlyTrend(6); // Get last 6 months
+          setTrendData(response.data || []);
+        } catch (error: any) {
+          console.error('Failed to fetch trend data:', error);
+          setTrendData([]);
+        } finally {
+          setLoadingTrendData(false);
+        }
+      }
+    };
+    fetchTrendData();
+  }, [showOverviewModal]);
 
   const loadData = async () => {
     try {
@@ -2962,6 +2984,143 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           All payments received
                         </p>
                       </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Analytics Charts */}
+                <div className="mt-8 space-y-6">
+                  <h3 className="text-lg font-semibold text-amber-900 mb-4">Analytics Charts</h3>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Monthly Revenue Trend - Line Chart */}
+                    <div className="bg-white border-2 border-amber-200 rounded-xl p-6 shadow-lg">
+                      <h4 className="text-md font-semibold text-amber-900 mb-4">Monthly Revenue Trend</h4>
+                      {loadingTrendData ? (
+                        <div className="h-64 flex items-center justify-center">
+                          <p className="text-amber-600">Loading chart data...</p>
+                        </div>
+                      ) : trendData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={trendData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis 
+                              dataKey="monthName" 
+                              stroke="#92400e"
+                              style={{ fontSize: '12px' }}
+                            />
+                            <YAxis 
+                              stroke="#92400e"
+                              style={{ fontSize: '12px' }}
+                              tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+                            />
+                            <Tooltip 
+                              formatter={(value: number | undefined) => value !== undefined ? [`€${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue'] : ['', '']}
+                              contentStyle={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px' }}
+                            />
+                            <Legend />
+                            <Line 
+                              type="monotone" 
+                              dataKey="totalRevenue" 
+                              stroke="#92400e" 
+                              strokeWidth={3}
+                              name="Total Revenue"
+                              dot={{ fill: '#f59e0b', r: 5 }}
+                              activeDot={{ r: 7 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-64 flex items-center justify-center">
+                          <p className="text-amber-600">No data available</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Payment Breakdown - Donut Chart */}
+                    <div className="bg-white border-2 border-amber-200 rounded-xl p-6 shadow-lg">
+                      <h4 className="text-md font-semibold text-amber-900 mb-4">Payment Breakdown</h4>
+                      {loadingMonthlySummary ? (
+                        <div className="h-64 flex items-center justify-center">
+                          <p className="text-amber-600">Loading chart data...</p>
+                        </div>
+                      ) : monthlySummary ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Paid', value: monthlySummary.totalPaymentReceived - monthlySummary.totalAdvance, fill: '#10b981' },
+                                { name: 'Advance', value: monthlySummary.totalAdvance, fill: '#059669' },
+                                { name: 'Due', value: monthlySummary.totalDue, fill: '#f97316' },
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => percent !== undefined ? `${name}: ${(percent * 100).toFixed(1)}%` : name}
+                              outerRadius={100}
+                              innerRadius={60}
+                              dataKey="value"
+                            >
+                              <Cell key="paid" fill="#10b981" />
+                              <Cell key="advance" fill="#059669" />
+                              <Cell key="due" fill="#f97316" />
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: number | undefined) => value !== undefined ? `€${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                              contentStyle={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px' }}
+                            />
+                            <Legend 
+                              formatter={(value) => {
+                                const data = [
+                                  { name: 'Paid', value: monthlySummary.totalPaymentReceived - monthlySummary.totalAdvance },
+                                  { name: 'Advance', value: monthlySummary.totalAdvance },
+                                  { name: 'Due', value: monthlySummary.totalDue },
+                                ];
+                                const item = data.find(d => d.name === value);
+                                return item ? `${value}: €${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : value;
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-64 flex items-center justify-center">
+                          <p className="text-amber-600">No data available</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Clients vs Paid Clients - Bar Chart */}
+                  <div className="bg-white border-2 border-amber-200 rounded-xl p-6 shadow-lg">
+                    <h4 className="text-md font-semibold text-amber-900 mb-4">Clients vs Paid Clients</h4>
+                    {loadingMonthlySummary ? (
+                      <div className="h-64 flex items-center justify-center">
+                        <p className="text-amber-600">Loading chart data...</p>
+                      </div>
+                    ) : monthlySummary ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={[
+                          { 
+                            name: 'Selected Month', 
+                            'Total Clients': monthlySummary.totalClients, 
+                            'Clients Who Paid': monthlySummary.clientsWhoPaid 
+                          }
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="name" stroke="#92400e" style={{ fontSize: '12px' }} />
+                          <YAxis stroke="#92400e" style={{ fontSize: '12px' }} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px' }}
+                          />
+                          <Legend />
+                          <Bar dataKey="Total Clients" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                          <Bar dataKey="Clients Who Paid" fill="#10b981" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-64 flex items-center justify-center">
+                        <p className="text-amber-600">No data available</p>
+                      </div>
                     )}
                   </div>
                 </div>

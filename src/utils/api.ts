@@ -996,5 +996,19 @@ export const api = {
     }
     return response.json();
   },
+
+  async getMonthlyTrend(months: number = 6) {
+    const headers = await getAuthHeaders();
+    const url = `${API_URL}/analytics/monthly-trend?months=${months}`;
+    
+    const response = await fetch(url, {
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to fetch monthly trend' }));
+      throw new Error(error.error || 'Failed to fetch monthly trend');
+    }
+    return response.json();
+  },
 };
 
