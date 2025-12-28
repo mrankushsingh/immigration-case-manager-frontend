@@ -28,6 +28,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showPagosModal, setShowPagosModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-indexed
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [paymentsSummary, setPaymentsSummary] = useState<{ totalAmount: number; paymentCount: number } | null>(null);
+  const [loadingPaymentsSummary, setLoadingPaymentsSummary] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [reminderForm, setReminderForm] = useState({
@@ -410,6 +414,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     };
   }, []);
 
+  // Fetch payments summary when month/year changes
+  useEffect(() => {
+    const fetchPaymentsSummary = async () => {
+      if (showOverviewModal) {
+        try {
+          setLoadingPaymentsSummary(true);
+          const summary = await api.getPaymentsSummary(selectedMonth, selectedYear);
+          setPaymentsSummary(summary);
+        } catch (error: any) {
+          console.error('Failed to fetch payments summary:', error);
+          setPaymentsSummary({ totalAmount: 0, paymentCount: 0 });
+        } finally {
+          setLoadingPaymentsSummary(false);
+        }
+      }
+    };
+    fetchPaymentsSummary();
+  }, [selectedMonth, selectedYear, showOverviewModal]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -648,17 +671,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return total;
   }, 0);
 
-  // Total payment count received this month
-  const monthlyPaymentCount = clients.reduce((total, client) => {
-    if (client.payment?.payments) {
-      const monthPayments = client.payment.payments.filter((payment) => {
-        const paymentDate = new Date(payment.date);
-        return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
-      });
-      return total + monthPayments.length;
-    }
-    return total;
-  }, 0);
 
   // Total due amount for this month (payments that became due this month)
   // This calculates the amount that should have been paid this month based on client creation dates
@@ -2788,9 +2800,61 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <div className="flex-1 overflow-y-auto p-6">
               {/* Monthly Statistics */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-amber-900 mb-4">
-                  {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Statistics
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-amber-900">
+                    {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Statistics
+                  </h3>
+                  {/* Month Selector */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (selectedMonth === 1) {
+                          setSelectedMonth(12);
+                          setSelectedYear(selectedYear - 1);
+                        } else {
+                          setSelectedMonth(selectedMonth - 1);
+                        }
+                      }}
+                      className="p-1.5 text-amber-700 hover:bg-amber-100 rounded-lg transition-colors"
+                      title="Previous month"
+                    >
+                      <ChevronDown className="w-4 h-4 rotate-90" />
+                    </button>
+                    <select
+                      value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
+                      onChange={(e) => {
+                        const [year, month] = e.target.value.split('-').map(Number);
+                        setSelectedYear(year);
+                        setSelectedMonth(month);
+                      }}
+                      className="px-3 py-1.5 text-sm font-medium text-amber-900 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const month = i + 1;
+                        const date = new Date(selectedYear, month - 1);
+                        return (
+                          <option key={month} value={`${selectedYear}-${String(month).padStart(2, '0')}`}>
+                            {date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <button
+                      onClick={() => {
+                        if (selectedMonth === 12) {
+                          setSelectedMonth(1);
+                          setSelectedYear(selectedYear + 1);
+                        } else {
+                          setSelectedMonth(selectedMonth + 1);
+                        }
+                      }}
+                      className="p-1.5 text-amber-700 hover:bg-amber-100 rounded-lg transition-colors"
+                      title="Next month"
+                    >
+                      <ChevronDown className="w-4 h-4 -rotate-90" />
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Total Clients This Month */}
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
@@ -2834,13 +2898,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       </div>
                       <div>
                         <h4 className="text-sm font-semibold text-green-900 uppercase tracking-wider">Payments Received</h4>
-                        <p className="text-xs text-green-600">This month</p>
+                        <p className="text-xs text-green-600">Selected month</p>
                       </div>
                     </div>
-                    <p className="text-4xl font-bold text-green-900 mb-1">€{monthlyPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="text-sm text-green-700">
-                      {monthlyPaymentCount} {monthlyPaymentCount === 1 ? 'payment' : 'payments'} received
-                    </p>
+                    {loadingPaymentsSummary ? (
+                      <p className="text-2xl font-bold text-green-900 mb-1">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-4xl font-bold text-green-900 mb-1">
+                          €{(paymentsSummary?.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-sm text-green-700">
+                          {paymentsSummary?.paymentCount || 0} {(paymentsSummary?.paymentCount || 0) === 1 ? 'payment' : 'payments'} received
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   {/* Total Due This Month */}
