@@ -719,30 +719,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
-        {/* Overview Box */}
-        <div 
-          onClick={() => setShowOverviewModal(true)}
-          className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
-          style={{ animationDelay: '0s' }}
-        >
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
-              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
-            </div>
-            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Overview</span>
-          </div>
-          <div className="space-y-2">
-            <div>
-              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">{monthlyNewClients}</p>
-              <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">New clients</p>
-            </div>
-            <div>
-              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">€{monthlyPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">Payments received</p>
-            </div>
-          </div>
-        </div>
-
         <div 
           onClick={() => onNavigate?.('templates')}
           className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
@@ -961,6 +937,30 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">
             {paymentsUnlocked ? t('dashboard.pagosDesc') : 'Enter passcode to view'}
           </p>
+        </div>
+
+        {/* Overview Box */}
+        <div 
+          onClick={() => setShowOverviewModal(true)}
+          className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
+          style={{ animationDelay: '1s' }}
+        >
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+            </div>
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Overview</span>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">{monthlyNewClients}</p>
+              <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">New clients</p>
+            </div>
+            <div>
+              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">€{monthlyPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">Payments received</p>
+            </div>
+          </div>
         </div>
       </div>
 
