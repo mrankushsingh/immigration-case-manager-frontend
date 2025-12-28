@@ -238,6 +238,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     );
   };
   const [paymentsUnlocked, setPaymentsUnlocked] = useState(false);
+  const [overviewUnlocked, setOverviewUnlocked] = useState(false);
+  const [unlockingFeature, setUnlockingFeature] = useState<'payments' | 'overview' | null>(null);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
@@ -275,6 +277,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     if (paymentsUnlocked) {
       setShowPagosModal(true);
     } else {
+      setUnlockingFeature('payments');
+      setShowPasscodeModal(true);
+      setPasscodeInput('');
+      setPasscodeError('');
+    }
+  };
+
+  const handleOverviewClick = () => {
+    if (overviewUnlocked) {
+      setShowOverviewModal(true);
+    } else {
+      setUnlockingFeature('overview');
       setShowPasscodeModal(true);
       setPasscodeInput('');
       setPasscodeError('');
@@ -288,9 +302,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     try {
       const result = await api.verifyPaymentPasscode(passcodeInput);
       if (result.valid) {
-        setPaymentsUnlocked(true);
-        setShowPasscodeModal(false);
-        setShowPagosModal(true);
+        if (unlockingFeature === 'payments') {
+          setPaymentsUnlocked(true);
+          setShowPasscodeModal(false);
+          setShowPagosModal(true);
+        } else if (unlockingFeature === 'overview') {
+          setOverviewUnlocked(true);
+          setShowPasscodeModal(false);
+          setShowOverviewModal(true);
+        }
+        setUnlockingFeature(null);
         setPasscodeInput('');
       } else {
         setPasscodeError('Incorrect passcode. Please try again.');
@@ -941,26 +962,45 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         {/* Overview Box */}
         <div 
-          onClick={() => setShowOverviewModal(true)}
-          className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
+          onClick={handleOverviewClick}
+          className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95 relative"
           style={{ animationDelay: '1s' }}
         >
+          {!overviewUnlocked && (
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-xl sm:rounded-2xl flex items-center justify-center z-10">
+              <div className="text-center">
+                <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-white mx-auto mb-2" />
+                <p className="text-white text-sm font-semibold">Locked</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
-              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+              {overviewUnlocked ? (
+                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+              ) : (
+                <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+              )}
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Overview</span>
           </div>
           <div className="space-y-2">
             <div>
-              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">{monthlyNewClients}</p>
+              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">
+                {overviewUnlocked ? monthlyNewClients : '🔒'}
+              </p>
               <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">New clients</p>
             </div>
             <div>
-              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">€{monthlyPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent">
+                {overviewUnlocked ? `€${monthlyPaymentsReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '🔒'}
+              </p>
               <p className="text-[10px] sm:text-xs text-amber-700/70 font-medium">Payments received</p>
             </div>
           </div>
+          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mt-2">
+            {overviewUnlocked ? 'Monthly statistics and analytics' : 'Enter passcode to view'}
+          </p>
         </div>
       </div>
 
@@ -2260,6 +2300,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               setShowPasscodeModal(false);
               setPasscodeInput('');
               setPasscodeError('');
+              setUnlockingFeature(null);
             }
           }}
           style={{
@@ -2278,8 +2319,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   <Lock className="w-6 h-6 text-amber-800" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Payment Access</h2>
-                  <p className="text-sm text-gray-600 mt-0.5">Enter passcode to view payments</p>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {unlockingFeature === 'overview' ? 'Overview Access' : 'Payment Access'}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    {unlockingFeature === 'overview' ? 'Enter passcode to view overview' : 'Enter passcode to view payments'}
+                  </p>
                 </div>
               </div>
               <button
@@ -2287,6 +2332,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   setShowPasscodeModal(false);
                   setPasscodeInput('');
                   setPasscodeError('');
+                  setUnlockingFeature(null);
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
               >
@@ -2324,6 +2370,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     setShowPasscodeModal(false);
                     setPasscodeInput('');
                     setPasscodeError('');
+                    setUnlockingFeature(null);
                   }}
                   className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors font-semibold"
                 >
@@ -2765,7 +2812,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       )}
 
       {/* Overview Modal */}
-      {showOverviewModal && (
+      {showOverviewModal && overviewUnlocked && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0">
             <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
