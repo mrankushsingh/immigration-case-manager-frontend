@@ -3016,7 +3016,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             />
                             <Tooltip 
                               formatter={(value: number | undefined) => value !== undefined ? [`€${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue'] : ['', '']}
-                              contentStyle={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px' }}
+                              contentStyle={{ 
+                                backgroundColor: '#fef3c7', 
+                                border: '1px solid #fbbf24', 
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                              }}
+                              labelStyle={{ 
+                                color: '#92400e', 
+                                fontWeight: '600',
+                                marginBottom: '4px'
+                              }}
+                              itemStyle={{ 
+                                color: '#92400e',
+                                padding: '2px 0'
+                              }}
+                              cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '3 3' }}
                             />
                             <Legend />
                             <Line 
@@ -3067,7 +3083,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             </Pie>
                             <Tooltip 
                               formatter={(value: number | undefined) => value !== undefined ? `€${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
-                              contentStyle={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px' }}
+                              contentStyle={{ 
+                                backgroundColor: '#fef3c7', 
+                                border: '1px solid #fbbf24', 
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                              }}
+                              labelStyle={{ 
+                                color: '#92400e', 
+                                fontWeight: '600',
+                                marginBottom: '4px'
+                              }}
+                              itemStyle={{ 
+                                color: '#92400e',
+                                padding: '2px 0'
+                              }}
                             />
                             <Legend 
                               formatter={(value) => {
@@ -3110,7 +3141,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           <XAxis dataKey="name" stroke="#92400e" style={{ fontSize: '12px' }} />
                           <YAxis stroke="#92400e" style={{ fontSize: '12px' }} />
                           <Tooltip 
-                            contentStyle={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '8px' }}
+                            contentStyle={{ 
+                              backgroundColor: '#fef3c7', 
+                              border: '1px solid #fbbf24', 
+                              borderRadius: '8px',
+                              padding: '8px 12px',
+                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                            }}
+                            labelStyle={{ 
+                              color: '#92400e', 
+                              fontWeight: '600',
+                              marginBottom: '4px'
+                            }}
+                            itemStyle={{ 
+                              color: '#92400e',
+                              padding: '2px 0'
+                            }}
+                            cursor={{ fill: '#fef3c7', opacity: 0.1 }}
                           />
                           <Legend />
                           <Bar dataKey="Total Clients" fill="#3b82f6" radius={[8, 8, 0, 0]} />
