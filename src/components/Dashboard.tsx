@@ -2842,22 +2842,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                   {/* Total Clients */}
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-blue-200 p-3 rounded-lg">
+                      <div className="bg-blue-200 p-3 rounded-lg flex-shrink-0">
                         <Users className="w-6 h-6 text-blue-800" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-blue-900 uppercase tracking-wider">Total Clients</h4>
-                        <p className="text-xs text-blue-600">Selected month</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-blue-900 uppercase tracking-wider break-words">Total Clients</h4>
+                        <p className="text-xs text-blue-600 break-words">Selected month</p>
                       </div>
                     </div>
                     {loadingMonthlySummary ? (
-                      <p className="text-2xl font-bold text-blue-900 mb-1">Loading...</p>
+                      <p className="text-2xl font-bold text-blue-900 mb-1 break-words">Loading...</p>
                     ) : (
                       <>
-                        <p className="text-4xl font-bold text-blue-900 mb-1">{monthlySummary?.totalClients || 0}</p>
-                        <p className="text-sm text-blue-700">
+                        <p className="font-bold text-blue-900 mb-1 break-words" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)' }}>{monthlySummary?.totalClients || 0}</p>
+                        <p className="text-sm text-blue-700 break-words">
                           {monthlySummary?.totalClients || 0} {(monthlySummary?.totalClients || 0) === 1 ? 'client' : 'clients'} active
                         </p>
                       </>
@@ -2865,22 +2865,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
 
                   {/* Total Payments */}
-                  <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6">
+                  <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-purple-200 p-3 rounded-lg">
+                      <div className="bg-purple-200 p-3 rounded-lg flex-shrink-0">
                         <FileText className="w-6 h-6 text-purple-800" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-purple-900 uppercase tracking-wider">Total Payments</h4>
-                        <p className="text-xs text-purple-600">Selected month</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-purple-900 uppercase tracking-wider break-words">Total Payments</h4>
+                        <p className="text-xs text-purple-600 break-words">Selected month</p>
                       </div>
                     </div>
                     {loadingMonthlySummary ? (
-                      <p className="text-2xl font-bold text-purple-900 mb-1">Loading...</p>
+                      <p className="text-2xl font-bold text-purple-900 mb-1 break-words">Loading...</p>
                     ) : (
                       <>
-                        <p className="text-4xl font-bold text-purple-900 mb-1">{monthlySummary?.totalPayments || 0}</p>
-                        <p className="text-sm text-purple-700">
+                        <p className="font-bold text-purple-900 mb-1 break-words" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)' }}>{monthlySummary?.totalPayments || 0}</p>
+                        <p className="text-sm text-purple-700 break-words">
                           {monthlySummary?.totalPayments || 0} {(monthlySummary?.totalPayments || 0) === 1 ? 'payment' : 'payments'} recorded
                         </p>
                       </>
@@ -2888,24 +2888,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
 
                   {/* Total Payment Received */}
-                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                  <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-green-200 p-3 rounded-lg">
+                      <div className="bg-green-200 p-3 rounded-lg flex-shrink-0">
                         <DollarSign className="w-6 h-6 text-green-800" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-green-900 uppercase tracking-wider">Payment Received</h4>
-                        <p className="text-xs text-green-600">Selected month</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-green-900 uppercase tracking-wider break-words">Payment Received</h4>
+                        <p className="text-xs text-green-600 break-words">Selected month</p>
                       </div>
                     </div>
                     {loadingMonthlySummary ? (
-                      <p className="text-2xl font-bold text-green-900 mb-1">Loading...</p>
+                      <p className="text-2xl font-bold text-green-900 mb-1 break-words">Loading...</p>
                     ) : (
                       <>
-                        <p className="text-4xl font-bold text-green-900 mb-1">
+                        <p className="font-bold text-green-900 mb-1 break-words overflow-wrap-anywhere" style={{ fontSize: 'clamp(1.25rem, 3.5vw, 2.25rem)' }}>
                           €{(monthlySummary?.totalPaymentReceived || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                        <p className="text-sm text-green-700">
+                        <p className="text-sm text-green-700 break-words">
                           {monthlySummary?.clientsWhoPaid || 0} {(monthlySummary?.clientsWhoPaid || 0) === 1 ? 'client' : 'clients'} paid
                         </p>
                       </>
@@ -2913,24 +2913,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
 
                   {/* Total Advance */}
-                  <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6">
+                  <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-emerald-200 p-3 rounded-lg">
+                      <div className="bg-emerald-200 p-3 rounded-lg flex-shrink-0">
                         <TrendingUp className="w-6 h-6 text-emerald-800" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Total Advance</h4>
-                        <p className="text-xs text-emerald-600">Selected month</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider break-words">Total Advance</h4>
+                        <p className="text-xs text-emerald-600 break-words">Selected month</p>
                       </div>
                     </div>
                     {loadingMonthlySummary ? (
-                      <p className="text-2xl font-bold text-emerald-900 mb-1">Loading...</p>
+                      <p className="text-2xl font-bold text-emerald-900 mb-1 break-words">Loading...</p>
                     ) : (
                       <>
-                        <p className="text-4xl font-bold text-emerald-900 mb-1">
+                        <p className="font-bold text-emerald-900 mb-1 break-words overflow-wrap-anywhere" style={{ fontSize: 'clamp(1.25rem, 3.5vw, 2.25rem)' }}>
                           €{(monthlySummary?.totalAdvance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                        <p className="text-sm text-emerald-700">
+                        <p className="text-sm text-emerald-700 break-words">
                           Advance payments
                         </p>
                       </>
@@ -2938,24 +2938,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
 
                   {/* Total Due */}
-                  <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
+                  <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-orange-200 p-3 rounded-lg">
+                      <div className="bg-orange-200 p-3 rounded-lg flex-shrink-0">
                         <Clock className="w-6 h-6 text-orange-800" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-orange-900 uppercase tracking-wider">Total Due</h4>
-                        <p className="text-xs text-orange-600">Selected month</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-orange-900 uppercase tracking-wider break-words">Total Due</h4>
+                        <p className="text-xs text-orange-600 break-words">Selected month</p>
                       </div>
                     </div>
                     {loadingMonthlySummary ? (
-                      <p className="text-2xl font-bold text-orange-900 mb-1">Loading...</p>
+                      <p className="text-2xl font-bold text-orange-900 mb-1 break-words">Loading...</p>
                     ) : (
                       <>
-                        <p className="text-4xl font-bold text-orange-900 mb-1">
+                        <p className="font-bold text-orange-900 mb-1 break-words overflow-wrap-anywhere" style={{ fontSize: 'clamp(1.25rem, 3.5vw, 2.25rem)' }}>
                           €{(monthlySummary?.totalDue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                        <p className="text-sm text-orange-700">
+                        <p className="text-sm text-orange-700 break-words">
                           Outstanding amount
                         </p>
                       </>
@@ -2963,24 +2963,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
 
                   {/* Total Revenue */}
-                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-indigo-200 p-3 rounded-lg">
+                      <div className="bg-indigo-200 p-3 rounded-lg flex-shrink-0">
                         <BarChart3 className="w-6 h-6 text-indigo-800" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-indigo-900 uppercase tracking-wider">Total Revenue</h4>
-                        <p className="text-xs text-indigo-600">Selected month</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-indigo-900 uppercase tracking-wider break-words">Total Revenue</h4>
+                        <p className="text-xs text-indigo-600 break-words">Selected month</p>
                       </div>
                     </div>
                     {loadingMonthlySummary ? (
-                      <p className="text-2xl font-bold text-indigo-900 mb-1">Loading...</p>
+                      <p className="text-2xl font-bold text-indigo-900 mb-1 break-words">Loading...</p>
                     ) : (
                       <>
-                        <p className="text-4xl font-bold text-indigo-900 mb-1">
+                        <p className="font-bold text-indigo-900 mb-1 break-words overflow-wrap-anywhere" style={{ fontSize: 'clamp(1.25rem, 3.5vw, 2.25rem)' }}>
                           €{(monthlySummary?.totalRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                        <p className="text-sm text-indigo-700">
+                        <p className="text-sm text-indigo-700 break-words">
                           All payments received
                         </p>
                       </>
