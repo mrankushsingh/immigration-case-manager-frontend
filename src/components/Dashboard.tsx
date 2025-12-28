@@ -36,6 +36,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     totalPaymentReceived: number;
     totalAdvance: number;
     totalDue: number;
+    totalRevenue: number;
     clientsWhoPaid: number;
   } | null>(null);
   const [loadingMonthlySummary, setLoadingMonthlySummary] = useState(false);
@@ -437,6 +438,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             totalPaymentReceived: 0,
             totalAdvance: 0,
             totalDue: 0,
+            totalRevenue: 0,
             clientsWhoPaid: 0,
           });
         } finally {
@@ -2816,7 +2818,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                   {/* Total Clients */}
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
                     <div className="flex items-center gap-3 mb-3">
@@ -2932,7 +2934,32 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           €{(monthlySummary?.totalDue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                         <p className="text-sm text-orange-700">
-                          Pending payments
+                          Outstanding amount
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Total Revenue */}
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-indigo-200 p-3 rounded-lg">
+                        <BarChart3 className="w-6 h-6 text-indigo-800" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-indigo-900 uppercase tracking-wider">Total Revenue</h4>
+                        <p className="text-xs text-indigo-600">Selected month</p>
+                      </div>
+                    </div>
+                    {loadingMonthlySummary ? (
+                      <p className="text-2xl font-bold text-indigo-900 mb-1">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-4xl font-bold text-indigo-900 mb-1">
+                          €{(monthlySummary?.totalRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-sm text-indigo-700">
+                          All payments received
                         </p>
                       </>
                     )}
