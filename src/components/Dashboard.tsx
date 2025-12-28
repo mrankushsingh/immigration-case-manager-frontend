@@ -3003,7 +3003,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       ) : trendData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={300}>
                           <LineChart data={trendData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" opacity={0.5} />
                             <XAxis 
                               dataKey="monthName" 
                               stroke="#92400e"
@@ -3023,6 +3023,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 padding: '8px 12px',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                               }}
+                              wrapperStyle={{ 
+                                outline: 'none',
+                                border: 'none'
+                              }}
                               labelStyle={{ 
                                 color: '#92400e', 
                                 fontWeight: '600',
@@ -3032,7 +3036,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 color: '#92400e',
                                 padding: '2px 0'
                               }}
-                              cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '3 3' }}
+                              cursor={false}
                             />
                             <Legend />
                             <Line 
@@ -3089,6 +3093,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 borderRadius: '8px',
                                 padding: '8px 12px',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                              }}
+                              wrapperStyle={{ 
+                                outline: 'none',
+                                border: 'none'
                               }}
                               labelStyle={{ 
                                 color: '#92400e', 
@@ -3148,6 +3156,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               padding: '8px 12px',
                               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                             }}
+                            wrapperStyle={{ 
+                              outline: 'none',
+                              border: 'none'
+                            }}
                             labelStyle={{ 
                               color: '#92400e', 
                               fontWeight: '600',
@@ -3157,7 +3169,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               color: '#92400e',
                               padding: '2px 0'
                             }}
-                            cursor={{ fill: '#fef3c7', opacity: 0.1 }}
+                            cursor={false}
                           />
                           <Legend />
                           <Bar dataKey="Total Clients" fill="#3b82f6" radius={[8, 8, 0, 0]} />
