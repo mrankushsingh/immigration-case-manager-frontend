@@ -2840,7 +2840,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Total Clients */}
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
