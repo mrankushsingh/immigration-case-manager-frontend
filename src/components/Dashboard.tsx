@@ -2934,37 +2934,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               </div>
 
-              {/* Overall Statistics */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-amber-900 mb-4">Overall Statistics</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Users className="w-5 h-5 text-blue-700" />
-                      <h4 className="text-sm font-semibold text-blue-900">Total Clients</h4>
-                    </div>
-                    <p className="text-3xl font-bold text-blue-900">{clients.length}</p>
-                    <p className="text-xs text-blue-600 mt-1">All time</p>
-                  </div>
-                  <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="w-5 h-5 text-purple-700" />
-                      <h4 className="text-sm font-semibold text-purple-900">Templates</h4>
-                    </div>
-                    <p className="text-3xl font-bold text-purple-900">{templates.length}</p>
-                    <p className="text-xs text-purple-600 mt-1">Case templates</p>
-                  </div>
-                  <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Bell className="w-5 h-5 text-amber-700" />
-                      <h4 className="text-sm font-semibold text-amber-900">Reminders</h4>
-                    </div>
-                    <p className="text-3xl font-bold text-amber-900">{reminders.length}</p>
-                    <p className="text-xs text-amber-600 mt-1">Active reminders</p>
-                  </div>
-                </div>
-              </div>
-
               {/* Financial Overview */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-amber-900 mb-4">Financial Overview</h3>
