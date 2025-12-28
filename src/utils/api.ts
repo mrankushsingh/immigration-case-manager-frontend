@@ -977,5 +977,24 @@ export const api = {
     }
     return response.json();
   },
+
+  async getMonthlySummary(month?: number, year?: number) {
+    const headers = await getAuthHeaders();
+    const params = new URLSearchParams();
+    if (month) params.append('month', month.toString());
+    if (year) params.append('year', year.toString());
+    
+    const queryString = params.toString();
+    const url = `${API_URL}/analytics/monthly-summary${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to fetch monthly summary' }));
+      throw new Error(error.error || 'Failed to fetch monthly summary');
+    }
+    return response.json();
+  },
 };
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3 } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate, Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
@@ -30,8 +30,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-indexed
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [paymentsSummary, setPaymentsSummary] = useState<{ totalAmount: number; paymentCount: number } | null>(null);
-  const [loadingPaymentsSummary, setLoadingPaymentsSummary] = useState(false);
+  const [monthlySummary, setMonthlySummary] = useState<{
+    totalClients: number;
+    totalPayments: number;
+    totalPaymentReceived: number;
+    totalAdvance: number;
+    totalDue: number;
+    clientsWhoPaid: number;
+  } | null>(null);
+  const [loadingMonthlySummary, setLoadingMonthlySummary] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [reminderForm, setReminderForm] = useState({
@@ -414,23 +421,30 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     };
   }, []);
 
-  // Fetch payments summary when month/year changes
+  // Fetch comprehensive monthly summary when month/year changes
   useEffect(() => {
-    const fetchPaymentsSummary = async () => {
+    const fetchMonthlySummary = async () => {
       if (showOverviewModal) {
         try {
-          setLoadingPaymentsSummary(true);
-          const summary = await api.getPaymentsSummary(selectedMonth, selectedYear);
-          setPaymentsSummary(summary);
+          setLoadingMonthlySummary(true);
+          const summary = await api.getMonthlySummary(selectedMonth, selectedYear);
+          setMonthlySummary(summary);
         } catch (error: any) {
-          console.error('Failed to fetch payments summary:', error);
-          setPaymentsSummary({ totalAmount: 0, paymentCount: 0 });
+          console.error('Failed to fetch monthly summary:', error);
+          setMonthlySummary({
+            totalClients: 0,
+            totalPayments: 0,
+            totalPaymentReceived: 0,
+            totalAdvance: 0,
+            totalDue: 0,
+            clientsWhoPaid: 0,
+          });
         } finally {
-          setLoadingPaymentsSummary(false);
+          setLoadingMonthlySummary(false);
         }
       }
     };
-    fetchPaymentsSummary();
+    fetchMonthlySummary();
   }, [selectedMonth, selectedYear, showOverviewModal]);
 
   const loadData = async () => {
@@ -656,10 +670,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
   }).length;
 
-  // Total clients in this month (all clients that exist)
-  const monthlyTotalClients = clients.length;
-
-  // Total payments received this month
+  // Total payments received this month (for Overview box on main dashboard)
   const monthlyPaymentsReceived = clients.reduce((total, client) => {
     if (client.payment?.payments) {
       const monthPayments = client.payment.payments.filter((payment) => {
@@ -671,34 +682,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return total;
   }, 0);
 
-
-  // Total due amount for this month (payments that became due this month)
-  // This calculates the amount that should have been paid this month based on client creation dates
-  // and payment schedules, or we can use the overall due amount for clients created this month
-  const monthlyDueAmount = clients.reduce((total, client) => {
-    const createdDate = new Date(client.created_at);
-    // If client was created this month, include their due amount
-    if (createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear) {
-      const totalFee = client.payment?.totalFee || 0;
-      const paidAmount = client.payment?.paidAmount || 0;
-      const remaining = totalFee - paidAmount;
-      if (remaining > 0) {
-        return total + remaining;
-      }
-    }
-    return total;
-  }, 0);
-
-  // Total due count for this month (clients with pending payments created this month)
-  const monthlyDueCount = clients.filter((client) => {
-    const createdDate = new Date(client.created_at);
-    if (createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear) {
-      const totalFee = client.payment?.totalFee || 0;
-      const paidAmount = client.payment?.paidAmount || 0;
-      return totalFee > paidAmount;
-    }
-    return false;
-  }).length;
 
 
   return (
@@ -2833,8 +2816,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Total Clients This Month */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {/* Total Clients */}
                   <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="bg-blue-200 p-3 rounded-lg">
@@ -2842,58 +2825,95 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       </div>
                       <div>
                         <h4 className="text-sm font-semibold text-blue-900 uppercase tracking-wider">Total Clients</h4>
-                        <p className="text-xs text-blue-600">This month</p>
+                        <p className="text-xs text-blue-600">Selected month</p>
                       </div>
                     </div>
-                    <p className="text-4xl font-bold text-blue-900 mb-1">{monthlyTotalClients}</p>
-                    <p className="text-sm text-blue-700">
-                      {monthlyTotalClients === 1 ? 'client' : 'clients'} total
-                    </p>
+                    {loadingMonthlySummary ? (
+                      <p className="text-2xl font-bold text-blue-900 mb-1">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-4xl font-bold text-blue-900 mb-1">{monthlySummary?.totalClients || 0}</p>
+                        <p className="text-sm text-blue-700">
+                          {monthlySummary?.totalClients || 0} {(monthlySummary?.totalClients || 0) === 1 ? 'client' : 'clients'} active
+                        </p>
+                      </>
+                    )}
                   </div>
 
-                  {/* New Clients This Month */}
-                  <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-6">
+                  {/* Total Payments */}
+                  <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-amber-200 p-3 rounded-lg">
-                        <Users className="w-6 h-6 text-amber-800" />
+                      <div className="bg-purple-200 p-3 rounded-lg">
+                        <FileText className="w-6 h-6 text-purple-800" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-semibold text-amber-900 uppercase tracking-wider">New Clients</h4>
-                        <p className="text-xs text-amber-600">This month</p>
+                        <h4 className="text-sm font-semibold text-purple-900 uppercase tracking-wider">Total Payments</h4>
+                        <p className="text-xs text-purple-600">Selected month</p>
                       </div>
                     </div>
-                    <p className="text-4xl font-bold text-amber-900 mb-1">{monthlyNewClients}</p>
-                    <p className="text-sm text-amber-700">
-                      {monthlyNewClients === 1 ? 'client' : 'clients'} created this month
-                    </p>
+                    {loadingMonthlySummary ? (
+                      <p className="text-2xl font-bold text-purple-900 mb-1">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-4xl font-bold text-purple-900 mb-1">{monthlySummary?.totalPayments || 0}</p>
+                        <p className="text-sm text-purple-700">
+                          {monthlySummary?.totalPayments || 0} {(monthlySummary?.totalPayments || 0) === 1 ? 'payment' : 'payments'} recorded
+                        </p>
+                      </>
+                    )}
                   </div>
 
-                  {/* Total Payments Received This Month */}
+                  {/* Total Payment Received */}
                   <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="bg-green-200 p-3 rounded-lg">
                         <DollarSign className="w-6 h-6 text-green-800" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-semibold text-green-900 uppercase tracking-wider">Payments Received</h4>
+                        <h4 className="text-sm font-semibold text-green-900 uppercase tracking-wider">Payment Received</h4>
                         <p className="text-xs text-green-600">Selected month</p>
                       </div>
                     </div>
-                    {loadingPaymentsSummary ? (
+                    {loadingMonthlySummary ? (
                       <p className="text-2xl font-bold text-green-900 mb-1">Loading...</p>
                     ) : (
                       <>
                         <p className="text-4xl font-bold text-green-900 mb-1">
-                          €{(paymentsSummary?.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          €{(monthlySummary?.totalPaymentReceived || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                         <p className="text-sm text-green-700">
-                          {paymentsSummary?.paymentCount || 0} {(paymentsSummary?.paymentCount || 0) === 1 ? 'payment' : 'payments'} received
+                          {monthlySummary?.clientsWhoPaid || 0} {(monthlySummary?.clientsWhoPaid || 0) === 1 ? 'client' : 'clients'} paid
                         </p>
                       </>
                     )}
                   </div>
 
-                  {/* Total Due This Month */}
+                  {/* Total Advance */}
+                  <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-emerald-200 p-3 rounded-lg">
+                        <TrendingUp className="w-6 h-6 text-emerald-800" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Total Advance</h4>
+                        <p className="text-xs text-emerald-600">Selected month</p>
+                      </div>
+                    </div>
+                    {loadingMonthlySummary ? (
+                      <p className="text-2xl font-bold text-emerald-900 mb-1">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-4xl font-bold text-emerald-900 mb-1">
+                          €{(monthlySummary?.totalAdvance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-sm text-emerald-700">
+                          Advance payments
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Total Due */}
                   <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="bg-orange-200 p-3 rounded-lg">
@@ -2901,13 +2921,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       </div>
                       <div>
                         <h4 className="text-sm font-semibold text-orange-900 uppercase tracking-wider">Total Due</h4>
-                        <p className="text-xs text-orange-600">This month</p>
+                        <p className="text-xs text-orange-600">Selected month</p>
                       </div>
                     </div>
-                    <p className="text-4xl font-bold text-orange-900 mb-1">€{monthlyDueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="text-sm text-orange-700">
-                      {monthlyDueCount} {monthlyDueCount === 1 ? 'client' : 'clients'} with pending payments
-                    </p>
+                    {loadingMonthlySummary ? (
+                      <p className="text-2xl font-bold text-orange-900 mb-1">Loading...</p>
+                    ) : (
+                      <>
+                        <p className="text-4xl font-bold text-orange-900 mb-1">
+                          €{(monthlySummary?.totalDue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-sm text-orange-700">
+                          Pending payments
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
