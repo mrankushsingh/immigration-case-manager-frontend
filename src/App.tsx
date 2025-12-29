@@ -35,14 +35,17 @@ function App() {
     if (!isAuthenticated) return;
     
     const path = location.pathname;
-    // Only sync dashboard route - other views don't have routes
-    if (path === '/dashboard' && currentView !== 'dashboard') {
-      setCurrentView('dashboard');
-    } else if (path === '/' || path === '/login') {
+    // Redirect root/login to dashboard, but don't reset currentView if already on dashboard
+    // All views (templates, clients, users) are rendered on /dashboard route via state
+    if (path === '/' || path === '/login') {
       navigate('/dashboard', { replace: true });
+      // Only set to dashboard if coming from root/login
+      if (currentView !== 'dashboard') {
+        setCurrentView('dashboard');
+      }
     }
-    // Don't change currentView for other paths - they use state-based navigation
-  }, [location.pathname, isAuthenticated, navigate, currentView]);
+    // Don't change currentView when already on /dashboard - allow state-based navigation
+  }, [location.pathname, isAuthenticated, navigate]);
 
   // Sync currentView with route (only for dashboard - other views use state)
   // Removed duplicate effect - consolidated into above
