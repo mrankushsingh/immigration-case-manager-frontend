@@ -111,10 +111,13 @@ export const api = {
 
   async getClient(id: string) {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_URL}/clients/${id}`, {
+    const response = await fetch(`${API_URL}/clients/${encodeURIComponent(id)}`, {
       headers,
     });
-    if (!response.ok) throw new Error('Failed to fetch client');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to fetch client' }));
+      throw new Error(error.error || `Failed to fetch client: ${response.status} ${response.statusText}`);
+    }
     return response.json();
   },
 
