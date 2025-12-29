@@ -42,19 +42,10 @@ function App() {
       navigate('/dashboard', { replace: true });
     }
     // Don't change currentView for other paths - they use state-based navigation
-  }, [location.pathname, isAuthenticated, navigate]);
+  }, [location.pathname, isAuthenticated, navigate, currentView]);
 
   // Sync currentView with route (only for dashboard - other views use state)
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    
-    // Only navigate to /dashboard if currentView is dashboard
-    // Other views (templates, clients, users) use state-based navigation and don't change URL
-    if (currentView === 'dashboard' && location.pathname !== '/dashboard') {
-      navigate('/dashboard', { replace: true });
-    }
-    // Don't navigate for other views - they use state-based navigation only
-  }, [currentView, navigate, location.pathname, isAuthenticated]);
+  // Removed duplicate effect - consolidated into above
 
   useEffect(() => {
     let isFirstAuthCheck = true;

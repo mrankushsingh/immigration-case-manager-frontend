@@ -21,6 +21,46 @@ export default function Clients() {
     loadClients();
   }, []);
 
+  // Reload data when page becomes visible (handles refresh and tab switching)
+  useEffect(() => {
+    let reloadTimeout: NodeJS.Timeout;
+    let lastReloadTime = 0;
+    const RELOAD_DEBOUNCE_MS = 2000; // Don't reload more than once every 2 seconds
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => {
+            loadClients();
+            lastReloadTime = Date.now();
+          }, 500);
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      const now = Date.now();
+      if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
+        clearTimeout(reloadTimeout);
+        reloadTimeout = setTimeout(() => {
+          loadClients();
+          lastReloadTime = Date.now();
+        }, 500);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearTimeout(reloadTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
   useEffect(() => {
     // Listen for language changes to force re-render
     const handleLanguageChange = () => {

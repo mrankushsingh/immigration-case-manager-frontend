@@ -1051,5 +1051,24 @@ export const api = {
     }
     return response.json();
   },
+
+  async copyDatabase(sourceUrl: string, destinationUrl: string, skipDuplicates: boolean = true): Promise<{ message: string; results: any }> {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/users/copy-database`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sourceUrl, destinationUrl, skipDuplicates }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to copy database' }));
+      throw new Error(error.error || 'Failed to copy database');
+    }
+
+    return response.json();
+  },
 };
 

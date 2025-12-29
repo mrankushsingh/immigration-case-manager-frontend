@@ -424,6 +424,66 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     loadData();
   }, []);
 
+  // Reload data when page becomes visible (handles refresh and tab switching)
+  useEffect(() => {
+    let reloadTimeout: NodeJS.Timeout;
+    let lastReloadTime = 0;
+    const RELOAD_DEBOUNCE_MS = 2000; // Don't reload more than once every 2 seconds
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        // Only reload if enough time has passed since last reload
+        if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => {
+            loadData();
+            lastReloadTime = Date.now();
+          }, 500); // Small delay to avoid immediate reload on tab switch
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      const now = Date.now();
+      // Only reload if enough time has passed since last reload
+      if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
+        clearTimeout(reloadTimeout);
+        reloadTimeout = setTimeout(() => {
+          loadData();
+          lastReloadTime = Date.now();
+        }, 500);
+      }
+    };
+
+    // Detect page refresh (beforeunload sets a flag)
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem('isRefreshing', 'true');
+    };
+
+    // On mount, check if this is a refresh
+    const isRefreshing = sessionStorage.getItem('isRefreshing') === 'true';
+    if (isRefreshing) {
+      sessionStorage.removeItem('isRefreshing');
+      // Small delay to ensure everything is initialized
+      setTimeout(() => {
+        loadData();
+        lastReloadTime = Date.now();
+      }, 100);
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearTimeout(reloadTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   useEffect(() => {
     // Listen for language changes to force re-render
     const handleLanguageChange = () => {
