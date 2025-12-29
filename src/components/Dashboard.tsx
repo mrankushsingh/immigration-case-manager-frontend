@@ -564,6 +564,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       if (!user) {
         console.error('❌ User not authenticated. Redirecting to login...');
         showToast('Please log in to access the dashboard', 'error');
+        // Set empty arrays and stop loading
+        setTemplates([]);
+        setClients([]);
+        setReminders([]);
+        setLoading(false);
         // Redirect to login will be handled by App.tsx based on isAuthenticated state
         return;
       }
