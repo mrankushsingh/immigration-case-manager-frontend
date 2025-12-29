@@ -6,6 +6,7 @@ import CreateTemplateModal from './CreateTemplateModal';
 import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { t } from '../utils/i18n';
+import { SkeletonTemplateCard } from './Skeleton';
 
 export default function Templates() {
   const [templates, setTemplates] = useState<CaseTemplate[]>([]);
@@ -73,8 +74,20 @@ export default function Templates() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-200 border-t-amber-600"></div>
+      <div className="space-y-6 sm:space-y-8 animate-fade-in">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-amber-200/50 pb-4 sm:pb-6">
+          <div className="space-y-2">
+            <div className="h-10 w-48 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse"></div>
+            <div className="h-5 w-64 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse"></div>
+          </div>
+          <div className="h-11 w-40 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-xl animate-pulse"></div>
+        </div>
+        <div className="h-12 w-full bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-xl animate-pulse"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {[...Array(6)].map((_, i) => (
+            <SkeletonTemplateCard key={i} />
+          ))}
+        </div>
       </div>
     );
   }

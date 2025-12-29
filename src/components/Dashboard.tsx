@@ -7,6 +7,7 @@ import ClientDetailsModal from './ClientDetailsModal';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
+import { SkeletonStatCard, SkeletonDashboardBox, SkeletonChart } from './Skeleton';
 
 interface DashboardProps {
   onNavigate?: (view: 'templates' | 'clients') => void;
@@ -598,8 +599,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="space-y-8 animate-fade-in">
+        <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
+          <div className="h-10 w-64 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse mb-2"></div>
+          <div className="h-6 w-96 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse"></div>
+        </div>
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+          {[...Array(5)].map((_, i) => (
+            <SkeletonStatCard key={i} />
+          ))}
+        </div>
+        {/* Dashboard Boxes Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {[...Array(6)].map((_, i) => (
+            <SkeletonDashboardBox key={i} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -3104,9 +3120,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     <div className="bg-white border-2 border-amber-200 rounded-xl p-6 shadow-lg">
                       <h4 className="text-md font-semibold text-amber-900 mb-4">Monthly Revenue Trend</h4>
                       {loadingTrendData ? (
-                        <div className="h-64 flex items-center justify-center">
-                          <p className="text-amber-600">Loading chart data...</p>
-                        </div>
+                        <SkeletonChart />
                       ) : trendData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={300}>
                           <LineChart data={trendData}>
