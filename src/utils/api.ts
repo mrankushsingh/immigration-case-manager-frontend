@@ -3,8 +3,14 @@
 const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 
 // Helper function to get auth headers
-async function getAuthHeaders(): Promise<HeadersInit> {
-  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+// includeContentType: Set to false for GET/DELETE requests that don't have a body
+async function getAuthHeaders(includeContentType: boolean = true): Promise<HeadersInit> {
+  const headers: HeadersInit = {};
+  
+  // Only set Content-Type if requested (for requests with JSON body)
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
   
   // Try to get Firebase ID token
   try {
@@ -34,7 +40,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 
 export const api = {
   async getCaseTemplates() {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/case-templates`, {
       headers,
     });
@@ -76,7 +82,7 @@ export const api = {
   },
 
   async deleteCaseTemplate(id: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/case-templates/${id}`, {
       method: 'DELETE',
       headers,
@@ -87,7 +93,7 @@ export const api = {
 
   async getClients() {
     try {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeaders(false);
       const response = await fetch(`${API_URL}/clients`, {
         headers,
       });
@@ -110,7 +116,7 @@ export const api = {
   },
 
   async getClient(id: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${encodeURIComponent(id)}`, {
       headers,
     });
@@ -283,7 +289,7 @@ export const api = {
   },
 
   async removeDocument(clientId: string, documentCode: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/documents/${documentCode}`, {
       method: 'DELETE',
       headers,
@@ -298,7 +304,7 @@ export const api = {
   },
 
   async removeAdditionalDocument(clientId: string, documentId: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/additional-documents/${documentId}`, {
       method: 'DELETE',
       headers,
@@ -347,7 +353,7 @@ export const api = {
   },
 
   async removeRequestedDocument(clientId: string, documentCode: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/requested-documents/${documentCode}`, {
       method: 'DELETE',
       headers,
@@ -374,7 +380,7 @@ export const api = {
   },
 
   async updateRequestedDocumentsLastReminder(clientId: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/requested-documents-last-reminder`, {
       method: 'PUT',
       headers,
@@ -465,7 +471,7 @@ export const api = {
   },
 
   async removeAportarDocumentacion(clientId: string, documentId: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/aportar-documentacion/${documentId}`, {
       method: 'DELETE',
       headers,
@@ -553,7 +559,7 @@ export const api = {
   },
 
   async removeRequerimiento(clientId: string, documentId: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/requerimiento/${documentId}`, {
       method: 'DELETE',
       headers,
@@ -641,7 +647,7 @@ export const api = {
   },
 
   async removeResolucion(clientId: string, documentId: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/resolucion/${documentId}`, {
       method: 'DELETE',
       headers,
@@ -729,7 +735,7 @@ export const api = {
   },
 
   async removeJustificante(clientId: string, documentId: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${clientId}/justificante-presentacion/${documentId}`, {
       method: 'DELETE',
       headers,
@@ -749,7 +755,7 @@ export const api = {
   },
 
   async deleteClient(id: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/clients/${id}`, {
       method: 'DELETE',
       headers,
@@ -760,7 +766,7 @@ export const api = {
 
   // User management
   async getUsers() {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/users`, {
       method: 'GET',
       headers,
@@ -773,7 +779,7 @@ export const api = {
   },
 
   async getCurrentUser() {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/users/me`, {
       method: 'GET',
       headers,
@@ -786,7 +792,7 @@ export const api = {
   },
 
   async getUser(id: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/users/${id}`, {
       method: 'GET',
       headers,
@@ -833,7 +839,7 @@ export const api = {
   },
 
   async deleteUser(id: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/users/${id}`, {
       method: 'DELETE',
       headers,
@@ -846,7 +852,7 @@ export const api = {
   },
 
   async exportAllData(): Promise<Blob> {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/users/export/all`, {
       headers,
     });
@@ -888,7 +894,7 @@ export const api = {
 
   // Settings API
   async getPaymentPasscodeStatus() {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/settings/payment-passcode`, {
       method: 'GET',
       headers,
@@ -930,7 +936,7 @@ export const api = {
 
   // Reminders API
   async getReminders() {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/reminders`, {
       method: 'GET',
       headers,
@@ -991,7 +997,7 @@ export const api = {
   },
 
   async deleteReminder(id: string) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const response = await fetch(`${API_URL}/reminders/${id}`, {
       method: 'DELETE',
       headers,
@@ -1004,7 +1010,7 @@ export const api = {
   },
 
   async getPaymentsSummary(month?: number, year?: number) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const params = new URLSearchParams();
     if (month) params.append('month', month.toString());
     if (year) params.append('year', year.toString());
@@ -1023,7 +1029,7 @@ export const api = {
   },
 
   async getMonthlySummary(month?: number, year?: number) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const params = new URLSearchParams();
     if (month) params.append('month', month.toString());
     if (year) params.append('year', year.toString());
@@ -1042,7 +1048,7 @@ export const api = {
   },
 
   async getMonthlyTrend(months: number = 6) {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(false);
     const url = `${API_URL}/analytics/monthly-trend?months=${months}`;
     
     const response = await fetch(url, {
