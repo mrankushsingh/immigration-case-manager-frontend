@@ -842,6 +842,47 @@ export const api = {
     return response.json();
   },
 
+  async exportAllData(): Promise<Blob> {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/users/export/all`, {
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to export data' }));
+      throw new Error(error.error || 'Failed to export data');
+    }
+    return response.blob();
+  },
+
+  async importAllData(file: File): Promise<{ message: string; results: any }> {
+    const headers = await getAuthHeaders();
+    
+    // Read file as JSON
+    const fileContent = await file.text();
+    let importData: any;
+    try {
+      importData = JSON.parse(fileContent);
+    } catch (error) {
+      throw new Error('Invalid JSON file format');
+    }
+
+    const response = await fetch(`${API_URL}/users/import/all`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ data: importData }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to import data' }));
+      throw new Error(error.error || 'Failed to import data');
+    }
+
+    return response.json();
+  },
+
   // Settings API
   async getPaymentPasscodeStatus() {
     const headers = await getAuthHeaders();

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users as UsersIcon, Trash2, Edit2, Shield, User as UserIcon, Mail, Calendar, CheckCircle, XCircle, Lock, Settings } from 'lucide-react';
+import { Plus, Users as UsersIcon, Trash2, Edit2, Shield, User as UserIcon, Mail, Calendar, CheckCircle, XCircle, Lock, Settings, Download, Upload, Archive, FileDown, RefreshCw } from 'lucide-react';
 import { api } from '../utils/api';
 import { User } from '../types';
 import ConfirmDialog from './ConfirmDialog';
@@ -19,6 +19,9 @@ export default function Users() {
   const [savingPasscode, setSavingPasscode] = useState(false);
   const [passcodeError, setPasscodeError] = useState('');
   const [, forceUpdate] = useState({});
+  const [exportingData, setExportingData] = useState(false);
+  const [importingData, setImportingData] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -186,6 +189,62 @@ export default function Users() {
       showToast(error.message || 'Failed to set payment passcode', 'error');
     } finally {
       setSavingPasscode(false);
+    }
+  };
+
+  const handleExportAllData = async () => {
+    try {
+      setExportingData(true);
+      const blob = await api.exportAllData();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      showToast('All data exported successfully', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to export data', 'error');
+    } finally {
+      setExportingData(false);
+    }
+  };
+
+  const handleImportAllData = async () => {
+    if (!importFile) {
+      showToast('Please select a backup file', 'error');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to import all data from this backup? This will add new records (duplicates will be skipped).')) {
+      return;
+    }
+
+    try {
+      setImportingData(true);
+      const result = await api.importAllData(importFile);
+      const { results } = result;
+      const totalImported = results.clients.imported + results.users.imported + results.templates.imported;
+      const totalSkipped = results.clients.skipped + results.users.skipped + results.templates.skipped;
+      const totalErrors = results.clients.errors.length + results.users.errors.length + results.templates.errors.length;
+      
+      showToast(
+        `Import completed: ${totalImported} imported, ${totalSkipped} skipped, ${totalErrors} errors`,
+        totalErrors > 0 ? 'error' : 'success'
+      );
+      
+      if (totalErrors > 0) {
+        console.error('Import errors:', results);
+      }
+      
+      setImportFile(null);
+      await loadUsers();
+    } catch (error: any) {
+      showToast(error.message || 'Failed to import data', 'error');
+    } finally {
+      setImportingData(false);
     }
   };
 
@@ -481,6 +540,91 @@ export default function Users() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Data Management (Admin Only) */}
+      {isAdmin && (
+        <div className="glass-gold rounded-xl sm:rounded-2xl p-5 sm:p-6 border-2 border-amber-200/50 animate-slide-up">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-2.5 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl">
+              <Archive className="w-5 h-5 text-blue-800" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Data Management</h3>
+              <p className="text-sm text-gray-600">Export and import all application data</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Download Data */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FileDown className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Download Data</h4>
+                  <p className="text-xs text-gray-600">Export all data as JSON</p>
+                </div>
+              </div>
+              <button
+                onClick={handleExportAllData}
+                disabled={exportingData}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {exportingData ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Download All Data
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Upload All Backup */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Upload className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Upload All Backup</h4>
+                  <p className="text-xs text-gray-600">Restore from backup file</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+                <button
+                  onClick={handleImportAllData}
+                  disabled={importingData || !importFile}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {importingData ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Restore All Data
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
