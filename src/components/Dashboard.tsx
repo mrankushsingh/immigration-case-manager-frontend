@@ -602,29 +602,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-8 animate-fade-in">
-        <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
-          <div className="h-10 w-64 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse mb-2"></div>
-          <div className="h-6 w-96 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse"></div>
-        </div>
-        {/* Stats Cards Skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
-          {[...Array(5)].map((_, i) => (
-            <SkeletonStatCard key={i} />
-          ))}
-        </div>
-        {/* Dashboard Boxes Skeleton */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {[...Array(6)].map((_, i) => (
-            <SkeletonDashboardBox key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   // Memoize expensive filter operations
   const submittedToAdmin = useMemo(() => 
     clients.filter((client) => client.submitted_to_immigration),
@@ -830,7 +807,29 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return total;
   }, 0);
 
-
+  // Early return for loading state - MUST be after all hooks to maintain hook order
+  if (loading) {
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div className="border-b border-amber-200/50 pb-4 sm:pb-6">
+          <div className="h-10 w-64 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse mb-2"></div>
+          <div className="h-6 w-96 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg animate-pulse"></div>
+        </div>
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+          {[...Array(5)].map((_, i) => (
+            <SkeletonStatCard key={i} />
+          ))}
+        </div>
+        {/* Dashboard Boxes Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {[...Array(6)].map((_, i) => (
+            <SkeletonDashboardBox key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">

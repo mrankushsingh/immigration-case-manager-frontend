@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { FileText, Users as UsersIcon, LayoutDashboard, Menu, X, LogOut, UserCog, Shield } from 'lucide-react';
 import { ToastContainer, subscribeToToasts, Toast } from './components/Toast';
@@ -7,16 +7,14 @@ import { Client } from './types';
 import { t } from './utils/i18n';
 import { api } from './utils/api';
 
-// Lazy load only large components for code splitting
-// Small components are imported normally to avoid hook order issues
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const Templates = lazy(() => import('./components/Templates'));
-const Clients = lazy(() => import('./components/Clients'));
-const Users = lazy(() => import('./components/Users'));
-const ClientDetailsModal = lazy(() => import('./components/ClientDetailsModal'));
-const Login = lazy(() => import('./components/Login'));
-
-// Import small components normally (always rendered, no lazy loading needed)
+// Import all components normally - lazy loading causes React error #310
+// Vite's build system still handles code splitting automatically via manualChunks
+import Dashboard from './components/Dashboard';
+import Templates from './components/Templates';
+import Clients from './components/Clients';
+import Users from './components/Users';
+import ClientDetailsModal from './components/ClientDetailsModal';
+import Login from './components/Login';
 import Notifications from './components/Notifications';
 import Logo from './components/Logo';
 import LanguageSelector from './components/LanguageSelector';
@@ -209,18 +207,7 @@ function App() {
 
   // Auth Guard: Show login if not authenticated
   if (!isAuthenticated) {
-    return (
-      <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-            <p className="text-white/70 text-sm">Loading...</p>
-          </div>
-        </div>
-      }>
-        <Login onLoginSuccess={handleLoginSuccess} />
-      </Suspense>
-    );
+    return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -458,14 +445,7 @@ function App() {
             <Route 
               path="/dashboard" 
               element={
-                <Suspense fallback={
-                  <div className="flex items-center justify-center min-h-[400px]">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-                      <p className="text-amber-700 text-sm">Loading...</p>
-                    </div>
-                  </div>
-                }>
+                <>
                   {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
                   {currentView === 'templates' && <Templates />}
                   {currentView === 'clients' && <Clients />}
@@ -479,18 +459,11 @@ function App() {
                       </div>
                     </div>
                   )}
-                </Suspense>
+                </>
               } 
             />
             <Route path="*" element={
-              <Suspense fallback={
-                <div className="flex items-center justify-center min-h-[400px]">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-                    <p className="text-amber-700 text-sm">Loading...</p>
-                  </div>
-                </div>
-              }>
+              <>
                 {currentView === 'templates' && <Templates />}
                 {currentView === 'clients' && <Clients />}
                 {currentView === 'users' && currentUserRole === 'admin' && <Users />}
@@ -503,29 +476,20 @@ function App() {
                     </div>
                   </div>
                 )}
-              </Suspense>
+              </>
             } />
           </Routes>
         </div>
       </main>
 
       {selectedClient && (
-        <Suspense fallback={
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-              <p className="text-white text-sm">Loading...</p>
-            </div>
-          </div>
-        }>
-          <ClientDetailsModal
-            client={selectedClient}
-            onClose={() => setSelectedClient(null)}
-            onSuccess={() => {
-              setSelectedClient(null);
-            }}
-          />
-        </Suspense>
+        <ClientDetailsModal
+          client={selectedClient}
+          onClose={() => setSelectedClient(null)}
+          onSuccess={() => {
+            setSelectedClient(null);
+          }}
+        />
       )}
 
       {/* Toast Notifications */}
