@@ -978,7 +978,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl border-2 border-red-500 active:scale-95"
           style={{ 
             animationDelay: '0.8s',
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(254, 242, 242, 0.95) 50%, rgba(255, 255, 255, 0.9) 100%), linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%)',
+            background: 'linear-gradient(135deg, rgba(254, 242, 242, 0.95) 0%, rgba(254, 226, 226, 0.98) 50%, rgba(254, 242, 242, 0.95) 100%), linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.25) 100%)',
             backdropFilter: 'blur(20px) saturate(180%)',
             WebkitBackdropFilter: 'blur(20px) saturate(180%)',
             boxShadow: '0 8px 32px 0 rgba(239, 68, 68, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
