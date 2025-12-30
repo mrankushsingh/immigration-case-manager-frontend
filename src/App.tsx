@@ -477,9 +477,9 @@ function App() {
               } 
             />
             <Route path="*" element={
-              <>
-          {currentView === 'templates' && <Templates />}
-          {currentView === 'clients' && <Clients />}
+              <Suspense fallback={<div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div></div>}>
+                {currentView === 'templates' && <Templates />}
+                {currentView === 'clients' && <Clients />}
                 {currentView === 'users' && currentUserRole === 'admin' && <Users />}
                 {currentView === 'users' && currentUserRole !== 'admin' && (
                   <div className="flex items-center justify-center h-64">
@@ -490,7 +490,7 @@ function App() {
                     </div>
                   </div>
                 )}
-              </>
+              </Suspense>
             } />
           </Routes>
         </div>
