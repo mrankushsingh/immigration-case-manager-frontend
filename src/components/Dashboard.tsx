@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
@@ -746,11 +746,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       }
     }
     
-    return false;
-  }), [clients]);
-      }
-    }
-    
     // Check administrative silence expiring soon
     if (client.submitted_to_immigration && client.application_date) {
       const appDate = new Date(client.application_date);
@@ -762,7 +757,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }
     
     return false;
-  });
+  }), [clients]);
 
   // Also add reminders that are within 3 days to urgent list
   // Include all reminders including REQUERIMIENTO type
