@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
@@ -625,75 +625,97 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     );
   }
 
-  const submittedToAdmin = clients.filter((client) => client.submitted_to_immigration);
+  // Memoize expensive filter operations
+  const submittedToAdmin = useMemo(() => 
+    clients.filter((client) => client.submitted_to_immigration),
+    [clients]
+  );
+
   // Clients ready to submit (all documents complete, not yet submitted)
-  const readyToSubmit = clients.filter((client) => {
-    if (client.submitted_to_immigration) return false;
-    const requiredDocs = client.required_documents?.filter((d: any) => !d.isOptional) || [];
-    return requiredDocs.length > 0 && requiredDocs.every((d: any) => d.submitted);
-  });
+  const readyToSubmit = useMemo(() => 
+    clients.filter((client) => {
+      if (client.submitted_to_immigration) return false;
+      const requiredDocs = client.required_documents?.filter((d: any) => !d.isOptional) || [];
+      return requiredDocs.length > 0 && requiredDocs.every((d: any) => d.submitted);
+    }),
+    [clients]
+  );
+
   // Clients with incomplete documents (pending documentation)
-  const awaitingSubmission = clients.filter((client) => {
-    if (client.submitted_to_immigration) return false;
-    const requiredDocs = client.required_documents?.filter((d: any) => !d.isOptional) || [];
-    return requiredDocs.length > 0 && requiredDocs.some((d: any) => !d.submitted);
-  });
+  const awaitingSubmission = useMemo(() => 
+    clients.filter((client) => {
+      if (client.submitted_to_immigration) return false;
+      const requiredDocs = client.required_documents?.filter((d: any) => !d.isOptional) || [];
+      return requiredDocs.length > 0 && requiredDocs.some((d: any) => !d.submitted);
+    }),
+    [clients]
+  );
   
   // APORTAR DOCUMENTACIÓN: Clients that have APORTAR DOCUMENTACIÓN documents that are NOT uploaded (missing files)
-  // Only show clients with aportar_documentacion documents that don't have fileUrl
-  const aportarDocumentacion = clients.filter((client) => {
-    // ONLY check aportar_documentacion field - ignore required_documents completely
-    const aportarDocs = client.aportar_documentacion;
-    
-    // Must have aportar_documentacion array with at least one valid document
-    if (!aportarDocs || !Array.isArray(aportarDocs) || aportarDocs.length === 0) {
-      return false;
-    }
-    
-    // Verify these are actual APORTAR DOCUMENTACIÓN documents (have id, name, etc.)
-    const validDocs = aportarDocs.filter((doc: any) => doc && (doc.id || doc.name));
-    if (validDocs.length === 0) {
-      return false;
-    }
-    
-    // IMPORTANT: Only show clients that have at least one APORTAR DOCUMENTACIÓN document WITHOUT a file (not uploaded)
-    const documentsWithoutFile = validDocs.filter((doc: any) => !doc.fileUrl);
-    return documentsWithoutFile.length > 0;
-  });
+  const aportarDocumentacion = useMemo(() => 
+    clients.filter((client) => {
+      const aportarDocs = client.aportar_documentacion;
+      if (!aportarDocs || !Array.isArray(aportarDocs) || aportarDocs.length === 0) {
+        return false;
+      }
+      const validDocs = aportarDocs.filter((doc: any) => doc && (doc.id || doc.name));
+      if (validDocs.length === 0) {
+        return false;
+      }
+      const documentsWithoutFile = validDocs.filter((doc: any) => !doc.fileUrl);
+      return documentsWithoutFile.length > 0;
+    }),
+    [clients]
+  );
 
-  
-  // REQUERIMIENTO: Clients with pending requested documents (submitted clients with pending requested docs)
-  const requerimiento = clients.filter((client) => {
-    if (!client.submitted_to_immigration) return false;
-    const requestedDocs = client.requested_documents || [];
-    return requestedDocs.length > 0 && requestedDocs.some((d: any) => !d.submitted);
-  });
+  // REQUERIMIENTO: Clients with pending requested documents
+  const requerimiento = useMemo(() => 
+    clients.filter((client) => {
+      if (!client.submitted_to_immigration) return false;
+      const requestedDocs = client.requested_documents || [];
+      return requestedDocs.length > 0 && requestedDocs.some((d: any) => !d.submitted);
+    }),
+    [clients]
+  );
 
-  // REQUERIMIENTO Reminders: Reminders created from REQUERIMIENTO box
-  const requerimientoReminders = reminders.filter((reminder) => reminder.reminder_type === 'REQUERIMIENTO');
+  // Filter reminders by type (memoized)
+  const requerimientoReminders = useMemo(() => 
+    reminders.filter((reminder) => reminder.reminder_type === 'REQUERIMIENTO'),
+    [reminders]
+  );
+  const aportarReminders = useMemo(() => 
+    reminders.filter((reminder) => reminder.reminder_type === 'APORTAR_DOCUMENTACION'),
+    [reminders]
+  );
+  const recursoReminders = useMemo(() => 
+    reminders.filter((reminder) => reminder.reminder_type === 'RECURSO'),
+    [reminders]
+  );
+  const urgentesReminders = useMemo(() => 
+    reminders.filter((reminder) => reminder.reminder_type === 'URGENTES'),
+    [reminders]
+  );
+  const pagosReminders = useMemo(() => 
+    reminders.filter((reminder) => reminder.reminder_type === 'PAGOS'),
+    [reminders]
+  );
   
-  // Filter reminders by type for each modal
-  const aportarReminders = reminders.filter((reminder) => reminder.reminder_type === 'APORTAR_DOCUMENTACION');
-  const recursoReminders = reminders.filter((reminder) => reminder.reminder_type === 'RECURSO');
-  const urgentesReminders = reminders.filter((reminder) => reminder.reminder_type === 'URGENTES');
-  const pagosReminders = reminders.filter((reminder) => reminder.reminder_type === 'PAGOS');
+  // RECURSO: Clients that need to file an appeal
+  const recurso = useMemo(() => 
+    clients.filter((client) => {
+      if (!client.submitted_to_immigration || !client.application_date) return false;
+      const appDate = new Date(client.application_date);
+      const silenceDays = client.administrative_silence_days || 60;
+      const silenceEndDate = new Date(appDate);
+      silenceEndDate.setDate(silenceEndDate.getDate() + silenceDays);
+      const now = new Date();
+      return now > silenceEndDate;
+    }),
+    [clients]
+  );
   
-  // RECURSO: Clients that need to file an appeal (placeholder - can be expanded later)
-  // For now, this could be clients with expired administrative silence or specific status
-  const recurso = clients.filter((client) => {
-    if (!client.submitted_to_immigration || !client.application_date) return false;
-    // Check if administrative silence has expired (could indicate need for appeal)
-    const appDate = new Date(client.application_date);
-    const silenceDays = client.administrative_silence_days || 60;
-    const silenceEndDate = new Date(appDate);
-    silenceEndDate.setDate(silenceEndDate.getDate() + silenceDays);
-    const now = new Date();
-    // If silence period has expired, might need appeal
-    return now > silenceEndDate;
-  });
-  
-  // URGENTES: Clients with urgent deadlines within 3 days (72 hours)
-  const urgentes = clients.filter((client) => {
+  // URGENTES: Clients with urgent deadlines within 3 days
+  const urgentes = useMemo(() => clients.filter((client) => {
     const now = new Date();
     const days3 = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
     
@@ -721,6 +743,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           const timeDiff = deadline.getTime() - now.getTime();
           if (timeDiff > 0 && timeDiff <= days3) return true;
         }
+      }
+    }
+    
+    return false;
+  }), [clients]);
       }
     }
     
