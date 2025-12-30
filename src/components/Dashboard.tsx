@@ -849,7 +849,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <FileText className="w-6 h-6 text-amber-800 icon-float icon-hover-scale" />
+              <FileText className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.templates')}</span>
           </div>
@@ -864,7 +864,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800 icon-float icon-hover-scale" style={{ animationDelay: '0.2s' }} />
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.clients')}</span>
           </div>
@@ -879,7 +879,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <Clock className="w-6 h-6 text-amber-800 icon-pulse icon-hover-rotate" />
+              <Clock className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.pending')}</span>
           </div>
@@ -900,7 +900,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-green-200 to-green-300 p-3 rounded-xl shadow-lg">
-              <CheckCircle className="w-6 h-6 text-green-900 icon-bounce icon-hover-glow" />
+              <CheckCircle className="w-6 h-6 text-green-900" />
             </div>
             <span className="text-xs font-semibold text-green-800 uppercase tracking-wider">{t('dashboard.readyToSubmit')}</span>
           </div>
@@ -915,7 +915,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <Send className="w-6 h-6 text-amber-800 icon-float icon-hover-scale" style={{ animationDelay: '0.1s' }} />
+              <Send className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.administrative')}</span>
           </div>
@@ -933,7 +933,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <FilePlus className="w-6 h-6 text-amber-800 icon-pulse icon-hover-bounce" />
+              <FilePlus className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.aportarDocumentacion')}</span>
           </div>
@@ -949,7 +949,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <AlertCircle className="w-6 h-6 text-amber-800 icon-shake icon-hover-pulse" />
+              <AlertCircle className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.requerimiento')}</span>
           </div>
@@ -965,7 +965,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <Gavel className="w-6 h-6 text-amber-800 icon-float icon-hover-scale" style={{ animationDelay: '0.3s' }} />
+              <Gavel className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.recurso')}</span>
           </div>
@@ -987,7 +987,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-red-300 to-red-400 p-3 rounded-xl shadow-lg">
-              <AlertTriangle className="w-6 h-6 text-red-950 icon-pulse icon-hover-shake" />
+              <AlertTriangle className="w-6 h-6 text-red-950" />
             </div>
             <span className="text-xs font-semibold text-red-900 uppercase tracking-wider">{t('dashboard.urgentes')}</span>
           </div>
@@ -1003,7 +1003,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
-              <Bell className="w-6 h-6 text-amber-800 icon-bounce icon-hover-rotate" />
+              <Bell className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.recordatorio')}</span>
           </div>
@@ -2902,7 +2902,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               )}
                             </p>
                           </div>
-                          <DollarSign className={`w-6 h-6 ml-4 icon-glow icon-hover-scale ${isAdvancePayment ? 'text-green-600' : 'text-amber-600'}`} />
+                          <DollarSign className={`w-6 h-6 ml-4 ${isAdvancePayment ? 'text-green-600' : 'text-amber-600'}`} />
                         </div>
                       </div>
                     );
@@ -3041,7 +3041,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 overflow-hidden">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="bg-green-200 p-3 rounded-lg flex-shrink-0">
-                        <DollarSign className="w-6 h-6 text-green-800 icon-glow icon-hover-bounce" />
+                        <DollarSign className="w-6 h-6 text-green-800" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-sm font-semibold text-green-900 uppercase tracking-wider break-words">Payment Received</h4>

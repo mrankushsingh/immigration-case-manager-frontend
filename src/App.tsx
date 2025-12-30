@@ -255,7 +255,7 @@ function App() {
                   }`}
                 >
                   <div className="flex items-center space-x-2">
-                    <LayoutDashboard className="w-4 h-4 icon-hover-scale" />
+                    <LayoutDashboard className="w-4 h-4" />
                     <span>{t('common.dashboard')}</span>
                   </div>
                 </button>
@@ -268,7 +268,7 @@ function App() {
                   }`}
                 >
                   <div className="flex items-center space-x-2">
-                    <FileText className="w-4 h-4 icon-hover-scale" />
+                    <FileText className="w-4 h-4" />
                     <span>{t('common.templates')}</span>
                   </div>
                 </button>
@@ -281,7 +281,7 @@ function App() {
                   }`}
                 >
                   <div className="flex items-center space-x-2">
-                    <UsersIcon className="w-4 h-4 icon-hover-scale" />
+                    <UsersIcon className="w-4 h-4" />
                     <span>{t('common.clients')}</span>
                   </div>
                 </button>
