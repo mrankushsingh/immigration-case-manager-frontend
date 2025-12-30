@@ -98,14 +98,14 @@ try {
   const root = ReactDOM.createRoot(rootElement);
   console.log('✅ React root created');
   
+  // Temporarily disable StrictMode to prevent double renders that cause React error #310
+  // StrictMode causes components to render twice in development, which can expose hook order issues
   root.render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </ErrorBoundary>
-    </React.StrictMode>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
   
   console.log('✅ App rendered successfully');

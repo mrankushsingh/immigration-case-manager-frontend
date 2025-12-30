@@ -1,6 +1,7 @@
 // Use environment variable in production, relative path in development
 // Remove trailing slash to prevent double slashes in URLs
-const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+const baseApiUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+const API_URL = baseApiUrl;
 
 // Helper function to get auth headers
 // includeContentType: Set to false for GET/DELETE requests that don't have a body
