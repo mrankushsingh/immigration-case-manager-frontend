@@ -7,16 +7,20 @@ import { Client } from './types';
 import { t } from './utils/i18n';
 import { api } from './utils/api';
 
-// Lazy load components for code splitting
+// Lazy load only large components for code splitting
+// Small components (Logo, LanguageSelector, Notifications) should not be lazy loaded
+// as they're always rendered and can cause hook order issues
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Templates = lazy(() => import('./components/Templates'));
 const Clients = lazy(() => import('./components/Clients'));
 const Users = lazy(() => import('./components/Users'));
-const Notifications = lazy(() => import('./components/Notifications'));
 const ClientDetailsModal = lazy(() => import('./components/ClientDetailsModal'));
 const Login = lazy(() => import('./components/Login'));
-const Logo = lazy(() => import('./components/Logo'));
-const LanguageSelector = lazy(() => import('./components/LanguageSelector'));
+
+// Import small components normally to avoid hook order issues
+import Notifications from './components/Notifications';
+import Logo from './components/Logo';
+import LanguageSelector from './components/LanguageSelector';
 
 type View = 'dashboard' | 'templates' | 'clients' | 'users';
 
@@ -455,38 +459,21 @@ function App() {
             <Route 
               path="/dashboard" 
               element={
-                currentView === 'dashboard' ? (
-                  <Suspense fallback={<div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div></div>}>
-                    <Dashboard onNavigate={setCurrentView} />
-                  </Suspense>
-                ) : (
-                  <>
-                    {currentView === 'templates' && (
-                      <Suspense fallback={<div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div></div>}>
-                        <Templates />
-                      </Suspense>
-                    )}
-                    {currentView === 'clients' && (
-                      <Suspense fallback={<div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div></div>}>
-                        <Clients />
-                      </Suspense>
-                    )}
-                    {currentView === 'users' && currentUserRole === 'admin' && (
-                      <Suspense fallback={<div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div></div>}>
-                        <Users />
-                      </Suspense>
-                    )}
-                    {currentView === 'users' && currentUserRole !== 'admin' && (
-                      <div className="flex items-center justify-center h-64">
-                        <div className="text-center">
-                          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('users.accessDenied')}</h2>
-                          <p className="text-gray-600">{t('users.adminOnly')}</p>
-                        </div>
+                <Suspense fallback={<div className="text-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto"></div></div>}>
+                  {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
+                  {currentView === 'templates' && <Templates />}
+                  {currentView === 'clients' && <Clients />}
+                  {currentView === 'users' && currentUserRole === 'admin' && <Users />}
+                  {currentView === 'users' && currentUserRole !== 'admin' && (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="text-center">
+                        <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('users.accessDenied')}</h2>
+                        <p className="text-gray-600">{t('users.adminOnly')}</p>
                       </div>
-                    )}
-                  </>
-                )
+                    </div>
+                  )}
+                </Suspense>
               } 
             />
             <Route path="*" element={
