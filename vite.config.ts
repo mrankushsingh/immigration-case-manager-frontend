@@ -68,6 +68,11 @@ export default defineConfig({
             return 'modals';
           }
           
+          // DataContext - must load after react-vendor, put in utils
+          if (id.includes('context/DataContext')) {
+            return 'utils';
+          }
+          
           // Utils chunks
           if (id.includes('utils/api.ts') || id.includes('utils/firebase.ts')) {
             return 'utils';

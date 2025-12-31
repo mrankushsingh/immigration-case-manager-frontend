@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { api } from '../utils/api';
 import { Client, CaseTemplate, Reminder } from '../types';
 import { getCurrentUser, onAuthChange } from '../utils/firebase';
@@ -24,7 +24,8 @@ interface DataContextType {
   isStale: (maxAge?: number) => boolean;
 }
 
-const DataContext = createContext<DataContextType | undefined>(undefined);
+// Use React.createContext to ensure React is fully initialized
+const DataContext = React.createContext<DataContextType | undefined>(undefined);
 
 // Cache duration: 5 minutes (300000 ms)
 const CACHE_DURATION = 5 * 60 * 1000;
