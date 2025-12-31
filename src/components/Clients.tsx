@@ -11,8 +11,8 @@ import { SkeletonClientCard } from './Skeleton';
 import { useData } from '../context/DataContext';
 
 export default function Clients() {
-  // Refresh context when clients are modified
-  const { refreshClients } = useData();
+  // Use cached clients from context (loaded once at app startup)
+  const { clients: cachedClients, refreshClients } = useData();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -26,9 +26,46 @@ export default function Clients() {
   const [searchQuery, setSearchQuery] = useState('');
   const [, forceUpdate] = useState({});
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialized = useRef(false);
 
-  // Memoize loadClients to prevent unnecessary re-renders
-  const loadClientsMemo = useCallback(async (reset: boolean = true) => {
+  // Initial load from cache (only once on mount)
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    if (searchQuery.trim()) return; // Don't initialize if searching
+    
+    if (cachedClients.length > 0) {
+      // Use cached clients, paginate locally
+      const initialClients = cachedClients.slice(0, LIMIT);
+      setClients(initialClients);
+      setTotal(cachedClients.length);
+      setHasMore(cachedClients.length > LIMIT);
+      setOffset(initialClients.length);
+      setLoading(false);
+      hasInitialized.current = true;
+    } else {
+      // If cache is empty on first load, make one API call
+      loadClientsFromAPI(true);
+      hasInitialized.current = true;
+    }
+  }, []); // Only run once on mount
+
+  // Update from cache when it refreshes (after mutations) - but only if not searching
+  useEffect(() => {
+    if (!hasInitialized.current) return; // Wait for initial load
+    if (searchQuery.trim()) return; // Don't update from cache if searching
+    
+    // Only update if cache length changed (indicates refresh after mutation)
+    if (cachedClients.length > 0 && cachedClients.length !== total) {
+      const initialClients = cachedClients.slice(0, LIMIT);
+      setClients(initialClients);
+      setTotal(cachedClients.length);
+      setHasMore(cachedClients.length > LIMIT);
+      setOffset(initialClients.length);
+    }
+  }, [cachedClients.length, total, searchQuery]); // Only depend on length, not the array itself
+
+  // Load clients from API (only when needed: search or cache empty)
+  const loadClientsFromAPI = useCallback(async (reset: boolean = true, searchTerm?: string) => {
     try {
       if (reset) {
         setLoading(true);
@@ -38,7 +75,6 @@ export default function Clients() {
       }
       
       const currentOffset = reset ? 0 : offset;
-      const searchTerm = searchQuery.trim() || undefined;
       const data = await api.getClients(LIMIT, currentOffset, searchTerm);
       
       // Check if response has pagination structure
@@ -59,49 +95,14 @@ export default function Clients() {
         setTotal(data.length);
         setOffset(data.length);
       }
+      hasInitialized.current = true;
     } catch (error) {
       console.error('Failed to load clients:', error);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [offset, searchQuery]);
-
-  useEffect(() => {
-    loadClientsMemo(true);
-  }, [loadClientsMemo]);
-
-  // Reload data when page becomes visible (handles refresh and tab switching)
-  // Increased debounce time to reduce excessive calls
-  useEffect(() => {
-    let reloadTimeout: NodeJS.Timeout;
-    let lastReloadTime = 0;
-    const RELOAD_DEBOUNCE_MS = 10000; // Increased to 10 seconds to prevent excessive reloads
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        // Only reload if more than 10 seconds have passed since last reload
-        if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
-          clearTimeout(reloadTimeout);
-          reloadTimeout = setTimeout(() => {
-            loadClientsMemo(true);
-            lastReloadTime = Date.now();
-          }, 1000); // Increased delay to 1 second
-        }
-      }
-    };
-
-    // Removed focus handler - it was causing too many reloads
-    // Users can manually refresh if needed
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      clearTimeout(reloadTimeout);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [loadClientsMemo]);
+  }, [offset]);
 
   useEffect(() => {
     // Listen for language changes to force re-render
@@ -121,7 +122,18 @@ export default function Clients() {
   // loadClients is now defined above in useCallback
 
   const handleLoadMore = () => {
-    loadClientsMemo(false);
+    if (searchQuery.trim()) {
+      // If searching, load from API
+      loadClientsFromAPI(false, searchQuery.trim());
+    } else {
+      // If not searching, load more from cache
+      const nextClients = cachedClients.slice(offset, offset + LIMIT);
+      if (nextClients.length > 0) {
+        setClients(prev => [...prev, ...nextClients]);
+        setOffset(offset + nextClients.length);
+        setHasMore(offset + nextClients.length < cachedClients.length);
+      }
+    }
   };
 
   const handleDeleteClient = (client: Client, e: React.MouseEvent) => {
@@ -134,8 +146,9 @@ export default function Clients() {
     
     try {
       await api.deleteClient(deleteConfirm.client.id);
-      await refreshClients(); // Refresh context
-      await loadClientsMemo(true); // Reset pagination after delete
+      await refreshClients(); // Refresh context - will trigger useEffect to update from cache
+      // Reset pagination - useEffect will handle updating from refreshed cache
+      hasInitialized.current = false;
       showToast(`Client ${deleteConfirm.client.first_name} ${deleteConfirm.client.last_name} deleted successfully`, 'success');
       setDeleteConfirm({ client: null, isOpen: false });
     } catch (error: any) {
@@ -203,17 +216,32 @@ export default function Clients() {
               
               // Debounce search: reload after 500ms of no typing
               searchTimeoutRef.current = setTimeout(() => {
-                loadClientsMemo(true);
+                if (value.trim()) {
+                  // Search requires API call
+                  loadClientsFromAPI(true, value.trim());
+                } else {
+                  // Clear search - use cached data
+                  const initialClients = cachedClients.slice(0, LIMIT);
+                  setClients(initialClients);
+                  setTotal(cachedClients.length);
+                  setHasMore(cachedClients.length > LIMIT);
+                  setOffset(initialClients.length);
+                }
               }, 500);
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
           />
           {searchQuery && (
             <button
-              onClick={() => {
-                setSearchQuery('');
-                loadClientsMemo(true);
-              }}
+            onClick={() => {
+              setSearchQuery('');
+              // Clear search - use cached data
+              const initialClients = cachedClients.slice(0, LIMIT);
+              setClients(initialClients);
+              setTotal(cachedClients.length);
+              setHasMore(cachedClients.length > LIMIT);
+              setOffset(initialClients.length);
+            }}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -237,7 +265,12 @@ export default function Clients() {
           <button
             onClick={() => {
               setSearchQuery('');
-              loadClientsMemo(true);
+              // Clear search - use cached data
+              const initialClients = cachedClients.slice(0, LIMIT);
+              setClients(initialClients);
+              setTotal(cachedClients.length);
+              setHasMore(cachedClients.length > LIMIT);
+              setOffset(initialClients.length);
             }}
             className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-amber-900 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-semibold hover:shadow-2xl transition-all shadow-xl"
             style={{ boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)' }}
@@ -349,8 +382,9 @@ export default function Clients() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={async () => {
             setShowCreateModal(false);
-            await refreshClients(); // Refresh context
-            loadClientsMemo(true); // Reset pagination after create
+            await refreshClients(); // Refresh context - will trigger useEffect to update from cache
+            // Reset pagination - useEffect will handle updating from refreshed cache
+            hasInitialized.current = false;
           }}
         />
       )}
@@ -360,8 +394,9 @@ export default function Clients() {
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
           onSuccess={async () => {
-            await refreshClients(); // Refresh context
-            loadClientsMemo(true); // Reset pagination after update
+            await refreshClients(); // Refresh context - will trigger useEffect to update from cache
+            // Reset pagination - useEffect will handle updating from refreshed cache
+            hasInitialized.current = false;
           }}
         />
       )}
