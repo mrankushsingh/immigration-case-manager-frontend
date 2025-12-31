@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
+import { DataProvider } from './context/DataContext.tsx'
 import './index.css'
 
 // CRITICAL: Ensure React is available globally IMMEDIATELY
@@ -103,7 +104,9 @@ try {
   root.render(
     <ErrorBoundary>
       <BrowserRouter>
-        <App />
+        <DataProvider>
+          <App />
+        </DataProvider>
       </BrowserRouter>
     </ErrorBoundary>
   );

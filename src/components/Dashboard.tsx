@@ -2,22 +2,21 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
-import { CaseTemplate, Client, Reminder } from '../types';
+import { Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 import { SkeletonStatCard, SkeletonDashboardBox, SkeletonChart } from './Skeleton';
+import { useData } from '../context/DataContext';
 
 interface DashboardProps {
   onNavigate?: (view: 'templates' | 'clients') => void;
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  const [templates, setTemplates] = useState<CaseTemplate[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use shared data from context (loaded once at app startup)
+  const { clients, templates, reminders, loading, refreshAll, refreshReminders } = useData();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [returnToRequerimiento, setReturnToRequerimiento] = useState(false);
   const [showReadyToSubmitModal, setShowReadyToSubmitModal] = useState(false);
@@ -125,8 +124,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setShowUrgentesReminderForm(false);
       setShowPagosReminderForm(false);
       
-      // Reload data
-      await loadData();
+      // Refresh reminders from context
+      await refreshReminders();
     } catch (error: any) {
       showToast(error.message || 'Error al crear recordatorio', 'error');
     }
@@ -414,76 +413,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setTemplateSearchQuery('');
       setShowPaymentForm(false);
       
-      // Reload data
-      await loadData();
+      // Refresh reminders from context
+      await refreshReminders();
     } catch (error: any) {
       showToast(error.message || 'Failed to add payment', 'error');
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Reload data when page becomes visible (handles refresh and tab switching)
-  useEffect(() => {
-    let reloadTimeout: NodeJS.Timeout;
-    let lastReloadTime = 0;
-    const RELOAD_DEBOUNCE_MS = 2000; // Don't reload more than once every 2 seconds
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        // Only reload if enough time has passed since last reload
-        if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
-          clearTimeout(reloadTimeout);
-          reloadTimeout = setTimeout(() => {
-            loadData();
-            lastReloadTime = Date.now();
-          }, 500); // Small delay to avoid immediate reload on tab switch
-        }
-      }
-    };
-
-    const handleFocus = () => {
-      const now = Date.now();
-      // Only reload if enough time has passed since last reload
-      if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
-        clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => {
-          loadData();
-          lastReloadTime = Date.now();
-        }, 500);
-      }
-    };
-
-    // Detect page refresh (beforeunload sets a flag)
-    const handleBeforeUnload = () => {
-      sessionStorage.setItem('isRefreshing', 'true');
-    };
-
-    // On mount, check if this is a refresh
-    const isRefreshing = sessionStorage.getItem('isRefreshing') === 'true';
-    if (isRefreshing) {
-      sessionStorage.removeItem('isRefreshing');
-      // Small delay to ensure everything is initialized
-      setTimeout(() => {
-        loadData();
-        lastReloadTime = Date.now();
-      }, 100);
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      clearTimeout(reloadTimeout);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
+  // Data is loaded once at app startup via DataContext
+  // No need to load on mount or visibility change - data is already cached
 
   useEffect(() => {
     // Listen for language changes to force re-render
@@ -553,61 +491,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     fetchTrendData();
   }, [showOverviewModal]);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      // Check if user is authenticated before making API calls
-      const { getCurrentUser } = await import('../utils/firebase.js');
-      const user = getCurrentUser();
-      
-      if (!user) {
-        console.error('❌ User not authenticated. Redirecting to login...');
-        showToast('Please log in to access the dashboard', 'error');
-        // Set empty arrays and stop loading
-        setTemplates([]);
-        setClients([]);
-        setReminders([]);
-        setLoading(false);
-        // Redirect to login will be handled by App.tsx based on isAuthenticated state
-        return;
-      }
-      
-      // Load templates and reminders (clients loaded with pagination to reduce load)
-      // For dashboard, we only need a summary, so limit clients to reduce database load
-      const [templatesData, clientsData, remindersData] = await Promise.all([
-        api.getCaseTemplates(100, 0), // Limit to 100 templates
-        api.getClients(100, 0), // Limit to 100 clients for dashboard calculations
-        api.getReminders(),
-      ]);
-      
-      // Handle paginated responses
-      const templates = Array.isArray(templatesData) ? templatesData : (templatesData.templates || []);
-      const clients = Array.isArray(clientsData) ? clientsData : (clientsData.clients || []);
-      
-      setTemplates(templates);
-      setClients(clients);
-      setReminders(remindersData);
-    } catch (error: any) {
-      console.error('❌ Failed to load data:', error);
-      const errorMessage = error.message || 'Failed to load data';
-      
-      // Check if it's an authentication error
-      if (errorMessage.includes('Authentication') || errorMessage.includes('log in') || errorMessage.includes('not authenticated')) {
-        showToast('Please log in to access the dashboard', 'error');
-        // The App component will handle redirect based on isAuthenticated state
-      } else {
-        showToast(`Error loading data: ${errorMessage}`, 'error');
-      }
-      
-      // Set empty arrays on error to prevent showing stale data
-      setTemplates([]);
-      setClients([]);
-      setReminders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Data is loaded once at app startup via DataContext
+  // No need to load data here - it's already available from context
 
   // Memoize expensive filter operations
   const submittedToAdmin = useMemo(() => 
@@ -1505,8 +1390,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       setEditingRequerimientoReminder(null);
                       setShowRequerimientoReminderForm(false);
                       
-                      // Reload data
-                      await loadData();
+      // Refresh all data from context
+      await refreshAll();
                     } catch (error: any) {
                       showToast(error.message || 'Error al crear recordatorio', 'error');
                     }
@@ -2288,7 +2173,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   } else {
                     await api.createReminder(reminderData);
                   }
-                  await loadData();
+                  await refreshAll();
                   setShowReminderForm(false);
                   setEditingReminder(null);
                   setReminderForm({
@@ -3355,7 +3240,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             // APORTAR DOCUMENTACIÓN modal should never reopen automatically
           }}
           onSuccess={async () => {
-            await loadData();
+            await refreshAll();
             // APORTAR DOCUMENTACIÓN modal should never reopen automatically after document creation
           }}
         />
@@ -3732,7 +3617,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           if (deleteConfirm.reminder) {
             try {
               await api.deleteReminder(deleteConfirm.reminder.id);
-              await loadData();
+              await refreshAll();
               showToast('Recordatorio eliminado exitosamente', 'success');
               setDeleteConfirm({ isOpen: false, reminder: null });
             } catch (error: any) {
@@ -3760,7 +3645,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               await api.deleteReminder(deleteRequerimientoConfirm.reminder.id);
               showToast('Recordatorio eliminado exitosamente', 'success');
               setDeleteRequerimientoConfirm({ reminder: null, isOpen: false });
-              await loadData();
+              await refreshAll();
             } catch (error: any) {
               showToast(error.message || 'Error al eliminar recordatorio', 'error');
             }

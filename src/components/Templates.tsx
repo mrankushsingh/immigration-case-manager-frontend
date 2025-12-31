@@ -7,8 +7,11 @@ import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { t } from '../utils/i18n';
 import { SkeletonTemplateCard } from './Skeleton';
+import { useData } from '../context/DataContext';
 
 export default function Templates() {
+  // Refresh context when templates are modified
+  const { refreshTemplates } = useData();
   const [templates, setTemplates] = useState<CaseTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -96,6 +99,7 @@ export default function Templates() {
     
     try {
       await api.deleteCaseTemplate(deleteConfirm.templateId);
+      await refreshTemplates(); // Refresh context
       await loadTemplatesMemo(true); // Reset pagination after delete
       showToast(`Template "${deleteConfirm.templateName}" deleted successfully`, 'success');
       setDeleteConfirm({ templateId: null, templateName: '', isOpen: false });
@@ -306,8 +310,9 @@ export default function Templates() {
       {showCreateModal && (
         <CreateTemplateModal
           onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowCreateModal(false);
+            await refreshTemplates(); // Refresh context
             loadTemplatesMemo(true); // Reset pagination after create
           }}
         />
@@ -317,8 +322,9 @@ export default function Templates() {
         <CreateTemplateModal
           template={editingTemplate}
           onClose={() => setEditingTemplate(null)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setEditingTemplate(null);
+            await refreshTemplates(); // Refresh context
             loadTemplatesMemo(true); // Reset pagination after update
           }}
         />

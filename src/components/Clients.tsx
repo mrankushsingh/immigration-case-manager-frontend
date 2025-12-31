@@ -8,8 +8,11 @@ import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { t } from '../utils/i18n';
 import { SkeletonClientCard } from './Skeleton';
+import { useData } from '../context/DataContext';
 
 export default function Clients() {
+  // Refresh context when clients are modified
+  const { refreshClients } = useData();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -131,6 +134,7 @@ export default function Clients() {
     
     try {
       await api.deleteClient(deleteConfirm.client.id);
+      await refreshClients(); // Refresh context
       await loadClientsMemo(true); // Reset pagination after delete
       showToast(`Client ${deleteConfirm.client.first_name} ${deleteConfirm.client.last_name} deleted successfully`, 'success');
       setDeleteConfirm({ client: null, isOpen: false });
@@ -343,8 +347,9 @@ export default function Clients() {
       {showCreateModal && (
         <CreateClientModal
           onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowCreateModal(false);
+            await refreshClients(); // Refresh context
             loadClientsMemo(true); // Reset pagination after create
           }}
         />
@@ -354,7 +359,8 @@ export default function Clients() {
         <ClientDetailsModal
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
-          onSuccess={() => {
+          onSuccess={async () => {
+            await refreshClients(); // Refresh context
             loadClientsMemo(true); // Reset pagination after update
           }}
         />

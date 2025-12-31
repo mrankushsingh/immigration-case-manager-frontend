@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare } from 'lucide-react';
 import JSZip from 'jszip';
 import { api } from '../utils/api';
-import { Client, RequiredDocument, AdditionalDocument, RequestedDocument, CaseTemplate } from '../types';
+import { Client, RequiredDocument, AdditionalDocument, RequestedDocument } from '../types';
 import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
+import { useData } from '../context/DataContext';
 
 interface Props {
   client: Client;
@@ -62,7 +63,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [editingJustificanteDoc, setEditingJustificanteDoc] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [templates, setTemplates] = useState<CaseTemplate[]>([]);
+  // Use templates from context (loaded once at app startup)
+  const { templates } = useData();
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [templateSearchQuery, setTemplateSearchQuery] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -94,7 +96,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   useEffect(() => {
     loadClient();
     loadCurrentUser();
-    loadTemplates();
+    // Templates are loaded from context - no need to fetch
   }, [client.id]);
 
   // Close template dropdown when clicking outside
@@ -145,14 +147,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
-  const loadTemplates = async () => {
-    try {
-      const data = await api.getCaseTemplates();
-      setTemplates(data);
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-    }
-  };
+  // Templates are loaded from context (no need to fetch again)
+  // This component can still have local state for filtering/search
 
   const filteredTemplates = templates.filter((template) => {
     if (!templateSearchQuery.trim()) return true;
