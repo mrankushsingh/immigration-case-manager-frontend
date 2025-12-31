@@ -56,6 +56,12 @@ export default defineConfig({
             return 'react-vendor';
           }
           
+          // DataContext - MUST be in react-vendor to ensure React is initialized
+          // This prevents "Cannot access 'x' before initialization" errors
+          if (id.includes('context/DataContext')) {
+            return 'react-vendor';
+          }
+          
           // Large component chunks - split by feature
           if (id.includes('Dashboard.tsx')) {
             return 'dashboard';
@@ -66,11 +72,6 @@ export default defineConfig({
           // Modal components
           if (id.includes('CreateClientModal') || id.includes('CreateTemplateModal')) {
             return 'modals';
-          }
-          
-          // DataContext - must load after react-vendor, put in utils
-          if (id.includes('context/DataContext')) {
-            return 'utils';
           }
           
           // Utils chunks
