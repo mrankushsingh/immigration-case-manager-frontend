@@ -120,43 +120,64 @@ export default function Templates() {
     };
   }, []);
 
-  // Handle search query changes with proper debouncing
+  // Handle search query changes - search from cache (no API calls)
   useEffect(() => {
     // Clear existing timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // If search query is empty, reset to cached data immediately
-    if (!searchQuery.trim()) {
-      if (hasInitialized.current && cachedTemplates.length > 0) {
-        setOffset(0);
-        const initialTemplates = cachedTemplates.slice(0, LIMIT);
-        setTemplates(initialTemplates);
-        setTotal(cachedTemplates.length);
-        setHasMore(cachedTemplates.length > LIMIT);
-        setOffset(initialTemplates.length);
-      }
-      return;
-    }
-
-    // Debounce search API call
+    // Debounce search to avoid filtering on every keystroke
     searchTimeoutRef.current = setTimeout(() => {
+      if (!searchQuery.trim()) {
+        // If search query is empty, reset to cached data immediately
+        if (hasInitialized.current && cachedTemplates.length > 0) {
+          setOffset(0);
+          const initialTemplates = cachedTemplates.slice(0, LIMIT);
+          setTemplates(initialTemplates);
+          setTotal(cachedTemplates.length);
+          setHasMore(cachedTemplates.length > LIMIT);
+          setOffset(initialTemplates.length);
+        }
+        return;
+      }
+
+      // Search from cached data by name only (no API call)
+      const searchTerm = searchQuery.trim().toLowerCase();
+      const filtered = cachedTemplates.filter(template => {
+        const name = (template.name || '').toLowerCase();
+        return name.includes(searchTerm);
+      });
+
       setOffset(0);
-      loadTemplatesFromAPI(true, searchQuery.trim());
-    }, 500);
+      const initialFiltered = filtered.slice(0, LIMIT);
+      setTemplates(initialFiltered);
+      setTotal(filtered.length);
+      setHasMore(filtered.length > LIMIT);
+      setOffset(initialFiltered.length);
+    }, 300); // Reduced debounce for faster search
 
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, cachedTemplates.length, loadTemplatesFromAPI]);
+  }, [searchQuery, cachedTemplates]);
 
   const handleLoadMore = () => {
     if (searchQuery.trim()) {
-      // If searching, load from API
-      loadTemplatesFromAPI(false, searchQuery.trim());
+      // If searching, load more from filtered results
+      const searchTerm = searchQuery.trim().toLowerCase();
+      const filtered = cachedTemplates.filter(template => {
+        const name = (template.name || '').toLowerCase();
+        return name.includes(searchTerm);
+      });
+      const nextTemplates = filtered.slice(offset, offset + LIMIT);
+      if (nextTemplates.length > 0) {
+        setTemplates(prev => [...prev, ...nextTemplates]);
+        setOffset(offset + nextTemplates.length);
+        setHasMore(offset + nextTemplates.length < filtered.length);
+      }
     } else {
       // If not searching, load more from cache
       const nextTemplates = cachedTemplates.slice(offset, offset + LIMIT);
@@ -235,7 +256,7 @@ export default function Templates() {
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-amber-600" />
           <input
             type="text"
-            placeholder="Search templates by name or description..."
+            placeholder="Search templates by name..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);

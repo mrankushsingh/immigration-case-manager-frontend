@@ -121,45 +121,66 @@ export default function Clients() {
     };
   }, []);
 
-  // Handle search query changes with proper debouncing
+  // Handle search query changes - search from cache (no API calls)
   useEffect(() => {
     // Clear existing timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // If search query is empty, reset to cached data immediately
-    if (!searchQuery.trim()) {
-      if (hasInitialized.current && cachedClients.length > 0) {
-        setOffset(0);
-        const initialClients = cachedClients.slice(0, LIMIT);
-        setClients(initialClients);
-        setTotal(cachedClients.length);
-        setHasMore(cachedClients.length > LIMIT);
-        setOffset(initialClients.length);
-      }
-      return;
-    }
-
-    // Debounce search API call
+    // Debounce search to avoid filtering on every keystroke
     searchTimeoutRef.current = setTimeout(() => {
+      if (!searchQuery.trim()) {
+        // If search query is empty, reset to cached data immediately
+        if (hasInitialized.current && cachedClients.length > 0) {
+          setOffset(0);
+          const initialClients = cachedClients.slice(0, LIMIT);
+          setClients(initialClients);
+          setTotal(cachedClients.length);
+          setHasMore(cachedClients.length > LIMIT);
+          setOffset(initialClients.length);
+        }
+        return;
+      }
+
+      // Search from cached data by name only (no API call)
+      const searchTerm = searchQuery.trim().toLowerCase();
+      const filtered = cachedClients.filter(client => {
+        const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
+        return fullName.includes(searchTerm);
+      });
+
       setOffset(0);
-      loadClientsFromAPI(true, searchQuery.trim());
-    }, 500);
+      const initialFiltered = filtered.slice(0, LIMIT);
+      setClients(initialFiltered);
+      setTotal(filtered.length);
+      setHasMore(filtered.length > LIMIT);
+      setOffset(initialFiltered.length);
+    }, 300); // Reduced debounce for faster search
 
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, cachedClients.length, loadClientsFromAPI]);
+  }, [searchQuery, cachedClients]);
 
   // loadClients is now defined above in useCallback
 
   const handleLoadMore = () => {
     if (searchQuery.trim()) {
-      // If searching, load from API
-      loadClientsFromAPI(false, searchQuery.trim());
+      // If searching, load more from filtered results
+      const searchTerm = searchQuery.trim().toLowerCase();
+      const filtered = cachedClients.filter(client => {
+        const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
+        return fullName.includes(searchTerm);
+      });
+      const nextClients = filtered.slice(offset, offset + LIMIT);
+      if (nextClients.length > 0) {
+        setClients(prev => [...prev, ...nextClients]);
+        setOffset(offset + nextClients.length);
+        setHasMore(offset + nextClients.length < filtered.length);
+      }
     } else {
       // If not searching, load more from cache
       const nextClients = cachedClients.slice(offset, offset + LIMIT);
@@ -238,7 +259,7 @@ export default function Clients() {
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-amber-600" />
           <input
             type="text"
-            placeholder="Search clients by name, email, phone, case type..."
+            placeholder="Search clients by name..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
