@@ -60,9 +60,8 @@ export default defineConfig({
           if (id.includes('Dashboard.tsx')) {
             return 'dashboard';
           }
-          if (id.includes('ClientDetailsModal.tsx')) {
-            return 'client-details';
-          }
+          // ClientDetailsModal moved to components chunk to avoid initialization issues
+          // Keeping it with other components ensures React is available when it loads
           
           // Modal components
           if (id.includes('CreateClientModal') || id.includes('CreateTemplateModal')) {
@@ -74,7 +73,7 @@ export default defineConfig({
             return 'utils';
           }
           
-          // Other components (smaller ones can be grouped)
+          // Other components (including ClientDetailsModal to avoid React.memo init issues)
           if (id.includes('components/')) {
             return 'components';
           }

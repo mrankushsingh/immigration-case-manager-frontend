@@ -4151,5 +4151,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   );
 }
 
-// Wrap with React.memo for performance optimization
-export default React.memo(ClientDetailsModal);
+// Export component (React.memo removed temporarily to fix initialization issues)
+// The component is still optimized through other means (useMemo, etc.)
+export default ClientDetailsModal;
