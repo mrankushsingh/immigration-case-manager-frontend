@@ -1286,13 +1286,44 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     });
   };
 
-  const handleDownload = (fileUrl: string, fileName: string) => {
-    // Convert relative URLs to absolute backend URLs
-    const url = getFileUrl(fileUrl);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    link.click();
+  const handleDownload = async (fileUrl: string, fileName: string) => {
+    try {
+      // Convert relative URLs to absolute backend URLs
+      const url = getFileUrl(fileUrl);
+      
+      // Get auth token for authenticated requests
+      const { getIdToken } = await import('../utils/firebase');
+      const token = await getIdToken();
+      
+      // Fetch the file as a blob to ensure download works cross-origin
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: token ? {
+          'Authorization': `Bearer ${token}`,
+        } : {},
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the blob URL
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+    } catch (error: any) {
+      console.error('Error downloading file:', error);
+      showToast(error.message || 'Failed to download file', 'error');
+    }
   };
 
   const handleViewDocument = (fileUrl: string, fileName: string) => {
