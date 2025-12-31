@@ -233,7 +233,7 @@ export default function Clients() {
           <button
             onClick={() => {
               setSearchQuery('');
-              loadClients(true);
+              loadClientsMemo(true);
             }}
             className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-amber-900 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-semibold hover:shadow-2xl transition-all shadow-xl"
             style={{ boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)' }}
@@ -345,7 +345,7 @@ export default function Clients() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
-            loadClients(true); // Reset pagination after create
+            loadClientsMemo(true); // Reset pagination after create
           }}
         />
       )}
@@ -355,7 +355,7 @@ export default function Clients() {
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
           onSuccess={() => {
-            loadClients(true); // Reset pagination after update
+            loadClientsMemo(true); // Reset pagination after update
           }}
         />
       )}
