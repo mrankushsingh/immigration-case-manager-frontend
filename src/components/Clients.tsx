@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Users, Trash2, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { Client } from '../types';
@@ -15,7 +15,7 @@ export default function Clients() {
   const { clients: cachedClients, refreshClients } = useData();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -28,11 +28,12 @@ export default function Clients() {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialized = useRef(false);
 
-  // Initial load from cache (only once on mount)
+  // Initial load from cache (wait for DataContext to load)
   useEffect(() => {
     if (hasInitialized.current) return;
     if (searchQuery.trim()) return; // Don't initialize if searching
     
+    // Wait for cache to be loaded by DataContext
     if (cachedClients.length > 0) {
       // Use cached clients, paginate locally
       const initialClients = cachedClients.slice(0, LIMIT);
@@ -43,11 +44,11 @@ export default function Clients() {
       setLoading(false);
       hasInitialized.current = true;
     } else {
-      // If cache is empty on first load, make one API call
-      loadClientsFromAPI(true);
-      hasInitialized.current = true;
+      // Cache is still loading from DataContext, keep loading state
+      // Don't make API call - wait for DataContext to load
+      setLoading(true);
     }
-  }, []); // Only run once on mount
+  }, [cachedClients.length]); // Wait for cache to be populated
 
   // Update from cache when it refreshes (after mutations) - but only if not searching
   useEffect(() => {
@@ -64,47 +65,7 @@ export default function Clients() {
     }
   }, [cachedClients.length, total, searchQuery]); // Only depend on length, not the array itself
 
-  // Load clients from API (only when needed: search or cache empty)
-  const loadClientsFromAPI = useCallback(async (reset: boolean = true, searchTerm?: string) => {
-    try {
-      if (reset) {
-        setLoading(true);
-        setOffset(0);
-      } else {
-        setLoadingMore(true);
-      }
-      
-      const currentOffset = reset ? 0 : offset;
-      const data = await api.getClients(LIMIT, currentOffset, searchTerm);
-      
-      // Check if response has pagination structure
-      if (data.clients && Array.isArray(data.clients)) {
-        // Paginated response
-        if (reset) {
-          setClients(data.clients);
-          setOffset(data.clients.length);
-        } else {
-          setClients(prev => [...prev, ...data.clients]);
-          setOffset(prev => prev + data.clients.length);
-        }
-        setHasMore(data.hasMore || false);
-        setTotal(data.total || 0);
-      } else if (Array.isArray(data)) {
-        // Legacy response (all clients)
-        setClients(data);
-        setHasMore(false);
-        setTotal(data.length);
-        setOffset(data.length);
-      }
-      hasInitialized.current = true;
-    } catch (error) {
-      console.error('Failed to load clients:', error);
-      showToast('Failed to search clients', 'error');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [offset]);
+  // No API calls needed - all data comes from cache
 
   useEffect(() => {
     // Listen for language changes to force re-render

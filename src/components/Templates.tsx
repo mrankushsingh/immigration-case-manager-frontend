@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Edit, FileText, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate } from '../types';
@@ -14,7 +14,7 @@ export default function Templates() {
   const { templates: cachedTemplates, refreshTemplates } = useData();
   const [templates, setTemplates] = useState<CaseTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -27,11 +27,12 @@ export default function Templates() {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialized = useRef(false);
 
-  // Initial load from cache (only once on mount)
+  // Initial load from cache (wait for DataContext to load)
   useEffect(() => {
     if (hasInitialized.current) return;
     if (searchQuery.trim()) return; // Don't initialize if searching
     
+    // Wait for cache to be loaded by DataContext
     if (cachedTemplates.length > 0) {
       // Use cached templates, paginate locally
       const initialTemplates = cachedTemplates.slice(0, LIMIT);
@@ -42,11 +43,11 @@ export default function Templates() {
       setLoading(false);
       hasInitialized.current = true;
     } else {
-      // If cache is empty on first load, make one API call
-      loadTemplatesFromAPI(true);
-      hasInitialized.current = true;
+      // Cache is still loading from DataContext, keep loading state
+      // Don't make API call - wait for DataContext to load
+      setLoading(true);
     }
-  }, []); // Only run once on mount
+  }, [cachedTemplates.length]); // Wait for cache to be populated
 
   // Update from cache when it refreshes (after mutations) - but only if not searching
   useEffect(() => {
@@ -63,47 +64,7 @@ export default function Templates() {
     }
   }, [cachedTemplates.length, total, searchQuery]); // Only depend on length, not the array itself
 
-  // Load templates from API (only when needed: search or cache empty)
-  const loadTemplatesFromAPI = useCallback(async (reset: boolean = true, searchTerm?: string) => {
-    try {
-      if (reset) {
-        setLoading(true);
-        setOffset(0);
-      } else {
-        setLoadingMore(true);
-      }
-      
-      const currentOffset = reset ? 0 : offset;
-      const data = await api.getCaseTemplates(LIMIT, currentOffset, searchTerm);
-      
-      // Check if response has pagination structure
-      if (data.templates && Array.isArray(data.templates)) {
-        // Paginated response
-        if (reset) {
-          setTemplates(data.templates);
-          setOffset(data.templates.length);
-        } else {
-          setTemplates(prev => [...prev, ...data.templates]);
-          setOffset(prev => prev + data.templates.length);
-        }
-        setHasMore(data.hasMore || false);
-        setTotal(data.total || 0);
-      } else if (Array.isArray(data)) {
-        // Legacy response (all templates)
-        setTemplates(data);
-        setHasMore(false);
-        setTotal(data.length);
-        setOffset(data.length);
-      }
-      hasInitialized.current = true;
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-      showToast('Failed to search templates', 'error');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [offset]);
+  // No API calls needed - all data comes from cache
 
   useEffect(() => {
     // Listen for language changes to force re-render

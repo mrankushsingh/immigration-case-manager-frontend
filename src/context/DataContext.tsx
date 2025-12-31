@@ -102,27 +102,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [isInitialized, loadAllData]);
 
-  // Refresh clients only
+  // Refresh clients only - load ALL clients (no pagination)
   const refreshClients = useCallback(async () => {
     try {
+      // Load all clients without pagination
       const data = await api.getClients();
       const clients = Array.isArray(data) ? data : (data.clients || []);
       setClients(clients);
       setLastFetchTime(Date.now());
-      console.log('✅ Clients refreshed');
+      console.log(`✅ Clients refreshed: ${clients.length} clients`);
     } catch (error) {
       console.error('❌ Failed to refresh clients:', error);
     }
   }, []);
 
-  // Refresh templates only
+  // Refresh templates only - load ALL templates (no pagination)
   const refreshTemplates = useCallback(async () => {
     try {
+      // Load all templates without pagination
       const data = await api.getCaseTemplates();
       const templates = Array.isArray(data) ? data : (data.templates || []);
       setTemplates(templates);
       setLastFetchTime(Date.now());
-      console.log('✅ Templates refreshed');
+      console.log(`✅ Templates refreshed: ${templates.length} templates`);
     } catch (error) {
       console.error('❌ Failed to refresh templates:', error);
     }
