@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { api } from '../utils/api';
 import { Client, CaseTemplate, Reminder } from '../types';
 import { getCurrentUser } from '../utils/firebase';
@@ -36,9 +36,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const isLoadingRef = useRef(false); // Prevent multiple simultaneous loads
 
   // Load all data once at startup
   const loadAllData = useCallback(async () => {
+    // Prevent multiple simultaneous loads
+    if (isLoadingRef.current) {
+      console.log('⚠️  Data load already in progress, skipping...');
+      return;
+    }
+
     try {
       const user = getCurrentUser();
       if (!user) {
@@ -47,6 +54,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      isLoadingRef.current = true;
       console.log('🔄 Loading all data from backend (one-time load)...');
       setLoading(true);
 
@@ -72,6 +80,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // Don't clear data on error - keep existing cache
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
   }, []);
 
@@ -81,7 +90,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     const checkUser = () => {
       const user = getCurrentUser();
-      if (user) {
+      if (user && !isLoadingRef.current) {
         loadAllData();
         setIsInitialized(true);
       }
@@ -92,9 +101,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     // Also listen for auth changes (in case user logs in after app loads)
     const interval = setInterval(() => {
-      if (!isInitialized) {
+      if (!isInitialized && !isLoadingRef.current) {
         checkUser();
-      } else {
+      } else if (isInitialized) {
         clearInterval(interval);
       }
     }, 1000); // Check every second until initialized
