@@ -40,9 +40,14 @@ async function getAuthHeaders(includeContentType: boolean = true): Promise<Heade
 }
 
 export const api = {
-  async getCaseTemplates() {
+  async getCaseTemplates(limit?: number, offset?: number) {
     const headers = await getAuthHeaders(false);
-    const response = await fetch(`${API_URL}/case-templates`, {
+    const params = new URLSearchParams();
+    if (limit !== undefined) params.append('limit', limit.toString());
+    if (offset !== undefined) params.append('offset', offset.toString());
+    
+    const url = `${API_URL}/case-templates${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await fetch(url, {
       headers,
     });
     if (!response.ok) {
@@ -92,10 +97,15 @@ export const api = {
     return response.json();
   },
 
-  async getClients() {
+  async getClients(limit?: number, offset?: number) {
     try {
       const headers = await getAuthHeaders(false);
-      const response = await fetch(`${API_URL}/clients`, {
+      const params = new URLSearchParams();
+      if (limit !== undefined) params.append('limit', limit.toString());
+      if (offset !== undefined) params.append('offset', offset.toString());
+      
+      const url = `${API_URL}/clients${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await fetch(url, {
         headers,
       });
       if (!response.ok) {

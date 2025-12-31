@@ -12,6 +12,11 @@ import { SkeletonClientCard } from './Skeleton';
 export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 25; // Load 25 items at a time
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ client: Client | null; isOpen: boolean }>({ client: null, isOpen: false });
@@ -73,16 +78,46 @@ export default function Clients() {
     };
   }, []);
 
-  const loadClients = async () => {
+  const loadClients = async (reset: boolean = true) => {
     try {
-      setLoading(true);
-      const data = await api.getClients();
-      setClients(data);
+      if (reset) {
+        setLoading(true);
+        setOffset(0);
+      } else {
+        setLoadingMore(true);
+      }
+      
+      const currentOffset = reset ? 0 : offset;
+      const data = await api.getClients(LIMIT, currentOffset);
+      
+      // Check if response has pagination structure
+      if (data.clients && Array.isArray(data.clients)) {
+        // Paginated response
+        if (reset) {
+          setClients(data.clients);
+        } else {
+          setClients(prev => [...prev, ...data.clients]);
+        }
+        setHasMore(data.hasMore || false);
+        setTotal(data.total || 0);
+        setOffset(currentOffset + data.clients.length);
+      } else if (Array.isArray(data)) {
+        // Legacy response (all clients)
+        setClients(data);
+        setHasMore(false);
+        setTotal(data.length);
+        setOffset(data.length);
+      }
     } catch (error) {
       console.error('Failed to load clients:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    loadClients(false);
   };
 
   const handleDeleteClient = (client: Client, e: React.MouseEvent) => {
@@ -95,7 +130,7 @@ export default function Clients() {
     
     try {
       await api.deleteClient(deleteConfirm.client.id);
-      await loadClients();
+      await loadClients(true); // Reset pagination after delete
       showToast(`Client ${deleteConfirm.client.first_name} ${deleteConfirm.client.last_name} deleted successfully`, 'success');
       setDeleteConfirm({ client: null, isOpen: false });
     } catch (error: any) {
@@ -167,12 +202,21 @@ export default function Clients() {
             type="text"
             placeholder="Search clients by name, email, phone, case type..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              // Reset pagination when searching
+              if (e.target.value.trim() === '') {
+                loadClients(true);
+              }
+            }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                loadClients(true);
+              }}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -194,7 +238,10 @@ export default function Clients() {
           <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-amber-800 to-amber-700 bg-clip-text text-transparent mb-2">No clients found</h3>
           <p className="text-amber-700/70 mb-6 sm:mb-8 text-base sm:text-lg font-medium">Try adjusting your search query</p>
           <button
-            onClick={() => setSearchQuery('')}
+            onClick={() => {
+              setSearchQuery('');
+              loadClients(true);
+            }}
             className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-amber-900 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-semibold hover:shadow-2xl transition-all shadow-xl"
             style={{ boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)' }}
           >
@@ -276,12 +323,36 @@ export default function Clients() {
         </div>
       )}
 
+      {/* Load More Button */}
+      {!searchQuery && hasMore && (
+        <div className="flex justify-center mt-6 sm:mt-8">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-amber-900 px-8 py-3 rounded-xl font-semibold hover:shadow-2xl transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            style={{ boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)' }}
+          >
+            {loadingMore ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-900"></div>
+                <span>Loading...</span>
+              </>
+            ) : (
+              <>
+                <span>Load More</span>
+                <span className="text-sm opacity-75">({total - clients.length} remaining)</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {showCreateModal && (
         <CreateClientModal
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
-            loadClients();
+            loadClients(true); // Reset pagination after create
           }}
         />
       )}
@@ -291,7 +362,7 @@ export default function Clients() {
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
           onSuccess={() => {
-            loadClients();
+            loadClients(true); // Reset pagination after update
           }}
         />
       )}
