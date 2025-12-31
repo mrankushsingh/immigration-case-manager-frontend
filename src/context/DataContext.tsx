@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { api } from '../utils/api';
 import { Client, CaseTemplate, Reminder } from '../types';
-import { getCurrentUser } from '../utils/firebase';
+import { getCurrentUser, onAuthChange } from '../utils/firebase';
 
 interface DataContextType {
   // Data
@@ -84,39 +84,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Initial load - only once when user is authenticated
+  // Listen for auth state changes and load data when user logs in
   useEffect(() => {
-    // Prevent multiple runs
-    if (isInitialized || isLoadingRef.current) return;
-    
-    const user = getCurrentUser();
-    if (user) {
-      // Set initialized immediately to prevent re-runs
-      setIsInitialized(true);
-      // Load data
-      loadAllData();
-    } else {
-      // If no user, set loading to false
-      setLoading(false);
-    }
-  }, []); // Only run once on mount - no dependencies
-
-  // Listen for auth state changes (if user logs in after mount)
-  useEffect(() => {
-    if (isInitialized) return; // Already loaded
-    
-    // Use a single check after a short delay to catch late auth
-    const timeout = setTimeout(() => {
-      if (!isInitialized && !isLoadingRef.current) {
-        const user = getCurrentUser();
-        if (user) {
-          setIsInitialized(true);
-          loadAllData();
-        }
+    // Subscribe to Firebase auth state changes
+    const unsubscribe = onAuthChange((user) => {
+      // If user is authenticated and we haven't loaded data yet
+      if (user && !isInitialized && !isLoadingRef.current) {
+        console.log('✅ User authenticated, loading data...');
+        setIsInitialized(true);
+        loadAllData();
+      } else if (!user) {
+        // User logged out - reset state
+        console.log('⚠️  User logged out, clearing data...');
+        setIsInitialized(false);
+        setClients([]);
+        setTemplates([]);
+        setReminders([]);
+        setLastFetchTime(null);
+        setLoading(false);
+        isLoadingRef.current = false;
       }
-    }, 2000); // Check once after 2 seconds
-    
-    return () => clearTimeout(timeout);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [isInitialized, loadAllData]);
 
   // Refresh clients only - load ALL clients (no pagination)
