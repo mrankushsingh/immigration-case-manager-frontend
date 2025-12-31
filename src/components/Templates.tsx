@@ -10,8 +10,8 @@ import { SkeletonTemplateCard } from './Skeleton';
 import { useData } from '../context/DataContext';
 
 export default function Templates() {
-  // Refresh context when templates are modified
-  const { refreshTemplates } = useData();
+  // Use cached templates from context (loaded once at app startup)
+  const { templates: cachedTemplates, refreshTemplates } = useData();
   const [templates, setTemplates] = useState<CaseTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -25,9 +25,46 @@ export default function Templates() {
   const [searchQuery, setSearchQuery] = useState('');
   const [, forceUpdate] = useState({});
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitialized = useRef(false);
 
-  // Memoize loadTemplates to prevent unnecessary re-renders
-  const loadTemplatesMemo = useCallback(async (reset: boolean = true) => {
+  // Initial load from cache (only once on mount)
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    if (searchQuery.trim()) return; // Don't initialize if searching
+    
+    if (cachedTemplates.length > 0) {
+      // Use cached templates, paginate locally
+      const initialTemplates = cachedTemplates.slice(0, LIMIT);
+      setTemplates(initialTemplates);
+      setTotal(cachedTemplates.length);
+      setHasMore(cachedTemplates.length > LIMIT);
+      setOffset(initialTemplates.length);
+      setLoading(false);
+      hasInitialized.current = true;
+    } else {
+      // If cache is empty on first load, make one API call
+      loadTemplatesFromAPI(true);
+      hasInitialized.current = true;
+    }
+  }, []); // Only run once on mount
+
+  // Update from cache when it refreshes (after mutations) - but only if not searching
+  useEffect(() => {
+    if (!hasInitialized.current) return; // Wait for initial load
+    if (searchQuery.trim()) return; // Don't update from cache if searching
+    
+    // Only update if cache length changed (indicates refresh after mutation)
+    if (cachedTemplates.length > 0 && cachedTemplates.length !== total) {
+      const initialTemplates = cachedTemplates.slice(0, LIMIT);
+      setTemplates(initialTemplates);
+      setTotal(cachedTemplates.length);
+      setHasMore(cachedTemplates.length > LIMIT);
+      setOffset(initialTemplates.length);
+    }
+  }, [cachedTemplates.length, total, searchQuery]); // Only depend on length, not the array itself
+
+  // Load templates from API (only when needed: search or cache empty)
+  const loadTemplatesFromAPI = useCallback(async (reset: boolean = true, searchTerm?: string) => {
     try {
       if (reset) {
         setLoading(true);
@@ -37,7 +74,6 @@ export default function Templates() {
       }
       
       const currentOffset = reset ? 0 : offset;
-      const searchTerm = searchQuery.trim() || undefined;
       const data = await api.getCaseTemplates(LIMIT, currentOffset, searchTerm);
       
       // Check if response has pagination structure
@@ -58,17 +94,14 @@ export default function Templates() {
         setTotal(data.length);
         setOffset(data.length);
       }
+      hasInitialized.current = true;
     } catch (error) {
       console.error('Failed to load templates:', error);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [offset, searchQuery]);
-
-  useEffect(() => {
-    loadTemplatesMemo(true);
-  }, [loadTemplatesMemo]);
+  }, [offset]);
 
   useEffect(() => {
     // Listen for language changes to force re-render
@@ -86,7 +119,18 @@ export default function Templates() {
   }, []);
 
   const handleLoadMore = () => {
-    loadTemplatesMemo(false);
+    if (searchQuery.trim()) {
+      // If searching, load from API
+      loadTemplatesFromAPI(false, searchQuery.trim());
+    } else {
+      // If not searching, load more from cache
+      const nextTemplates = cachedTemplates.slice(offset, offset + LIMIT);
+      if (nextTemplates.length > 0) {
+        setTemplates(prev => [...prev, ...nextTemplates]);
+        setOffset(offset + nextTemplates.length);
+        setHasMore(offset + nextTemplates.length < cachedTemplates.length);
+      }
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -99,8 +143,9 @@ export default function Templates() {
     
     try {
       await api.deleteCaseTemplate(deleteConfirm.templateId);
-      await refreshTemplates(); // Refresh context
-      await loadTemplatesMemo(true); // Reset pagination after delete
+      await refreshTemplates(); // Refresh context - will trigger useEffect to update from cache
+      // Reset pagination - useEffect will handle updating from refreshed cache
+      hasInitialized.current = false;
       showToast(`Template "${deleteConfirm.templateName}" deleted successfully`, 'success');
       setDeleteConfirm({ templateId: null, templateName: '', isOpen: false });
     } catch (error) {
@@ -168,17 +213,32 @@ export default function Templates() {
               
               // Debounce search: reload after 500ms of no typing
               searchTimeoutRef.current = setTimeout(() => {
-                loadTemplatesMemo(true);
+                if (value.trim()) {
+                  // Search requires API call
+                  loadTemplatesFromAPI(true, value.trim());
+                } else {
+                  // Clear search - use cached data
+                  const initialTemplates = cachedTemplates.slice(0, LIMIT);
+                  setTemplates(initialTemplates);
+                  setTotal(cachedTemplates.length);
+                  setHasMore(cachedTemplates.length > LIMIT);
+                  setOffset(initialTemplates.length);
+                }
               }, 500);
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
           />
           {searchQuery && (
             <button
-              onClick={() => {
-                setSearchQuery('');
-                loadTemplatesMemo(true);
-              }}
+            onClick={() => {
+              setSearchQuery('');
+              // Clear search - use cached data
+              const initialTemplates = cachedTemplates.slice(0, LIMIT);
+              setTemplates(initialTemplates);
+              setTotal(cachedTemplates.length);
+              setHasMore(cachedTemplates.length > LIMIT);
+              setOffset(initialTemplates.length);
+            }}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -202,7 +262,12 @@ export default function Templates() {
           <button
             onClick={() => {
               setSearchQuery('');
-              loadTemplatesMemo(true);
+              // Clear search - use cached data
+              const initialTemplates = cachedTemplates.slice(0, LIMIT);
+              setTemplates(initialTemplates);
+              setTotal(cachedTemplates.length);
+              setHasMore(cachedTemplates.length > LIMIT);
+              setOffset(initialTemplates.length);
             }}
             className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-amber-900 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-semibold hover:shadow-2xl transition-all shadow-xl"
             style={{ boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)' }}
@@ -312,8 +377,9 @@ export default function Templates() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={async () => {
             setShowCreateModal(false);
-            await refreshTemplates(); // Refresh context
-            loadTemplatesMemo(true); // Reset pagination after create
+            await refreshTemplates(); // Refresh context - will trigger useEffect to update from cache
+            // Reset pagination - useEffect will handle updating from refreshed cache
+            hasInitialized.current = false;
           }}
         />
       )}
@@ -324,8 +390,9 @@ export default function Templates() {
           onClose={() => setEditingTemplate(null)}
           onSuccess={async () => {
             setEditingTemplate(null);
-            await refreshTemplates(); // Refresh context
-            loadTemplatesMemo(true); // Reset pagination after update
+            await refreshTemplates(); // Refresh context - will trigger useEffect to update from cache
+            // Reset pagination - useEffect will handle updating from refreshed cache
+            hasInitialized.current = false;
           }}
         />
       )}
