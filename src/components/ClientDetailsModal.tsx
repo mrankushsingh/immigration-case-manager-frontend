@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare } from 'lucide-react';
 import JSZip from 'jszip';
 import { api } from '../utils/api';
@@ -12,7 +12,7 @@ interface Props {
   onSuccess: () => void | Promise<void>;
 }
 
-export default function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
+function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [clientData, setClientData] = useState<Client>(client);
   const [uploading, setUploading] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -4150,3 +4150,6 @@ export default function ClientDetailsModal({ client, onClose, onSuccess }: Props
     </div>
   );
 }
+
+// Wrap with React.memo for performance optimization
+export default memo(ClientDetailsModal);

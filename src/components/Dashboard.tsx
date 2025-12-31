@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
@@ -274,7 +274,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   void showUrgentesModal;
   void showPagosModal;
 
-  const handlePaymentsClick = () => {
+  const handlePaymentsClick = useCallback(() => {
     if (paymentsUnlocked) {
       setShowPagosModal(true);
     } else {
@@ -283,9 +283,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setPasscodeInput('');
       setPasscodeError('');
     }
-  };
+  }, [paymentsUnlocked]);
 
-  const handleOverviewClick = () => {
+  const handleOverviewClick = useCallback(() => {
     if (overviewUnlocked) {
       setShowOverviewModal(true);
     } else {
@@ -294,9 +294,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setPasscodeInput('');
       setPasscodeError('');
     }
-  };
+  }, [overviewUnlocked]);
 
-  const handlePasscodeSubmit = async (e: React.FormEvent) => {
+  const handlePasscodeSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setPasscodeError('');
     
@@ -322,7 +322,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setPasscodeError(error.message || 'Failed to verify passcode. Please try again.');
       setPasscodeInput('');
     }
-  };
+  }, [passcodeInput, unlockingFeature]);
 
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -553,7 +553,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     fetchTrendData();
   }, [showOverviewModal]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -600,7 +600,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Memoize expensive filter operations
   const submittedToAdmin = useMemo(() => 
