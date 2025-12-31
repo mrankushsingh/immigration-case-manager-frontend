@@ -105,10 +105,11 @@ export default function Clients() {
       }
 
       // Search from cached data by name only (no API call)
+      // Match from the start of the name (starts with)
       const searchTerm = searchQuery.trim().toLowerCase();
       const filtered = cachedClients.filter(client => {
         const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
-        return fullName.includes(searchTerm);
+        return fullName.startsWith(searchTerm);
       });
 
       setOffset(0);
@@ -134,7 +135,7 @@ export default function Clients() {
       const searchTerm = searchQuery.trim().toLowerCase();
       const filtered = cachedClients.filter(client => {
         const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
-        return fullName.includes(searchTerm);
+        return fullName.startsWith(searchTerm);
       });
       const nextClients = filtered.slice(offset, offset + LIMIT);
       if (nextClients.length > 0) {

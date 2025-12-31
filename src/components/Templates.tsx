@@ -104,10 +104,11 @@ export default function Templates() {
       }
 
       // Search from cached data by name only (no API call)
+      // Match from the start of the name (starts with)
       const searchTerm = searchQuery.trim().toLowerCase();
       const filtered = cachedTemplates.filter(template => {
         const name = (template.name || '').toLowerCase();
-        return name.includes(searchTerm);
+        return name.startsWith(searchTerm);
       });
 
       setOffset(0);
@@ -131,7 +132,7 @@ export default function Templates() {
       const searchTerm = searchQuery.trim().toLowerCase();
       const filtered = cachedTemplates.filter(template => {
         const name = (template.name || '').toLowerCase();
-        return name.includes(searchTerm);
+        return name.startsWith(searchTerm);
       });
       const nextTemplates = filtered.slice(offset, offset + LIMIT);
       if (nextTemplates.length > 0) {
