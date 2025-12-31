@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Users, Trash2, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { Client } from '../types';
@@ -24,66 +24,8 @@ export default function Clients() {
   const [, forceUpdate] = useState({});
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  // Reload data when page becomes visible (handles refresh and tab switching)
-  useEffect(() => {
-    let reloadTimeout: NodeJS.Timeout;
-    let lastReloadTime = 0;
-    const RELOAD_DEBOUNCE_MS = 2000; // Don't reload more than once every 2 seconds
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
-          clearTimeout(reloadTimeout);
-          reloadTimeout = setTimeout(() => {
-            loadClients();
-            lastReloadTime = Date.now();
-          }, 500);
-        }
-      }
-    };
-
-    const handleFocus = () => {
-      const now = Date.now();
-      if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
-        clearTimeout(reloadTimeout);
-        reloadTimeout = setTimeout(() => {
-          loadClients();
-          lastReloadTime = Date.now();
-        }, 500);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      clearTimeout(reloadTimeout);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
-
-  useEffect(() => {
-    // Listen for language changes to force re-render
-    const handleLanguageChange = () => {
-      forceUpdate({});
-    };
-    window.addEventListener('languagechange', handleLanguageChange);
-    return () => {
-      window.removeEventListener('languagechange', handleLanguageChange);
-      // Cleanup search timeout
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const loadClients = async (reset: boolean = true) => {
+  // Memoize loadClients to prevent unnecessary re-renders
+  const loadClientsMemo = useCallback(async (reset: boolean = true) => {
     try {
       if (reset) {
         setLoading(true);
@@ -120,10 +62,63 @@ export default function Clients() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [offset, searchQuery]);
+
+  useEffect(() => {
+    loadClientsMemo(true);
+  }, [loadClientsMemo]);
+
+  // Reload data when page becomes visible (handles refresh and tab switching)
+  // Increased debounce time to reduce excessive calls
+  useEffect(() => {
+    let reloadTimeout: NodeJS.Timeout;
+    let lastReloadTime = 0;
+    const RELOAD_DEBOUNCE_MS = 10000; // Increased to 10 seconds to prevent excessive reloads
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        // Only reload if more than 10 seconds have passed since last reload
+        if (now - lastReloadTime > RELOAD_DEBOUNCE_MS) {
+          clearTimeout(reloadTimeout);
+          reloadTimeout = setTimeout(() => {
+            loadClientsMemo(true);
+            lastReloadTime = Date.now();
+          }, 1000); // Increased delay to 1 second
+        }
+      }
+    };
+
+    // Removed focus handler - it was causing too many reloads
+    // Users can manually refresh if needed
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(reloadTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadClientsMemo]);
+
+  useEffect(() => {
+    // Listen for language changes to force re-render
+    const handleLanguageChange = () => {
+      forceUpdate({});
+    };
+    window.addEventListener('languagechange', handleLanguageChange);
+    return () => {
+      window.removeEventListener('languagechange', handleLanguageChange);
+      // Cleanup search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // loadClients is now defined above in useCallback
 
   const handleLoadMore = () => {
-    loadClients(false);
+    loadClientsMemo(false);
   };
 
   const handleDeleteClient = (client: Client, e: React.MouseEvent) => {
@@ -136,7 +131,7 @@ export default function Clients() {
     
     try {
       await api.deleteClient(deleteConfirm.client.id);
-      await loadClients(true); // Reset pagination after delete
+      await loadClientsMemo(true); // Reset pagination after delete
       showToast(`Client ${deleteConfirm.client.first_name} ${deleteConfirm.client.last_name} deleted successfully`, 'success');
       setDeleteConfirm({ client: null, isOpen: false });
     } catch (error: any) {
@@ -204,7 +199,7 @@ export default function Clients() {
               
               // Debounce search: reload after 500ms of no typing
               searchTimeoutRef.current = setTimeout(() => {
-                loadClients(true);
+                loadClientsMemo(true);
               }, 500);
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
@@ -213,7 +208,7 @@ export default function Clients() {
             <button
               onClick={() => {
                 setSearchQuery('');
-                loadClients(true);
+                loadClientsMemo(true);
               }}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800 transition-colors"
             >

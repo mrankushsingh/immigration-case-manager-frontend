@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Trash2, Edit, FileText, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate } from '../types';
@@ -23,26 +23,8 @@ export default function Templates() {
   const [, forceUpdate] = useState({});
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  useEffect(() => {
-    // Listen for language changes to force re-render
-    const handleLanguageChange = () => {
-      forceUpdate({});
-    };
-    window.addEventListener('languagechange', handleLanguageChange);
-    return () => {
-      window.removeEventListener('languagechange', handleLanguageChange);
-      // Cleanup search timeout
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const loadTemplates = async (reset: boolean = true) => {
+  // Memoize loadTemplates to prevent unnecessary re-renders
+  const loadTemplatesMemo = useCallback(async (reset: boolean = true) => {
     try {
       if (reset) {
         setLoading(true);
@@ -79,10 +61,29 @@ export default function Templates() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [offset, searchQuery]);
+
+  useEffect(() => {
+    loadTemplatesMemo(true);
+  }, [loadTemplatesMemo]);
+
+  useEffect(() => {
+    // Listen for language changes to force re-render
+    const handleLanguageChange = () => {
+      forceUpdate({});
+    };
+    window.addEventListener('languagechange', handleLanguageChange);
+    return () => {
+      window.removeEventListener('languagechange', handleLanguageChange);
+      // Cleanup search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleLoadMore = () => {
-    loadTemplates(false);
+    loadTemplatesMemo(false);
   };
 
   const handleDelete = (id: string) => {
@@ -95,7 +96,7 @@ export default function Templates() {
     
     try {
       await api.deleteCaseTemplate(deleteConfirm.templateId);
-      await loadTemplates(true); // Reset pagination after delete
+      await loadTemplatesMemo(true); // Reset pagination after delete
       showToast(`Template "${deleteConfirm.templateName}" deleted successfully`, 'success');
       setDeleteConfirm({ templateId: null, templateName: '', isOpen: false });
     } catch (error) {
@@ -163,7 +164,7 @@ export default function Templates() {
               
               // Debounce search: reload after 500ms of no typing
               searchTimeoutRef.current = setTimeout(() => {
-                loadTemplates(true);
+                loadTemplatesMemo(true);
               }, 500);
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
@@ -172,7 +173,7 @@ export default function Templates() {
             <button
               onClick={() => {
                 setSearchQuery('');
-                loadTemplates(true);
+                loadTemplatesMemo(true);
               }}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800 transition-colors"
             >
@@ -197,7 +198,7 @@ export default function Templates() {
           <button
             onClick={() => {
               setSearchQuery('');
-              loadTemplates(true);
+              loadTemplatesMemo(true);
             }}
             className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-amber-900 px-6 sm:px-8 py-3 sm:py-3.5 rounded-xl font-semibold hover:shadow-2xl transition-all shadow-xl"
             style={{ boxShadow: '0 4px 20px rgba(245, 158, 11, 0.4)' }}
@@ -307,7 +308,7 @@ export default function Templates() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
-            loadTemplates(true); // Reset pagination after create
+            loadTemplatesMemo(true); // Reset pagination after create
           }}
         />
       )}
@@ -318,7 +319,7 @@ export default function Templates() {
           onClose={() => setEditingTemplate(null)}
           onSuccess={() => {
             setEditingTemplate(null);
-            loadTemplates(true); // Reset pagination after update
+            loadTemplatesMemo(true); // Reset pagination after update
           }}
         />
       )}

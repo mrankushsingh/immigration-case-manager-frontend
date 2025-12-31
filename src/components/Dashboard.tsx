@@ -573,13 +573,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         return;
       }
       
+      // Load templates and reminders (clients loaded with pagination to reduce load)
+      // For dashboard, we only need a summary, so limit clients to reduce database load
       const [templatesData, clientsData, remindersData] = await Promise.all([
-        api.getCaseTemplates(),
-        api.getClients(),
+        api.getCaseTemplates(100, 0), // Limit to 100 templates
+        api.getClients(100, 0), // Limit to 100 clients for dashboard calculations
         api.getReminders(),
       ]);
-      setTemplates(templatesData);
-      setClients(clientsData);
+      
+      // Handle paginated responses
+      const templates = Array.isArray(templatesData) ? templatesData : (templatesData.templates || []);
+      const clients = Array.isArray(clientsData) ? clientsData : (clientsData.clients || []);
+      
+      setTemplates(templates);
+      setClients(clients);
       setReminders(remindersData);
     } catch (error: any) {
       console.error('❌ Failed to load data:', error);
