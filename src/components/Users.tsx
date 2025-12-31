@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users as UsersIcon, Trash2, Edit2, Shield, User as UserIcon, Mail, Calendar, CheckCircle, XCircle, Lock, Settings, Download, Upload, Archive, FileDown, RefreshCw, Database } from 'lucide-react';
+import { Plus, Users as UsersIcon, Trash2, Edit2, Shield, User as UserIcon, Mail, Calendar, CheckCircle, XCircle, Lock, Settings, Download, Upload, Archive, FileDown, RefreshCw } from 'lucide-react';
 import { api } from '../utils/api';
 import { User } from '../types';
 import ConfirmDialog from './ConfirmDialog';
@@ -23,10 +23,6 @@ export default function Users() {
   const [exportingData, setExportingData] = useState(false);
   const [importingData, setImportingData] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [copyingDatabase, setCopyingDatabase] = useState(false);
-  const [sourceDbUrl, setSourceDbUrl] = useState('');
-  const [destinationDbUrl, setDestinationDbUrl] = useState('');
-  const [skipDuplicates, setSkipDuplicates] = useState(true);
 
   useEffect(() => {
     loadUsers();
@@ -295,41 +291,6 @@ export default function Users() {
     }
   };
 
-  const handleCopyDatabase = async () => {
-    if (!sourceDbUrl.trim() || !destinationDbUrl.trim()) {
-      showToast('Please enter both source and destination database URLs', 'error');
-      return;
-    }
-
-    if (!confirm('Are you sure you want to copy all data from the source database to the destination? This may overwrite existing data.')) {
-      return;
-    }
-
-    try {
-      setCopyingDatabase(true);
-      const result = await api.copyDatabase(sourceDbUrl.trim(), destinationDbUrl.trim(), skipDuplicates);
-      const { results } = result;
-      const totalCopied = results.clients.copied + results.users.copied + results.templates.copied;
-      const totalSkipped = results.clients.skipped + results.users.skipped + results.templates.skipped;
-      const totalErrors = results.clients.errors.length + results.users.errors.length + results.templates.errors.length;
-      
-      showToast(
-        `Database copy completed: ${totalCopied} copied, ${totalSkipped} skipped, ${totalErrors} errors`,
-        totalErrors > 0 ? 'error' : 'success'
-      );
-      
-      if (totalErrors > 0) {
-        console.error('Copy errors:', results);
-      }
-      
-      setSourceDbUrl('');
-      setDestinationDbUrl('');
-    } catch (error: any) {
-      showToast(error.message || 'Failed to copy database', 'error');
-    } finally {
-      setCopyingDatabase(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -719,86 +680,6 @@ export default function Users() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* PostgreSQL Database Copy (Admin Only) */}
-      {isAdmin && (
-        <div className="glass-gold rounded-xl sm:rounded-2xl p-5 sm:p-6 border-2 border-amber-200/50 animate-slide-up">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-2.5 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl">
-              <Database className="w-5 h-5 text-purple-800" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900">PostgreSQL Database Copy</h3>
-              <p className="text-sm text-gray-600">Copy all data from one PostgreSQL database to another</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Source Database URL <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={sourceDbUrl}
-                onChange={(e) => setSourceDbUrl(e.target.value)}
-                placeholder="postgresql://user:password@host:port/database"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all font-mono text-sm"
-              />
-              <p className="mt-1 text-xs text-gray-500">Enter the PostgreSQL connection URL of the source database</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Destination Database URL <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={destinationDbUrl}
-                onChange={(e) => setDestinationDbUrl(e.target.value)}
-                placeholder="postgresql://user:password@host:port/database"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all font-mono text-sm"
-              />
-              <p className="mt-1 text-xs text-gray-500">Enter the PostgreSQL connection URL of the destination database</p>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="skipDuplicates"
-                checked={skipDuplicates}
-                onChange={(e) => setSkipDuplicates(e.target.checked)}
-                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-              />
-              <label htmlFor="skipDuplicates" className="text-sm text-gray-700">
-                Skip duplicates (existing records will not be overwritten)
-              </label>
-            </div>
-
-            <button
-              onClick={handleCopyDatabase}
-              disabled={copyingDatabase || !sourceDbUrl.trim() || !destinationDbUrl.trim()}
-              className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {copyingDatabase ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  Copying Database...
-                </>
-              ) : (
-                <>
-                  <Database className="w-5 h-5" />
-                  Copy Database
-                </>
-              )}
-            </button>
-            <p className="text-xs text-gray-500">
-              This will copy all clients, users, and templates from the source database to the destination database. 
-              Tables will be created automatically if they don't exist.
-            </p>
           </div>
         </div>
       )}
