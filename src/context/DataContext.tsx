@@ -86,29 +86,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Initial load - only once when user is authenticated
   useEffect(() => {
-    if (isInitialized) return;
+    // Prevent multiple runs
+    if (isInitialized || isLoadingRef.current) return;
     
-    const checkUser = () => {
-      const user = getCurrentUser();
-      if (user && !isLoadingRef.current) {
-        loadAllData();
-        setIsInitialized(true);
-      }
-    };
+    const user = getCurrentUser();
+    if (user) {
+      // Set initialized immediately to prevent re-runs
+      setIsInitialized(true);
+      // Load data
+      loadAllData();
+    } else {
+      // If no user, set loading to false
+      setLoading(false);
+    }
+  }, []); // Only run once on mount - no dependencies
+
+  // Listen for auth state changes (if user logs in after mount)
+  useEffect(() => {
+    if (isInitialized) return; // Already loaded
     
-    // Check immediately
-    checkUser();
-    
-    // Also listen for auth changes (in case user logs in after app loads)
-    const interval = setInterval(() => {
+    // Use a single check after a short delay to catch late auth
+    const timeout = setTimeout(() => {
       if (!isInitialized && !isLoadingRef.current) {
-        checkUser();
-      } else if (isInitialized) {
-        clearInterval(interval);
+        const user = getCurrentUser();
+        if (user) {
+          setIsInitialized(true);
+          loadAllData();
+        }
       }
-    }, 1000); // Check every second until initialized
+    }, 2000); // Check once after 2 seconds
     
-    return () => clearInterval(interval);
+    return () => clearTimeout(timeout);
   }, [isInitialized, loadAllData]);
 
   // Refresh clients only - load ALL clients (no pagination)

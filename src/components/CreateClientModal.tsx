@@ -3,6 +3,7 @@ import { X, UserPlus, AlertCircle, Search, ChevronDown } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate } from '../types';
 import { showToast } from './Toast';
+import { useData } from '../context/DataContext';
 
 interface Props {
   onClose: () => void;
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export default function CreateClientModal({ onClose, onSuccess }: Props) {
+  // Use cached templates from DataContext (no API call needed)
+  const { templates } = useData();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -20,16 +23,11 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
     totalFee: '',
     details: '',
   });
-  const [templates, setTemplates] = useState<CaseTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [templateSearchQuery, setTemplateSearchQuery] = useState('');
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const templateDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    loadTemplates();
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -48,7 +46,7 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
     };
   }, [showTemplateDropdown]);
 
-  const filteredTemplates = templates.filter((template) => {
+  const filteredTemplates = templates.filter((template: CaseTemplate) => {
     if (!templateSearchQuery.trim()) return true;
     const query = templateSearchQuery.toLowerCase();
     const name = (template.name || '').toLowerCase();
@@ -57,16 +55,7 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
     return name.startsWith(query) || description.startsWith(query);
   });
 
-  const selectedTemplate = templates.find(t => t.id === formData.caseTemplateId);
-
-  const loadTemplates = async () => {
-    try {
-      const data = await api.getCaseTemplates();
-      setTemplates(data);
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-    }
-  };
+  const selectedTemplate = templates.find((t: CaseTemplate) => t.id === formData.caseTemplateId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,7 +276,7 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
                                 >
                                   None (optional)
                                 </button>
-                                {filteredTemplates.map((template) => (
+                                {filteredTemplates.map((template: CaseTemplate) => (
                                   <button
                                     key={template.id}
                                     type="button"

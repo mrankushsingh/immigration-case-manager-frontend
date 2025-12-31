@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Bell, X, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { api } from '../utils/api';
 import { Client, Reminder as ReminderType } from '../types';
+import { useData } from '../context/DataContext';
 
 interface Reminder {
   client: Client;
@@ -17,9 +18,11 @@ interface Props {
 }
 
 export default function Notifications({ onClientClick, onReminderClick }: Props) {
+  // Use cached data from DataContext (no API calls needed)
+  const { clients: cachedClients, reminders: cachedReminders } = useData();
   const [isOpen, setIsOpen] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showPopups, setShowPopups] = useState(true);
   
   // Load read reminders from localStorage on mount (kept for unread count calculation)
@@ -71,29 +74,18 @@ export default function Notifications({ onClientClick, onReminderClick }: Props)
     }
   }, [dismissedReminders]);
 
+  // Update reminders when cached data changes
   useEffect(() => {
-    loadReminders();
-    // Increase interval to 2 minutes to reduce performance impact
-    // Use requestIdleCallback if available for better performance
-    const interval = setInterval(() => {
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => {
-          loadReminders();
-        }, { timeout: 5000 });
-      } else {
-        loadReminders();
-      }
-    }, 120000); // Check every 2 minutes instead of 1 minute
-    return () => clearInterval(interval);
-  }, []);
+    if (cachedClients.length > 0 || cachedReminders.length > 0) {
+      loadReminders();
+    }
+  }, [cachedClients.length, cachedReminders.length]); // Re-process when cache updates
 
-  const loadReminders = async () => {
+  const loadReminders = () => {
     try {
-      setLoading(true);
-      const [clients, recordatorioReminders] = await Promise.all([
-        api.getClients(),
-        api.getReminders(),
-      ]);
+      // Use cached data from DataContext (no API calls)
+      const clients = cachedClients;
+      const recordatorioReminders = cachedReminders;
       const newReminders: Reminder[] = [];
 
       clients.forEach((client: Client) => {
@@ -441,7 +433,7 @@ export default function Notifications({ onClientClick, onReminderClick }: Props)
                             // It's a RECORDATORIO reminder - fetch full reminder details and show modal
                             try {
                               const reminderId = reminder.client.id.replace('reminder_', '');
-                              const allReminders = await api.getReminders();
+                              const allReminders = cachedReminders; // Use cached data
                               const fullReminder = allReminders.find((r: ReminderType) => r.id === reminderId);
                               if (fullReminder) {
                                 setSelectedReminder(fullReminder);

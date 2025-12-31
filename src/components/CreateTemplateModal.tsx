@@ -3,6 +3,7 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import { api } from '../utils/api';
 import { RequiredDocument, CaseTemplate } from '../types';
 import { showToast } from './Toast';
+import { useData } from '../context/DataContext';
 
 interface Props {
   onClose: () => void;
@@ -67,6 +68,8 @@ const PREDEFINED_DOCUMENT_NAMES = [
 ];
 
 export default function CreateTemplateModal({ onClose, onSuccess, template }: Props) {
+  // Use cached templates from DataContext (no API call needed)
+  const { templates: cachedTemplates } = useData();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -92,9 +95,10 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
     }
     
     // Load all document names from existing templates and merge with predefined names
-    const loadDocumentNames = async () => {
+    const loadDocumentNames = () => {
       try {
-        const templates = await api.getCaseTemplates();
+        // Use cached templates from DataContext (no API call)
+        const templates = cachedTemplates;
         const documentNames = new Set<string>(PREDEFINED_DOCUMENT_NAMES);
         
         // Add document names from existing templates
