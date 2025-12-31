@@ -78,6 +78,13 @@ export default defineConfig({
           if (id.includes('components/')) {
             return 'components';
           }
+        },
+        // Ensure react-vendor is loaded before other chunks
+        chunkFileNames: (chunkInfo) => {
+          if (chunkInfo.name === 'react-vendor') {
+            return 'assets/react-vendor-[hash].js';
+          }
+          return 'assets/[name]-[hash].js';
         }
       }
     },

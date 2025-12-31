@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare } from 'lucide-react';
 import JSZip from 'jszip';
 import { api } from '../utils/api';
@@ -4152,4 +4152,4 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 }
 
 // Wrap with React.memo for performance optimization
-export default memo(ClientDetailsModal);
+export default React.memo(ClientDetailsModal);
