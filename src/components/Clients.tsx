@@ -22,6 +22,7 @@ export default function Clients() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ client: Client | null; isOpen: boolean }>({ client: null, isOpen: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [, forceUpdate] = useState({});
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadClients();
