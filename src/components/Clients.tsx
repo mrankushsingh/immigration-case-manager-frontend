@@ -82,12 +82,13 @@ export default function Clients() {
         // Paginated response
         if (reset) {
           setClients(data.clients);
+          setOffset(data.clients.length);
         } else {
           setClients(prev => [...prev, ...data.clients]);
+          setOffset(prev => prev + data.clients.length);
         }
         setHasMore(data.hasMore || false);
         setTotal(data.total || 0);
-        setOffset(currentOffset + data.clients.length);
       } else if (Array.isArray(data)) {
         // Legacy response (all clients)
         setClients(data);
@@ -98,6 +99,7 @@ export default function Clients() {
       hasInitialized.current = true;
     } catch (error) {
       console.error('Failed to load clients:', error);
+      showToast('Failed to search clients', 'error');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -118,6 +120,39 @@ export default function Clients() {
       }
     };
   }, []);
+
+  // Handle search query changes with proper debouncing
+  useEffect(() => {
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // If search query is empty, reset to cached data immediately
+    if (!searchQuery.trim()) {
+      if (hasInitialized.current && cachedClients.length > 0) {
+        setOffset(0);
+        const initialClients = cachedClients.slice(0, LIMIT);
+        setClients(initialClients);
+        setTotal(cachedClients.length);
+        setHasMore(cachedClients.length > LIMIT);
+        setOffset(initialClients.length);
+      }
+      return;
+    }
+
+    // Debounce search API call
+    searchTimeoutRef.current = setTimeout(() => {
+      setOffset(0);
+      loadClientsFromAPI(true, searchQuery.trim());
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, cachedClients.length, loadClientsFromAPI]);
 
   // loadClients is now defined above in useCallback
 
@@ -206,28 +241,8 @@ export default function Clients() {
             placeholder="Search clients by name, email, phone, case type..."
             value={searchQuery}
             onChange={(e) => {
-              const value = e.target.value;
-              setSearchQuery(value);
-              
-              // Clear existing timeout
-              if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-              }
-              
-              // Debounce search: reload after 500ms of no typing
-              searchTimeoutRef.current = setTimeout(() => {
-                if (value.trim()) {
-                  // Search requires API call
-                  loadClientsFromAPI(true, value.trim());
-                } else {
-                  // Clear search - use cached data
-                  const initialClients = cachedClients.slice(0, LIMIT);
-                  setClients(initialClients);
-                  setTotal(cachedClients.length);
-                  setHasMore(cachedClients.length > LIMIT);
-                  setOffset(initialClients.length);
-                }
-              }, 500);
+              setSearchQuery(e.target.value);
+              // useEffect will handle the debounced search
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
           />
@@ -235,6 +250,7 @@ export default function Clients() {
             <button
             onClick={() => {
               setSearchQuery('');
+              setOffset(0);
               // Clear search - use cached data
               const initialClients = cachedClients.slice(0, LIMIT);
               setClients(initialClients);
@@ -265,6 +281,7 @@ export default function Clients() {
           <button
             onClick={() => {
               setSearchQuery('');
+              setOffset(0);
               // Clear search - use cached data
               const initialClients = cachedClients.slice(0, LIMIT);
               setClients(initialClients);

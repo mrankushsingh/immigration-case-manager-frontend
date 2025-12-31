@@ -81,12 +81,13 @@ export default function Templates() {
         // Paginated response
         if (reset) {
           setTemplates(data.templates);
+          setOffset(data.templates.length);
         } else {
           setTemplates(prev => [...prev, ...data.templates]);
+          setOffset(prev => prev + data.templates.length);
         }
         setHasMore(data.hasMore || false);
         setTotal(data.total || 0);
-        setOffset(currentOffset + data.templates.length);
       } else if (Array.isArray(data)) {
         // Legacy response (all templates)
         setTemplates(data);
@@ -97,6 +98,7 @@ export default function Templates() {
       hasInitialized.current = true;
     } catch (error) {
       console.error('Failed to load templates:', error);
+      showToast('Failed to search templates', 'error');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -117,6 +119,39 @@ export default function Templates() {
       }
     };
   }, []);
+
+  // Handle search query changes with proper debouncing
+  useEffect(() => {
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // If search query is empty, reset to cached data immediately
+    if (!searchQuery.trim()) {
+      if (hasInitialized.current && cachedTemplates.length > 0) {
+        setOffset(0);
+        const initialTemplates = cachedTemplates.slice(0, LIMIT);
+        setTemplates(initialTemplates);
+        setTotal(cachedTemplates.length);
+        setHasMore(cachedTemplates.length > LIMIT);
+        setOffset(initialTemplates.length);
+      }
+      return;
+    }
+
+    // Debounce search API call
+    searchTimeoutRef.current = setTimeout(() => {
+      setOffset(0);
+      loadTemplatesFromAPI(true, searchQuery.trim());
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, cachedTemplates.length, loadTemplatesFromAPI]);
 
   const handleLoadMore = () => {
     if (searchQuery.trim()) {
@@ -203,28 +238,8 @@ export default function Templates() {
             placeholder="Search templates by name or description..."
             value={searchQuery}
             onChange={(e) => {
-              const value = e.target.value;
-              setSearchQuery(value);
-              
-              // Clear existing timeout
-              if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-              }
-              
-              // Debounce search: reload after 500ms of no typing
-              searchTimeoutRef.current = setTimeout(() => {
-                if (value.trim()) {
-                  // Search requires API call
-                  loadTemplatesFromAPI(true, value.trim());
-                } else {
-                  // Clear search - use cached data
-                  const initialTemplates = cachedTemplates.slice(0, LIMIT);
-                  setTemplates(initialTemplates);
-                  setTotal(cachedTemplates.length);
-                  setHasMore(cachedTemplates.length > LIMIT);
-                  setOffset(initialTemplates.length);
-                }
-              }, 500);
+              setSearchQuery(e.target.value);
+              // useEffect will handle the debounced search
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
           />
@@ -232,6 +247,7 @@ export default function Templates() {
             <button
             onClick={() => {
               setSearchQuery('');
+              setOffset(0);
               // Clear search - use cached data
               const initialTemplates = cachedTemplates.slice(0, LIMIT);
               setTemplates(initialTemplates);
@@ -262,6 +278,7 @@ export default function Templates() {
           <button
             onClick={() => {
               setSearchQuery('');
+              setOffset(0);
               // Clear search - use cached data
               const initialTemplates = cachedTemplates.slice(0, LIMIT);
               setTemplates(initialTemplates);
