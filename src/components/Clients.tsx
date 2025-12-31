@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Users, Trash2, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { Client } from '../types';
@@ -75,6 +75,10 @@ export default function Clients() {
     window.addEventListener('languagechange', handleLanguageChange);
     return () => {
       window.removeEventListener('languagechange', handleLanguageChange);
+      // Cleanup search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -88,7 +92,8 @@ export default function Clients() {
       }
       
       const currentOffset = reset ? 0 : offset;
-      const data = await api.getClients(LIMIT, currentOffset);
+      const searchTerm = searchQuery.trim() || undefined;
+      const data = await api.getClients(LIMIT, currentOffset, searchTerm);
       
       // Check if response has pagination structure
       if (data.clients && Array.isArray(data.clients)) {
@@ -139,23 +144,8 @@ export default function Clients() {
     }
   };
 
-  const filteredClients = clients.filter((client) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    const fullName = `${client.first_name} ${client.last_name}`.toLowerCase();
-    const email = (client.email || '').toLowerCase();
-    const phone = (client.phone || '').toLowerCase();
-    const caseType = (client.case_type || '').toLowerCase();
-    const parentName = (client.parent_name || '').toLowerCase();
-    
-    return (
-      fullName.startsWith(query) ||
-      email.startsWith(query) ||
-      phone.startsWith(query) ||
-      caseType.startsWith(query) ||
-      parentName.startsWith(query)
-    );
-  });
+  // Use clients directly from API (already filtered by backend)
+  const filteredClients = clients;
 
   if (loading) {
     return (
@@ -203,11 +193,18 @@ export default function Clients() {
             placeholder="Search clients by name, email, phone, case type..."
             value={searchQuery}
             onChange={(e) => {
-              setSearchQuery(e.target.value);
-              // Reset pagination when searching
-              if (e.target.value.trim() === '') {
-                loadClients(true);
+              const value = e.target.value;
+              setSearchQuery(value);
+              
+              // Clear existing timeout
+              if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
               }
+              
+              // Debounce search: reload after 500ms of no typing
+              searchTimeoutRef.current = setTimeout(() => {
+                loadClients(true);
+              }, 500);
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
           />
@@ -225,7 +222,7 @@ export default function Clients() {
         </div>
         {searchQuery && (
           <p className="mt-2 text-sm text-amber-700/70">
-            Found {filteredClients.length} {filteredClients.length === 1 ? 'client' : 'clients'}
+            Found {total} {total === 1 ? 'client' : 'clients'} {total > filteredClients.length ? `(showing ${filteredClients.length})` : ''}
           </p>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Edit, FileText, Search, X } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate } from '../types';
@@ -21,6 +21,7 @@ export default function Templates() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ templateId: string | null; templateName: string; isOpen: boolean }>({ templateId: null, templateName: '', isOpen: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [, forceUpdate] = useState({});
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadTemplates();
@@ -34,6 +35,10 @@ export default function Templates() {
     window.addEventListener('languagechange', handleLanguageChange);
     return () => {
       window.removeEventListener('languagechange', handleLanguageChange);
+      // Cleanup search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -47,7 +52,8 @@ export default function Templates() {
       }
       
       const currentOffset = reset ? 0 : offset;
-      const data = await api.getCaseTemplates(LIMIT, currentOffset);
+      const searchTerm = searchQuery.trim() || undefined;
+      const data = await api.getCaseTemplates(LIMIT, currentOffset, searchTerm);
       
       // Check if response has pagination structure
       if (data.templates && Array.isArray(data.templates)) {
@@ -98,14 +104,8 @@ export default function Templates() {
     }
   };
 
-  const filteredTemplates = templates.filter((template) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    const name = (template.name || '').toLowerCase();
-    const description = (template.description || '').toLowerCase();
-    
-    return name.startsWith(query) || description.startsWith(query);
-  });
+  // Use templates directly from API (already filtered by backend)
+  const filteredTemplates = templates;
 
   if (loading) {
     return (
@@ -153,11 +153,18 @@ export default function Templates() {
             placeholder="Search templates by name or description..."
             value={searchQuery}
             onChange={(e) => {
-              setSearchQuery(e.target.value);
-              // Reset pagination when searching
-              if (e.target.value.trim() === '') {
-                loadTemplates(true);
+              const value = e.target.value;
+              setSearchQuery(value);
+              
+              // Clear existing timeout
+              if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
               }
+              
+              // Debounce search: reload after 500ms of no typing
+              searchTimeoutRef.current = setTimeout(() => {
+                loadTemplates(true);
+              }, 500);
             }}
             className="w-full pl-12 pr-12 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-900 placeholder-amber-400 bg-white/50 backdrop-blur-sm"
           />
@@ -175,7 +182,7 @@ export default function Templates() {
         </div>
         {searchQuery && (
           <p className="mt-2 text-sm text-amber-700/70">
-            Found {filteredTemplates.length} {filteredTemplates.length === 1 ? 'template' : 'templates'}
+            Found {total} {total === 1 ? 'template' : 'templates'} {total > filteredTemplates.length ? `(showing ${filteredTemplates.length})` : ''}
           </p>
         )}
       </div>
