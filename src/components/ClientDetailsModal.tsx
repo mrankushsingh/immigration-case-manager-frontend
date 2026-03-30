@@ -1207,11 +1207,12 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   const handleAllDocumentsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    e.target.value = '';
-    if (!fileList?.length) return;
-    // Immediate feedback so we can confirm the handler fired.
-    showToast(`Selected ${fileList.length} file(s) for upload`, 'success');
+    const input = e.target;
+    // Copy files first: `input.files` is a live FileList — clearing `input.value` empties it,
+    // so clearing before reading causes silent "no files" and no upload/toast.
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (!files.length) return;
     let userNameForUpload = currentUserName;
     if (!userNameForUpload?.trim()) {
       try {
@@ -1226,7 +1227,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       showToast('Could not resolve user for upload. Please wait a moment and try again.', 'error');
       return;
     }
-    const files = Array.from(fileList);
     const existingAll = (clientData.additional_documents || []).filter((d) => d.allDocumentsSection).length;
     if (existingAll + files.length > 15) {
       showToast(
@@ -2542,7 +2542,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           })()}
         </div>
 
-        {/* All Documents — multi-file upload (max 15), filenames preserved */}
+        {/* All Documents — direct multi-file upload only (no name/description/reminder form) */}
         <div className="mb-6 p-5 bg-gradient-to-br from-slate-50/80 to-white rounded-xl border border-gray-200 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
             <div>
@@ -2551,7 +2551,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 <span>All Documents</span>
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Upload up to 15 files at once. Stored names match your original filenames.
+                Pick files to upload — no document name, description, or reminders. Up to 15 files; each file keeps its
+                original filename.
               </p>
             </div>
             <div>
@@ -2590,11 +2591,13 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
                         <FileText className="w-5 h-5 text-teal-600 shrink-0" />
-                        <h4 className="font-semibold text-gray-900 truncate">{doc.name}</h4>
+                        <h4 className="font-semibold text-gray-900 truncate">
+                          {doc.fileName || doc.name}
+                        </h4>
                       </div>
                       {doc.fileUrl && doc.fileName ? (
                         <p className="text-xs text-gray-500">
-                          {doc.fileName} ({doc.fileSize ? `${(doc.fileSize / 1024).toFixed(2)} KB` : 'N/A'})
+                          {doc.fileSize ? `${(doc.fileSize / 1024).toFixed(2)} KB` : 'Uploaded'}
                         </p>
                       ) : (
                         <p className="text-xs text-amber-600">File pending</p>
