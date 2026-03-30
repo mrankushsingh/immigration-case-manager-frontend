@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://your-backend-url.onrender.com/api/$1"
+    }
+  ]
+}
+
