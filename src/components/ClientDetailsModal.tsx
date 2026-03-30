@@ -1255,6 +1255,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         // Same API call as "Additional Documents" → create with file (multipart POST /additional-documents).
         await api.uploadAdditionalDocument(client.id, displayName, '', file, userNameForUpload, {
           allDocumentsSection: true,
+          reminderDays: 10,
         });
       }
       await loadClient();
@@ -1352,7 +1353,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
             additionalDocForm.name,
             additionalDocForm.description,
             additionalDocForm.file,
-            currentUserName
+            currentUserName,
+            { reminderDays: additionalDocForm.reminder_days }
           );
         } else {
           // Update reminder only
@@ -1395,7 +1397,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
             additionalDocForm.name,
             additionalDocForm.description,
             additionalDocForm.file,
-            currentUserName
+            currentUserName,
+            { reminderDays: additionalDocForm.reminder_days }
           );
           setAdditionalDocForm({ name: '', description: '', file: null, reminder_days: 10 });
           setShowAdditionalDocForm(false);

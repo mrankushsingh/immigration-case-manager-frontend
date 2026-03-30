@@ -223,13 +223,15 @@ export const api = {
     description: string,
     file: File,
     userName: string,
-    options?: { allDocumentsSection?: boolean }
+    options?: { allDocumentsSection?: boolean; reminderDays?: number }
   ) {
     const formData = new FormData();
     // Non-file fields MUST be appended before the file — @fastify/busboy parses in order;
     // fields after the file can fail to bind when the file is consumed first.
     formData.append('name', name);
+    formData.append('fileName', file.name);
     formData.append('userName', userName);
+    formData.append('reminder_days', String(options?.reminderDays ?? 10));
     if (description) {
       formData.append('description', description);
     }
