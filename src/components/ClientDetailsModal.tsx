@@ -1537,7 +1537,19 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       }
 
       const mimeType = response.headers.get('content-type') || undefined;
-      const blob = await response.blob();
+      const isPdfByName = fileName.toLowerCase().endsWith('.pdf');
+
+      // Read bytes to avoid “blank white iframe” when server returns HTML/JSON.
+      const buf = await response.arrayBuffer();
+      const first5 = new TextDecoder('utf-8').decode(buf.slice(0, 5));
+      if (isPdfByName && first5 !== '%PDF-') {
+        const shortType = mimeType ? mimeType.split(';')[0] : 'unknown';
+        throw new Error(`Preview failed: server did not return a PDF (content-type: ${shortType})`);
+      }
+
+      const blob = new Blob([buf], {
+        type: isPdfByName ? 'application/pdf' : mimeType || 'application/octet-stream',
+      });
       const blobUrl = URL.createObjectURL(blob);
       setViewingDocument({
         url: blobUrl,
