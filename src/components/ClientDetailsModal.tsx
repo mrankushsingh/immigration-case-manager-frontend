@@ -25,15 +25,26 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
       return fileUrl;
     }
-    // Prefer the current origin for static `/uploads/...` files.
-    // This avoids cases where `VITE_API_URL` points to a host that isn't reachable from the browser.
+
+    // Build backend origin from VITE_API_URL when available (e.g. https://api.berliku.me/api -> https://api.berliku.me).
+    const apiUrl = (import.meta.env.VITE_API_URL || '').trim();
+    let backendOrigin = '';
+    if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {
+      try {
+        backendOrigin = new URL(apiUrl).origin;
+      } catch {
+        backendOrigin = '';
+      }
+    }
+
+    // Uploaded files are served from the backend at /uploads/...
     if (fileUrl.startsWith('/uploads/')) {
-      return window.location.origin + fileUrl;
+      return (backendOrigin || window.location.origin) + fileUrl;
     }
-    // Support "uploads/..." without leading slash.
     if (fileUrl.startsWith('uploads/')) {
-      return window.location.origin + '/' + fileUrl;
+      return (backendOrigin || window.location.origin) + '/' + fileUrl;
     }
+
     return fileUrl;
   };
   const [showPaymentForm, setShowPaymentForm] = useState(false);
