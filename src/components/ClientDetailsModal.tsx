@@ -28,6 +28,17 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     return fileUrl;
   };
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showEditPaymentSummary, setShowEditPaymentSummary] = useState(false);
+  const [paymentSummaryForm, setPaymentSummaryForm] = useState({ totalFee: '', paidAmount: '' });
+  const [savingPaymentSummary, setSavingPaymentSummary] = useState(false);
+  const [editingPaymentIndex, setEditingPaymentIndex] = useState<number | null>(null);
+  const [editPaymentLineForm, setEditPaymentLineForm] = useState({
+    amount: '',
+    method: 'Cash',
+    note: '',
+    date: '',
+  });
+  const [savingPaymentLine, setSavingPaymentLine] = useState(false);
   const [showAdditionalDocForm, setShowAdditionalDocForm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', note: '' });
   const [additionalDocForm, setAdditionalDocForm] = useState({ name: '', description: '', file: null as File | null, reminder_days: 10 });
@@ -1095,6 +1106,105 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
+  const openEditPaymentSummary = () => {
+    setPaymentSummaryForm({
+      totalFee: String(clientData.payment?.totalFee ?? 0),
+      paidAmount: String(clientData.payment?.paidAmount ?? 0),
+    });
+    setShowEditPaymentSummary(true);
+    setShowPaymentForm(false);
+    setEditingPaymentIndex(null);
+  };
+
+  const handleSavePaymentSummary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPaymentSummary(true);
+    setError('');
+    try {
+      const totalFee = parseFloat(paymentSummaryForm.totalFee) || 0;
+      const paidAmount = parseFloat(paymentSummaryForm.paidAmount) || 0;
+      if (totalFee < 0 || paidAmount < 0) {
+        setError('Amounts cannot be negative');
+        showToast('Amounts cannot be negative', 'error');
+        return;
+      }
+      await api.updateClient(client.id, {
+        payment: {
+          ...clientData.payment,
+          totalFee,
+          paidAmount,
+          payments: clientData.payment?.payments || [],
+        },
+      });
+      await loadClient();
+      setShowEditPaymentSummary(false);
+      onSuccess();
+      showToast('Payment summary updated', 'success');
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to update payment summary';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
+    } finally {
+      setSavingPaymentSummary(false);
+    }
+  };
+
+  const openEditPaymentLine = (index: number) => {
+    const p = clientData.payment?.payments?.[index];
+    if (!p) return;
+    const d = new Date(p.date);
+    const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+    const local = new Date(safe.getTime() - safe.getTimezoneOffset() * 60000);
+    setEditPaymentLineForm({
+      amount: String(p.amount),
+      method: p.method || 'Cash',
+      note: p.note || '',
+      date: local.toISOString().slice(0, 16),
+    });
+    setEditingPaymentIndex(index);
+    setShowPaymentForm(false);
+  };
+
+  const handleSavePaymentLine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingPaymentIndex === null) return;
+    setSavingPaymentLine(true);
+    setError('');
+    try {
+      const amount = parseFloat(editPaymentLineForm.amount);
+      if (!amount || amount <= 0) {
+        setError('Please enter a valid amount');
+        showToast('Please enter a valid amount', 'error');
+        return;
+      }
+      const payments = [...(clientData.payment?.payments || [])];
+      payments[editingPaymentIndex] = {
+        amount,
+        method: editPaymentLineForm.method,
+        note: editPaymentLineForm.note.trim() || undefined,
+        date: new Date(editPaymentLineForm.date).toISOString(),
+      };
+      const paidAmount = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      await api.updateClient(client.id, {
+        payment: {
+          ...clientData.payment,
+          payments,
+          paidAmount,
+        },
+      });
+      await loadClient();
+      setEditingPaymentIndex(null);
+      onSuccess();
+      showToast('Payment entry updated', 'success');
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to update payment';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
+    } finally {
+      setSavingPaymentLine(false);
+    }
+  };
+
   const handleSaveNotes = async () => {
     setSavingNotes(true);
     setError('');
@@ -2067,7 +2177,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                     </div>
                     <span>Payments</span>
                   </h3>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {remainingAmount > 0 && (
                       <button
                         onClick={handleOpenReminderCalendar}
@@ -2089,7 +2199,22 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                       </button>
                     )}
                     <button
-                      onClick={() => setShowPaymentForm(!showPaymentForm)}
+                      type="button"
+                      onClick={() => {
+                        if (showEditPaymentSummary) setShowEditPaymentSummary(false);
+                        else openEditPaymentSummary();
+                      }}
+                      className="px-4 py-2 bg-white border border-green-600 text-green-700 text-sm rounded-lg hover:bg-green-50 transition-colors flex items-center space-x-2"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      <span>{showEditPaymentSummary ? 'Close editor' : 'Edit summary'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPaymentForm(!showPaymentForm);
+                        setShowEditPaymentSummary(false);
+                        setEditingPaymentIndex(null);
+                      }}
                       className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
                     >
                       <Plus className="w-4 h-4" />
@@ -2097,6 +2222,57 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                     </button>
                   </div>
                 </div>
+
+          {showEditPaymentSummary && (
+            <form onSubmit={handleSavePaymentSummary} className="mb-4 p-4 bg-white rounded-lg border-2 border-green-200 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">Edit payment summary</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total fee (€)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={paymentSummaryForm.totalFee}
+                    onChange={(e) => setPaymentSummaryForm({ ...paymentSummaryForm, totalFee: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Paid amount (€)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={paymentSummaryForm.paidAmount}
+                    onChange={(e) => setPaymentSummaryForm({ ...paymentSummaryForm, paidAmount: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                If you have payment history entries, the server keeps paid amount at least equal to the sum of those entries.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditPaymentSummary(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPaymentSummary}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50"
+                >
+                  {savingPaymentSummary ? 'Saving…' : 'Save summary'}
+                </button>
+              </div>
+            </form>
+          )}
 
           {showPaymentForm && (
             <form onSubmit={handleAddPayment} className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
@@ -2188,13 +2364,95 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 <h4 className="text-sm font-semibold text-gray-900 mb-2">Payment History</h4>
                 <div className="space-y-2">
                   {clientData.payment.payments.map((payment: any, index: number) => (
-                    <div key={index} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-sm bg-gray-50 p-2 sm:p-3 rounded">
-                      <div>
-                        <span className="font-medium">€{payment.amount}</span>
-                        <span className="text-gray-600 ml-2">via {payment.method}</span>
-                        {payment.note && <span className="text-gray-500 ml-2">- {payment.note}</span>}
-                      </div>
-                      <span className="text-gray-500">{new Date(payment.date).toLocaleDateString()}</span>
+                    <div key={index} className="text-sm bg-gray-50 p-2 sm:p-3 rounded border border-transparent hover:border-green-200">
+                      {editingPaymentIndex === index ? (
+                        <form onSubmit={handleSavePaymentLine} className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Amount (€)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                required
+                                value={editPaymentLineForm.amount}
+                                onChange={(e) => setEditPaymentLineForm({ ...editPaymentLineForm, amount: e.target.value })}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Method</label>
+                              <select
+                                value={editPaymentLineForm.method}
+                                onChange={(e) => setEditPaymentLineForm({ ...editPaymentLineForm, method: e.target.value })}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                              >
+                                <option value="Cash">Cash</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Credit Card">Credit Card</option>
+                                <option value="PayPal">PayPal</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Date & time</label>
+                              <input
+                                type="datetime-local"
+                                required
+                                value={editPaymentLineForm.date}
+                                onChange={(e) => setEditPaymentLineForm({ ...editPaymentLineForm, date: e.target.value })}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Note (optional)</label>
+                              <input
+                                type="text"
+                                value={editPaymentLineForm.note}
+                                onChange={(e) => setEditPaymentLineForm({ ...editPaymentLineForm, note: e.target.value })}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingPaymentIndex(null)}
+                              className="px-3 py-1.5 text-gray-700 bg-gray-100 rounded-lg text-xs"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={savingPaymentLine}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs disabled:opacity-50"
+                            >
+                              {savingPaymentLine ? 'Saving…' : 'Save entry'}
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                          <div>
+                            <span className="font-medium">€{payment.amount}</span>
+                            <span className="text-gray-600 ml-2">via {payment.method}</span>
+                            {payment.note && <span className="text-gray-500 ml-2">- {payment.note}</span>}
+                            <div className="text-gray-500 text-xs mt-1">{new Date(payment.date).toLocaleString()}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPaymentForm(false);
+                              setShowEditPaymentSummary(false);
+                              openEditPaymentLine(index);
+                            }}
+                            className="shrink-0 px-2 py-1 text-green-700 bg-green-50 hover:bg-green-100 rounded-lg flex items-center gap-1 text-xs font-medium"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
