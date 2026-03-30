@@ -224,7 +224,8 @@ export const api = {
     options?: { allDocumentsSection?: boolean }
   ) {
     const formData = new FormData();
-    formData.append('file', file);
+    // Non-file fields MUST be appended before the file — @fastify/busboy parses in order;
+    // fields after the file can fail to bind when the file is consumed first.
     formData.append('name', name);
     formData.append('userName', userName);
     if (description) {
@@ -233,6 +234,7 @@ export const api = {
     if (options?.allDocumentsSection) {
       formData.append('all_documents_section', 'true');
     }
+    formData.append('file', file);
 
     const token = await (await import('./firebase.js')).getIdToken();
     const headers: HeadersInit = {};

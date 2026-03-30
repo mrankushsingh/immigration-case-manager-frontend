@@ -1210,8 +1210,18 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     const fileList = e.target.files;
     e.target.value = '';
     if (!fileList?.length) return;
-    if (!currentUserName) {
-      showToast('Could not resolve user for upload', 'error');
+    let userNameForUpload = currentUserName;
+    if (!userNameForUpload?.trim()) {
+      try {
+        const u = await api.getCurrentUser();
+        userNameForUpload = u.name || u.email || '';
+        if (userNameForUpload) setCurrentUserName(userNameForUpload);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!userNameForUpload?.trim()) {
+      showToast('Could not resolve user for upload. Please wait a moment and try again.', 'error');
       return;
     }
     const files = Array.from(fileList);
@@ -1242,7 +1252,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           displayName = `${base} (${i})${ext}`;
         }
         existingNames.add(displayName);
-        await api.uploadAdditionalDocument(client.id, displayName, '', file, currentUserName, {
+        await api.uploadAdditionalDocument(client.id, displayName, '', file, userNameForUpload, {
           allDocumentsSection: true,
         });
       }
