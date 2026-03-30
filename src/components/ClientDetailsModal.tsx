@@ -60,7 +60,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [savingDetails, setSavingDetails] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [viewingDocument, setViewingDocument] = useState<{ url: string; fileName: string } | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{ url: string; fileName: string; revokeUrl?: () => void } | null>(null);
   const [customReminderDate, setCustomReminderDate] = useState(client.custom_reminder_date || '');
   const [savingReminder, setSavingReminder] = useState(false);
   const [showReminderCalendar, setShowReminderCalendar] = useState(false);
@@ -1514,11 +1514,33 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
-  const handleViewDocument = (fileUrl: string, fileName: string) => {
-    // Convert relative URLs to absolute backend URLs
-    const url = getFileUrl(fileUrl);
-    // Always show document in modal
-    setViewingDocument({ url, fileName });
+  const handleViewDocument = async (fileUrl: string, fileName: string) => {
+    try {
+      const url = getFileUrl(fileUrl);
+
+      // Fetch as blob and preview via blob URL.
+      // This avoids iframe embedding failures like “<host> refused to connect” caused by X-Frame-Options/CSP on the API domain.
+      const { getIdToken } = await import('../utils/firebase');
+      const token = await getIdToken();
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to load file (${response.status} ${response.statusText})`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setViewingDocument({
+        url: blobUrl,
+        fileName,
+        revokeUrl: () => URL.revokeObjectURL(blobUrl),
+      });
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to open document', 'error');
+    }
   };
 
   const handleDownloadAllAsZip = async () => {
@@ -4294,6 +4316,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-fade-in"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
+              viewingDocument.revokeUrl?.();
               setViewingDocument(null);
             }
           }}
@@ -4318,7 +4341,10 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                   <Download className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => setViewingDocument(null)}
+                  onClick={() => {
+                    viewingDocument.revokeUrl?.();
+                    setViewingDocument(null);
+                  }}
                   className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   title="Close"
                 >
