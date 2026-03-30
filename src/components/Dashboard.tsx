@@ -3350,10 +3350,26 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <YAxis 
                               stroke="#92400e"
                               style={{ fontSize: '12px' }}
-                              tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+                              tickFormatter={(value) => {
+                                const n = typeof value === 'number' ? value : Number(value);
+                                const safe = Number.isFinite(n) ? n : 0;
+                                return `€${(safe / 1000).toFixed(0)}k`;
+                              }}
                             />
                             <Tooltip 
-                              formatter={(value: number | undefined) => value !== undefined ? [`€${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue'] : ['', '']}
+                              formatter={(value) => {
+                                const n =
+                                  typeof value === 'number'
+                                    ? value
+                                    : value != null && value !== ''
+                                      ? Number(value)
+                                      : NaN;
+                                if (!Number.isFinite(n)) return ['', ''];
+                                return [
+                                  `€${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                                  'Revenue',
+                                ];
+                              }}
                               contentStyle={{ 
                                 backgroundColor: '#fef3c7', 
                                 border: '1px solid #fbbf24', 
@@ -3424,7 +3440,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               <Cell key="due" fill="#f97316" />
                             </Pie>
                             <Tooltip 
-                              formatter={(value: number | undefined) => value !== undefined ? `€${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                              formatter={(value) => {
+                                const n =
+                                  typeof value === 'number'
+                                    ? value
+                                    : value != null && value !== ''
+                                      ? Number(value)
+                                      : NaN;
+                                if (!Number.isFinite(n)) return '';
+                                return `€${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                              }}
                               contentStyle={{ 
                                 backgroundColor: '#fef3c7', 
                                 border: '1px solid #fbbf24', 
