@@ -60,7 +60,12 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [savingDetails, setSavingDetails] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [viewingDocument, setViewingDocument] = useState<{ url: string; fileName: string; revokeUrl?: () => void } | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{
+    url: string;
+    fileName: string;
+    mimeType?: string;
+    revokeUrl?: () => void;
+  } | null>(null);
   const [customReminderDate, setCustomReminderDate] = useState(client.custom_reminder_date || '');
   const [savingReminder, setSavingReminder] = useState(false);
   const [showReminderCalendar, setShowReminderCalendar] = useState(false);
@@ -1531,11 +1536,13 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         throw new Error(`Failed to load file (${response.status} ${response.statusText})`);
       }
 
+      const mimeType = response.headers.get('content-type') || undefined;
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       setViewingDocument({
         url: blobUrl,
         fileName,
+        mimeType,
         revokeUrl: () => URL.revokeObjectURL(blobUrl),
       });
     } catch (err: any) {
@@ -4353,7 +4360,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
               </div>
             </div>
             <div className="flex-1 overflow-auto p-4 bg-gray-50">
-              {viewingDocument.url.toLowerCase().endsWith('.pdf') ? (
+              {viewingDocument.mimeType?.toLowerCase().includes('pdf') ||
+              viewingDocument.fileName.toLowerCase().endsWith('.pdf') ? (
                 <iframe
                   src={viewingDocument.url}
                   className="w-full h-full min-h-[600px] border-0 rounded-lg"
