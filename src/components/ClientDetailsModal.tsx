@@ -1210,6 +1210,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     const fileList = e.target.files;
     e.target.value = '';
     if (!fileList?.length) return;
+    // Immediate feedback so we can confirm the handler fired.
+    showToast(`Selected ${fileList.length} file(s) for upload`, 'success');
     let userNameForUpload = currentUserName;
     if (!userNameForUpload?.trim()) {
       try {
