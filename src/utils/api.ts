@@ -215,13 +215,23 @@ export const api = {
     return this.updateClient(clientId, { notes });
   },
 
-  async uploadAdditionalDocument(clientId: string, name: string, description: string, file: File, userName: string) {
+  async uploadAdditionalDocument(
+    clientId: string,
+    name: string,
+    description: string,
+    file: File,
+    userName: string,
+    options?: { allDocumentsSection?: boolean }
+  ) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', name);
     formData.append('userName', userName);
     if (description) {
       formData.append('description', description);
+    }
+    if (options?.allDocumentsSection) {
+      formData.append('all_documents_section', 'true');
     }
 
     const token = await (await import('./firebase.js')).getIdToken();

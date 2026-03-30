@@ -91,6 +91,8 @@ export interface Notification {
 export interface AdditionalDocument {
   id: string;
   name: string;
+  /** When true, shown only under "All Documents" (not in Additional Documents) */
+  allDocumentsSection?: boolean;
   description?: string;
   fileUrl?: string; // Optional - file can be uploaded later
   fileName?: string; // Optional - file can be uploaded later

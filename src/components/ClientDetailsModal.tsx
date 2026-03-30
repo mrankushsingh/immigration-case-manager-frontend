@@ -39,6 +39,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     date: '',
   });
   const [savingPaymentLine, setSavingPaymentLine] = useState(false);
+  const [uploadingAllDocuments, setUploadingAllDocuments] = useState(false);
   const [showAdditionalDocForm, setShowAdditionalDocForm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', note: '' });
   const [additionalDocForm, setAdditionalDocForm] = useState({ name: '', description: '', file: null as File | null, reminder_days: 10 });
@@ -1205,6 +1206,58 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
+  const handleAllDocumentsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    e.target.value = '';
+    if (!fileList?.length) return;
+    if (!currentUserName) {
+      showToast('Could not resolve user for upload', 'error');
+      return;
+    }
+    const files = Array.from(fileList);
+    const existingAll = (clientData.additional_documents || []).filter((d) => d.allDocumentsSection).length;
+    if (existingAll + files.length > 15) {
+      showToast(
+        `All Documents allows up to 15 files. You have ${existingAll}; tried to add ${files.length}.`,
+        'error'
+      );
+      return;
+    }
+    setUploadingAllDocuments(true);
+    setError('');
+    try {
+      const existingNames = new Set(
+        (clientData.additional_documents || [])
+          .filter((d) => d.allDocumentsSection)
+          .map((d) => d.name)
+      );
+      for (const file of files) {
+        let displayName = file.name;
+        if (existingNames.has(displayName)) {
+          const dot = file.name.lastIndexOf('.');
+          const base = dot >= 0 ? file.name.slice(0, dot) : file.name;
+          const ext = dot >= 0 ? file.name.slice(dot) : '';
+          let i = 2;
+          while (existingNames.has(`${base} (${i})${ext}`)) i += 1;
+          displayName = `${base} (${i})${ext}`;
+        }
+        existingNames.add(displayName);
+        await api.uploadAdditionalDocument(client.id, displayName, '', file, currentUserName, {
+          allDocumentsSection: true,
+        });
+      }
+      await loadClient();
+      onSuccess();
+      showToast(`${files.length} file(s) uploaded to All Documents`, 'success');
+    } catch (err: any) {
+      const msg = err.message || 'Upload failed';
+      setError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setUploadingAllDocuments(false);
+    }
+  };
+
   const handleSaveNotes = async () => {
     setSavingNotes(true);
     setError('');
@@ -1456,7 +1509,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         (doc: RequiredDocument) => doc.submitted && doc.fileUrl
       ) || [];
 
-      // Collect all additional documents
+      // Collect all additional documents (includes "All Documents" uploads)
       const additionalDocs = clientData.additional_documents || [];
 
       if (submittedRequiredDocs.length === 0 && additionalDocs.length === 0) {
@@ -1478,14 +1531,16 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         }
       }
 
-      // Fetch and add additional documents
+      // Fetch and add additional documents (split by section for clarity)
       for (const doc of additionalDocs) {
         try {
           if (!doc.fileUrl) continue;
           const fileUrl = getFileUrl(doc.fileUrl);
           const response = await fetch(fileUrl);
           const blob = await response.blob();
-          zip.file(`Additional_Documents/${doc.fileName}`, blob);
+          const folder = doc.allDocumentsSection ? 'All_Documents' : 'Additional_Documents';
+          const safeName = doc.fileName || doc.name || 'file';
+          zip.file(`${folder}/${safeName}`, blob);
         } catch (err) {
           console.error(`Failed to fetch ${doc.name}:`, err);
         }
@@ -1591,6 +1646,13 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   const silenceInfo = calculateSilenceCountdown();
+
+  const standardAdditionalDocs = (clientData.additional_documents || []).filter(
+    (d: AdditionalDocument) => !d.allDocumentsSection
+  );
+  const allDocumentsSectionFiles = (clientData.additional_documents || []).filter(
+    (d: AdditionalDocument) => !!d.allDocumentsSection
+  );
 
   return (
     <div 
@@ -2464,6 +2526,104 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           })()}
         </div>
 
+        {/* All Documents — multi-file upload (max 15), filenames preserved */}
+        <div className="mb-6 p-5 bg-gradient-to-br from-slate-50/80 to-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
+                <div className="w-1 h-6 bg-gradient-to-b from-slate-600 to-teal-600 rounded-full"></div>
+                <span>All Documents</span>
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Upload up to 15 files at once. Stored names match your original filenames.
+              </p>
+            </div>
+            <div>
+              <label
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-teal-600 text-white border-teal-700 hover:bg-teal-700 cursor-pointer'
+                }`}
+              >
+                <Upload className="w-4 h-4" />
+                <span>{uploadingAllDocuments ? 'Uploading…' : 'Upload files'}</span>
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  disabled={allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments}
+                  onChange={handleAllDocumentsFileChange}
+                />
+              </label>
+            </div>
+          </div>
+          {allDocumentsSectionFiles.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p>No files in All Documents yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {allDocumentsSectionFiles.map((doc: AdditionalDocument) => (
+                <div
+                  key={doc.id}
+                  className="border-2 border-teal-200 bg-gradient-to-br from-teal-50/50 to-white rounded-xl p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <FileText className="w-5 h-5 text-teal-600 shrink-0" />
+                        <h4 className="font-semibold text-gray-900 truncate">{doc.name}</h4>
+                      </div>
+                      {doc.fileUrl && doc.fileName ? (
+                        <p className="text-xs text-gray-500">
+                          {doc.fileName} ({doc.fileSize ? `${(doc.fileSize / 1024).toFixed(2)} KB` : 'N/A'})
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-600">File pending</p>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2 shrink-0">
+                      {doc.fileUrl && doc.fileName ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleViewDocument(doc.fileUrl!, doc.fileName!)}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg border border-green-200"
+                            title="View"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(doc.fileUrl!, doc.fileName!)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200"
+                            title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAdditionalDocument(doc.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200"
+                        title="Remove"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {allDocumentsSectionFiles.length >= 15 && (
+            <p className="text-xs text-amber-700 mt-2">Maximum of 15 files reached. Remove a file to upload more.</p>
+          )}
+        </div>
+
         {/* Required Documents */}
         <div className="mb-6 p-5 bg-gradient-to-br from-amber-50/50 to-white rounded-xl border border-gray-200 shadow-sm">
           <div className="flex justify-between items-center mb-4">
@@ -2919,14 +3079,14 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
             </form>
           )}
 
-          {!clientData.additional_documents || clientData.additional_documents.length === 0 ? (
+          {standardAdditionalDocs.length === 0 ? (
             <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
               <p>No additional documents uploaded yet.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {clientData.additional_documents.map((doc: AdditionalDocument) => (
+              {standardAdditionalDocs.map((doc: AdditionalDocument) => (
                 <div
                   key={doc.id}
                   className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-white rounded-xl p-4 shadow-sm hover:shadow-md transition-all"
