@@ -256,12 +256,29 @@ export const api = {
     return response.json();
   },
 
-  async createAdditionalDocument(clientId: string, data: { name: string; description?: string; reminder_days?: number }) {
+  async createAdditionalDocument(
+    clientId: string,
+    data: {
+      name: string;
+      description?: string;
+      reminder_days?: number;
+      /** When true, document is listed only under All Documents (same as multipart flag). */
+      all_documents_section?: boolean;
+    }
+  ) {
     const headers = await getAuthHeaders();
+    const payload: Record<string, unknown> = {
+      name: data.name,
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.reminder_days !== undefined && { reminder_days: data.reminder_days }),
+    };
+    if (data.all_documents_section) {
+      payload.all_documents_section = true;
+    }
     const response = await fetch(`${API_URL}/clients/${clientId}/additional-documents`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
