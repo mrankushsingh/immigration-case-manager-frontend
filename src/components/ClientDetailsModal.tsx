@@ -20,10 +20,19 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 
   // Helper function to convert relative file URLs to absolute backend URLs
   const getFileUrl = (fileUrl: string): string => {
+    if (!fileUrl) return fileUrl;
+    // If it's already an absolute URL, don't rewrite it.
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      return fileUrl;
+    }
+    // Prefer the current origin for static `/uploads/...` files.
+    // This avoids cases where `VITE_API_URL` points to a host that isn't reachable from the browser.
     if (fileUrl.startsWith('/uploads/')) {
-      const apiUrl = import.meta.env.VITE_API_URL || '/api';
-      const backendBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/+$/, '') || window.location.origin;
-      return backendBaseUrl + fileUrl;
+      return window.location.origin + fileUrl;
+    }
+    // Support "uploads/..." without leading slash.
+    if (fileUrl.startsWith('uploads/')) {
+      return window.location.origin + '/' + fileUrl;
     }
     return fileUrl;
   };
