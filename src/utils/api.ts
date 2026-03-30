@@ -1,3 +1,5 @@
+import type { Client } from '../types';
+
 // Use environment variable in production, relative path in development
 // Remove trailing slash to prevent double slashes in URLs
 const baseApiUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
@@ -286,7 +288,7 @@ export const api = {
       throw new Error(error.error || 'Failed to create document');
     }
 
-    return response.json();
+    return (await response.json()) as Client & { newAdditionalDocumentId?: string };
   },
 
   async updateAdditionalDocument(clientId: string, documentId: string, data: { name?: string; description?: string; reminder_days?: number }) {
@@ -307,8 +309,8 @@ export const api = {
 
   async uploadAdditionalDocumentFile(clientId: string, documentId: string, file: File, userName: string) {
     const formData = new FormData();
-    formData.append('file', file);
     formData.append('userName', userName);
+    formData.append('file', file);
 
     const token = await (await import('./firebase.js')).getIdToken();
     const headers: HeadersInit = {};

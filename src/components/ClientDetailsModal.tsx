@@ -1241,7 +1241,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           .filter((d) => d.allDocumentsSection)
           .map((d) => d.name)
       );
-      let knownIds = new Set((clientData.additional_documents || []).map((d) => d.id));
       for (const file of files) {
         let displayName = file.name;
         if (existingNames.has(displayName)) {
@@ -1253,24 +1252,10 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           displayName = `${base} (${i})${ext}`;
         }
         existingNames.add(displayName);
-        // Same pattern as Additional Documents: JSON create entry, then POST file (same as re-upload / required uploads).
-        const createdClient = await api.createAdditionalDocument(client.id, {
-          name: displayName,
-          description: '',
-          reminder_days: 10,
-          all_documents_section: true,
+        // Same API call as "Additional Documents" → create with file (multipart POST /additional-documents).
+        await api.uploadAdditionalDocument(client.id, displayName, '', file, userNameForUpload, {
+          allDocumentsSection: true,
         });
-        const newDoc = (createdClient.additional_documents || []).find((d: AdditionalDocument) => !knownIds.has(d.id));
-        if (!newDoc?.id) {
-          throw new Error('Could not create document entry');
-        }
-        knownIds.add(newDoc.id);
-        try {
-          await api.uploadAdditionalDocumentFile(client.id, newDoc.id, file, userNameForUpload);
-        } catch (uploadErr) {
-          await api.removeAdditionalDocument(client.id, newDoc.id).catch(() => {});
-          throw uploadErr;
-        }
       }
       await loadClient();
       onSuccess();
