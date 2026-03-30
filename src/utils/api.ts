@@ -41,6 +41,25 @@ async function getAuthHeaders(includeContentType: boolean = true): Promise<Heade
   return headers;
 }
 
+async function getApiErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const text = await response.text();
+    if (text) {
+      try {
+        const json = JSON.parse(text);
+        const msg = json?.error || json?.message;
+        if (msg) return String(msg);
+      } catch {
+        // ignore JSON parse
+      }
+      return `${fallback} (${response.status} ${response.statusText}): ${text}`;
+    }
+  } catch {
+    // ignore
+  }
+  return `${fallback} (${response.status} ${response.statusText})`;
+}
+
 export const api = {
   async getCaseTemplates(limit?: number, offset?: number, search?: string) {
     const headers = await getAuthHeaders(false);
@@ -253,8 +272,7 @@ export const api = {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to upload additional document' }));
-      throw new Error(error.error || 'Failed to upload additional document');
+      throw new Error(await getApiErrorMessage(response, 'Failed to upload additional document'));
     }
 
     return response.json();
@@ -327,8 +345,7 @@ export const api = {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Failed to upload file' }));
-      throw new Error(error.error || 'Failed to upload file');
+      throw new Error(await getApiErrorMessage(response, 'Failed to upload file'));
     }
 
     return response.json();
