@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import { DataProvider } from './context/DataContext.tsx'
 import './index.css'
+import { registerConnectionListeners, registerServiceWorker } from './registerServiceWorker'
 
 // CRITICAL: Ensure React is available globally IMMEDIATELY
 // This must happen before any vendor code tries to use React.useState or React.forwardRef
@@ -112,6 +113,9 @@ try {
   );
   
   console.log('✅ App rendered successfully');
+
+  registerServiceWorker()
+  registerConnectionListeners()
 } catch (error) {
   console.error('❌ Failed to render app:', error);
   rootElement.innerHTML = `
