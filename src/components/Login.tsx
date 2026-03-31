@@ -56,18 +56,25 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       // Handle Firebase auth errors
       let errorMessage = t('login.invalidCredentials');
       
+      const raw = String(err?.message || '');
+      const isFirebaseAuthError = raw.includes('auth/');
+
       if (err.message.includes('auth/user-not-found')) {
         errorMessage = t('login.noAccount');
       } else if (err.message.includes('auth/wrong-password')) {
         errorMessage = t('login.wrongPassword');
+      } else if (raw.includes('auth/invalid-credential')) {
+        // Firebase v9+ uses auth/invalid-credential for wrong email/password combos
+        errorMessage = t('login.invalidCredentials');
       } else if (err.message.includes('auth/invalid-email')) {
         errorMessage = t('login.invalidEmail');
       } else if (err.message.includes('auth/too-many-requests')) {
         errorMessage = t('login.tooManyAttempts');
       } else if (err.message.includes('Firebase is not configured')) {
         errorMessage = t('login.firebaseNotConfigured');
-      } else if (err.message) {
-        errorMessage = err.message;
+      } else if (!isFirebaseAuthError && raw) {
+        // Only show raw errors when they're not Firebase auth codes
+        errorMessage = raw;
       }
       
       setError(errorMessage);
