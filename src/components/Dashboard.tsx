@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, User } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
 import { Client, Reminder } from '../types';
@@ -26,6 +26,53 @@ function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
     (client.case_type || '').toLowerCase().includes(q) ||
     (client.parent_name || '').toLowerCase().includes(q)
   );
+}
+
+const TEAM_MEMBERS = ['YONA', 'LEDJANA', 'CAROLINA', 'MILAGROS', 'YUSTI'] as const;
+type TeamMemberName = (typeof TEAM_MEMBERS)[number];
+
+interface TeamMemberTask {
+  id: string;
+  title: string;
+  notes: string;
+  done: boolean;
+  createdAt: string;
+}
+
+function emptyTeamTasksMap(): Record<TeamMemberName, TeamMemberTask[]> {
+  return {
+    YONA: [],
+    LEDJANA: [],
+    CAROLINA: [],
+    MILAGROS: [],
+    YUSTI: [],
+  };
+}
+
+function groupTeamTasksFromApi(
+  rows: Array<{
+    id: string;
+    teamMember: string;
+    title: string;
+    notes?: string;
+    done: boolean;
+    createdAt: string;
+  }>
+): Record<TeamMemberName, TeamMemberTask[]> {
+  const empty = emptyTeamTasksMap();
+  for (const row of rows) {
+    const m = String(row.teamMember || '').toUpperCase();
+    if (!TEAM_MEMBERS.includes(m as TeamMemberName)) continue;
+    const name = m as TeamMemberName;
+    empty[name].push({
+      id: row.id,
+      title: row.title,
+      notes: typeof row.notes === 'string' ? row.notes : '',
+      done: !!row.done,
+      createdAt: row.createdAt,
+    });
+  }
+  return empty;
 }
 
 function reminderMatchesDashboardSearch(reminder: Reminder, raw: string): boolean {
@@ -110,6 +157,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showPagosModal, setShowPagosModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
   const [showTeamsToDoModal, setShowTeamsToDoModal] = useState(false);
+  const [teamTasksByMember, setTeamTasksByMember] = useState<Record<TeamMemberName, TeamMemberTask[]>>(emptyTeamTasksMap);
+  const [teamTasksLoading, setTeamTasksLoading] = useState(false);
+  const [teamsToDoSelectedMember, setTeamsToDoSelectedMember] = useState<TeamMemberName | null>(null);
+  const [showTeamTaskForm, setShowTeamTaskForm] = useState(false);
+  const [teamTaskFormTitle, setTeamTaskFormTitle] = useState('');
+  const [teamTaskFormNotes, setTeamTaskFormNotes] = useState('');
   const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-indexed
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -583,6 +636,28 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     fetchTrendData();
   }, [showOverviewModal]);
 
+  const fetchTeamTasks = useCallback(async () => {
+    try {
+      setTeamTasksLoading(true);
+      const rows = await api.getTeamTasks();
+      setTeamTasksByMember(groupTeamTasksFromApi(rows));
+    } catch (error: any) {
+      showToast(error.message || 'Failed to load team tasks', 'error');
+    } finally {
+      setTeamTasksLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchTeamTasks();
+  }, [fetchTeamTasks]);
+
+  useEffect(() => {
+    if (showTeamsToDoModal) {
+      void fetchTeamTasks();
+    }
+  }, [showTeamsToDoModal, fetchTeamTasks]);
+
   // Data is loaded once at app startup via DataContext
   // No need to load data here - it's already available from context
 
@@ -591,6 +666,55 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     clients.filter((client) => client.submitted_to_immigration),
     [clients]
   );
+
+  const teamsToDoCount = useMemo(
+    () =>
+      TEAM_MEMBERS.reduce((sum, m) => {
+        return sum + (teamTasksByMember[m] || []).filter((task) => !task.done).length;
+      }, 0),
+    [teamTasksByMember]
+  );
+
+  const closeTeamsToDoModal = useCallback(() => {
+    setShowTeamsToDoModal(false);
+    setTeamsToDoSelectedMember(null);
+    setShowTeamTaskForm(false);
+    setTeamTaskFormTitle('');
+    setTeamTaskFormNotes('');
+  }, []);
+
+  const submitTeamTask = useCallback(async () => {
+    if (!teamsToDoSelectedMember) return;
+    const title = teamTaskFormTitle.trim();
+    if (!title) {
+      showToast(t('dashboard.teamsToDoTitleRequired'), 'error');
+      return;
+    }
+    try {
+      const created = await api.createTeamTask({
+        teamMember: teamsToDoSelectedMember,
+        title,
+        notes: teamTaskFormNotes.trim() || undefined,
+      });
+      const task: TeamMemberTask = {
+        id: created.id,
+        title: created.title,
+        notes: typeof created.notes === 'string' ? created.notes : '',
+        done: !!created.done,
+        createdAt: created.createdAt,
+      };
+      setTeamTasksByMember((prev) => ({
+        ...prev,
+        [teamsToDoSelectedMember]: [task, ...(prev[teamsToDoSelectedMember] || [])],
+      }));
+      setTeamTaskFormTitle('');
+      setTeamTaskFormNotes('');
+      setShowTeamTaskForm(false);
+      showToast(t('dashboard.teamsToDoTaskAdded'), 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to save task', 'error');
+    }
+  }, [teamsToDoSelectedMember, teamTaskFormTitle, teamTaskFormNotes, t]);
 
   // Clients ready to submit (all documents complete, not yet submitted)
   const readyToSubmit = useMemo(() => 
@@ -877,8 +1001,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return total;
   }, 0);
 
-  const teamsToDoCount = 0;
-
   // Early return for loading state - MUST be after all hooks to maintain hook order
   if (loading) {
     return (
@@ -1084,7 +1206,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         {/* TEAMS TO DO Box */}
         <div
-          onClick={() => setShowTeamsToDoModal(true)}
+          onClick={() => {
+            setTeamsToDoSelectedMember(null);
+            setShowTeamTaskForm(false);
+            setTeamTaskFormTitle('');
+            setTeamTaskFormNotes('');
+            setShowTeamsToDoModal(true);
+          }}
           className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
           style={{ animationDelay: '0.95s' }}
         >
@@ -2605,18 +2733,49 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* TEAMS TO DO Modal */}
       {showTeamsToDoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeTeamsToDoModal();
+          }}
+        >
+          <div
+            className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-amber-900">{t('dashboard.teamsToDo')}</h2>
-                  <p className="text-amber-700 mt-1">{t('dashboard.teamsToDoDesc')}</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  {teamsToDoSelectedMember ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTeamsToDoSelectedMember(null);
+                        setShowTeamTaskForm(false);
+                        setTeamTaskFormTitle('');
+                        setTeamTaskFormNotes('');
+                      }}
+                      className="p-2 text-amber-800 hover:bg-amber-200/80 rounded-lg transition-colors shrink-0"
+                      aria-label={t('dashboard.teamsToDoBack')}
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                  ) : null}
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-bold text-amber-900">
+                      {teamsToDoSelectedMember || t('dashboard.teamsToDo')}
+                    </h2>
+                    <p className="text-amber-700 mt-1">
+                      {teamsToDoSelectedMember
+                        ? t('dashboard.teamsToDoMemberSubtitle')
+                        : t('dashboard.teamsToDoSelectMember')}
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowTeamsToDoModal(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                  onClick={closeTeamsToDoModal}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors shrink-0"
                   aria-label="Close"
                 >
                   <X className="w-6 h-6" />
@@ -2624,10 +2783,200 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="text-center py-12">
-                <ListTodo className="w-16 h-16 mx-auto text-amber-400 mb-4" />
-                <p className="text-gray-500 font-medium text-lg">{t('dashboard.teamsToDoEmpty')}</p>
-              </div>
+              {!teamsToDoSelectedMember ? (
+                teamTasksLoading ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-amber-800/80">
+                    <div
+                      className="w-10 h-10 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin mb-3"
+                      aria-hidden
+                    />
+                    <p className="text-sm font-medium">{t('dashboard.teamsToDoLoading')}</p>
+                  </div>
+                ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {TEAM_MEMBERS.map((name) => {
+                    const tasks = teamTasksByMember[name] || [];
+                    const openCount = tasks.filter((task) => !task.done).length;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => setTeamsToDoSelectedMember(name)}
+                        className="flex flex-col items-stretch text-left p-5 rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-md transition-all active:scale-[0.99]"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2.5 rounded-lg shadow-sm">
+                            <User className="w-5 h-5 text-amber-900" />
+                          </div>
+                          <span className="text-lg font-bold text-amber-900 tracking-wide">{name}</span>
+                        </div>
+                        <span className="text-sm text-amber-700/80 font-medium">
+                          {t('dashboard.teamsToDoOpenTasks', { count: openCount })}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                )
+              ) : (
+                <div>
+                  <div className="flex flex-wrap gap-3 mb-5">
+                    <button
+                      type="button"
+                      onClick={() => setShowTeamTaskForm((open) => !open)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all"
+                    >
+                      <Plus className="w-5 h-5" />
+                      {t('dashboard.teamsToDoCreateTask')}
+                    </button>
+                  </div>
+
+                  {showTeamTaskForm ? (
+                    <div className="border-2 border-amber-200 rounded-xl p-4 sm:p-5 mb-6 bg-amber-50/40">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-amber-900 mb-1.5">
+                            {t('dashboard.teamsToDoTaskTitle')} <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={teamTaskFormTitle}
+                            onChange={(e) => setTeamTaskFormTitle(e.target.value)}
+                            className="w-full px-4 py-2.5 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-950"
+                            placeholder={t('dashboard.teamsToDoTaskTitle')}
+                            autoComplete="off"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-amber-900 mb-1.5">
+                            {t('dashboard.teamsToDoTaskNotes')}
+                          </label>
+                          <textarea
+                            value={teamTaskFormNotes}
+                            onChange={(e) => setTeamTaskFormNotes(e.target.value)}
+                            rows={3}
+                            className="w-full px-4 py-2.5 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-950 resize-y min-h-[80px]"
+                            placeholder={t('dashboard.teamsToDoTaskNotes')}
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowTeamTaskForm(false);
+                              setTeamTaskFormTitle('');
+                              setTeamTaskFormNotes('');
+                            }}
+                            className="px-5 py-2 rounded-xl bg-gray-100 text-gray-800 font-semibold text-sm hover:bg-gray-200 transition-colors"
+                          >
+                            {t('dashboard.teamsToDoCancel')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={submitTeamTask}
+                            className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold text-sm hover:shadow-md transition-all"
+                          >
+                            {t('dashboard.teamsToDoSaveTask')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {(teamTasksByMember[teamsToDoSelectedMember] || []).length === 0 ? (
+                    <div className="text-center py-10 border-2 border-dashed border-amber-200 rounded-xl bg-amber-50/30">
+                      <ListTodo className="w-14 h-14 mx-auto text-amber-300 mb-3" />
+                      <p className="text-gray-600 font-medium">{t('dashboard.teamsToDoNoTasks')}</p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {[...(teamTasksByMember[teamsToDoSelectedMember] || [])]
+                        .sort(
+                          (a, b) =>
+                            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                        )
+                        .map((task) => (
+                          <li
+                            key={task.id}
+                            className={`flex gap-3 p-4 rounded-xl border-2 transition-colors ${
+                              task.done
+                                ? 'border-amber-100 bg-amber-50/40 opacity-75'
+                                : 'border-amber-200 bg-white hover:border-amber-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={task.done}
+                              onChange={async () => {
+                                if (!teamsToDoSelectedMember) return;
+                                const next = !task.done;
+                                setTeamTasksByMember((prev) => ({
+                                  ...prev,
+                                  [teamsToDoSelectedMember]: (prev[teamsToDoSelectedMember] || []).map((x) =>
+                                    x.id === task.id ? { ...x, done: next } : x
+                                  ),
+                                }));
+                                try {
+                                  await api.updateTeamTask(task.id, { done: next });
+                                } catch (error: any) {
+                                  setTeamTasksByMember((prev) => ({
+                                    ...prev,
+                                    [teamsToDoSelectedMember]: (prev[teamsToDoSelectedMember] || []).map((x) =>
+                                      x.id === task.id ? { ...x, done: task.done } : x
+                                    ),
+                                  }));
+                                  showToast(error.message || 'Failed to update task', 'error');
+                                }
+                              }}
+                              className="mt-1 w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                              aria-label={t('dashboard.teamsToDoMarkDone')}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`font-semibold text-amber-950 ${
+                                  task.done ? 'line-through text-amber-700' : ''
+                                }`}
+                              >
+                                {task.title}
+                              </p>
+                              {task.notes ? (
+                                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                                  {task.notes}
+                                </p>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!teamsToDoSelectedMember) return;
+                                const prevTasks = teamTasksByMember[teamsToDoSelectedMember] || [];
+                                setTeamTasksByMember((prev) => ({
+                                  ...prev,
+                                  [teamsToDoSelectedMember]: (prev[teamsToDoSelectedMember] || []).filter(
+                                    (x) => x.id !== task.id
+                                  ),
+                                }));
+                                try {
+                                  await api.deleteTeamTask(task.id);
+                                } catch (error: any) {
+                                  setTeamTasksByMember((prev) => ({
+                                    ...prev,
+                                    [teamsToDoSelectedMember]: prevTasks,
+                                  }));
+                                  showToast(error.message || 'Failed to delete task', 'error');
+                                }
+                              }}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 self-start"
+                              aria-label="Delete task"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

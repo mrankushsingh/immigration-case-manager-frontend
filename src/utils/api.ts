@@ -1072,6 +1072,70 @@ export const api = {
     return response.json();
   },
 
+  async getTeamTasks(): Promise<
+    Array<{
+      id: string;
+      teamMember: string;
+      title: string;
+      notes: string;
+      done: boolean;
+      createdAt: string;
+      updatedAt?: string;
+    }>
+  > {
+    const headers = await getAuthHeaders(false);
+    const response = await fetch(`${API_URL}/team-tasks`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to get team tasks' }));
+      throw new Error(error.error || 'Failed to get team tasks');
+    }
+    return response.json();
+  },
+
+  async createTeamTask(data: { teamMember: string; title: string; notes?: string }) {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/team-tasks`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to create team task' }));
+      throw new Error(error.error || 'Failed to create team task');
+    }
+    return response.json();
+  },
+
+  async updateTeamTask(id: string, data: { title?: string; notes?: string | null; done?: boolean }) {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/team-tasks/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to update team task' }));
+      throw new Error(error.error || 'Failed to update team task');
+    }
+    return response.json();
+  },
+
+  async deleteTeamTask(id: string) {
+    const headers = await getAuthHeaders(false);
+    const response = await fetch(`${API_URL}/team-tasks/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to delete team task' }));
+      throw new Error(error.error || 'Failed to delete team task');
+    }
+    return response.json();
+  },
+
   async getPaymentsSummary(month?: number, year?: number) {
     const headers = await getAuthHeaders(false);
     const params = new URLSearchParams();
