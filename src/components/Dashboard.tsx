@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
 import { Client, Reminder } from '../types';
@@ -109,6 +109,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
+  const [showTeamsToDoModal, setShowTeamsToDoModal] = useState(false);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-indexed
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -876,6 +877,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return total;
   }, 0);
 
+  const teamsToDoCount = 0;
+
   // Early return for loading state - MUST be after all hooks to maintain hook order
   if (loading) {
     return (
@@ -1077,6 +1080,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           </div>
           <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">{reminders.filter((r) => r.reminder_type !== 'REQUERIMIENTO').length}</p>
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">{t('dashboard.recordatorioDesc')}</p>
+        </div>
+
+        {/* TEAMS TO DO Box */}
+        <div
+          onClick={() => setShowTeamsToDoModal(true)}
+          className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
+          style={{ animationDelay: '0.95s' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
+              <ListTodo className="w-6 h-6 text-amber-800" />
+            </div>
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.teamsToDo')}</span>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">{teamsToDoCount}</p>
+          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">{t('dashboard.teamsToDoDesc')}</p>
         </div>
 
         {/* PAGOS Box */}
@@ -2580,6 +2599,36 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* TEAMS TO DO Modal */}
+      {showTeamsToDoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-amber-900">{t('dashboard.teamsToDo')}</h2>
+                  <p className="text-amber-700 mt-1">{t('dashboard.teamsToDoDesc')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTeamsToDoModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="text-center py-12">
+                <ListTodo className="w-16 h-16 mx-auto text-amber-400 mb-4" />
+                <p className="text-gray-500 font-medium text-lg">{t('dashboard.teamsToDoEmpty')}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
