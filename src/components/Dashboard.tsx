@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, User } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, User, Eye } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
 import { Client, Reminder } from '../types';
@@ -163,6 +163,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showTeamTaskForm, setShowTeamTaskForm] = useState(false);
   const [teamTaskFormTitle, setTeamTaskFormTitle] = useState('');
   const [teamTaskFormNotes, setTeamTaskFormNotes] = useState('');
+  const [teamTaskView, setTeamTaskView] = useState<{ task: TeamMemberTask; member: TeamMemberName } | null>(null);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-indexed
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -681,6 +682,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     setShowTeamTaskForm(false);
     setTeamTaskFormTitle('');
     setTeamTaskFormNotes('');
+    setTeamTaskView(null);
   }, []);
 
   const submitTeamTask = useCallback(async () => {
@@ -1211,6 +1213,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             setShowTeamTaskForm(false);
             setTeamTaskFormTitle('');
             setTeamTaskFormNotes('');
+            setTeamTaskView(null);
             setShowTeamsToDoModal(true);
           }}
           className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
@@ -2754,6 +2757,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         setShowTeamTaskForm(false);
                         setTeamTaskFormTitle('');
                         setTeamTaskFormNotes('');
+                        setTeamTaskView(null);
                       }}
                       className="p-2 text-amber-800 hover:bg-amber-200/80 rounded-lg transition-colors shrink-0"
                       aria-label={t('dashboard.teamsToDoBack')}
@@ -2932,19 +2936,41 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               aria-label={t('dashboard.teamsToDoMarkDone')}
                             />
                             <div className="flex-1 min-w-0">
-                              <p
-                                className={`font-semibold text-amber-950 ${
-                                  task.done ? 'line-through text-amber-700' : ''
-                                }`}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!teamsToDoSelectedMember) return;
+                                  setTeamTaskView({ task, member: teamsToDoSelectedMember });
+                                }}
+                                className="text-left w-full group/title"
                               >
-                                {task.title}
-                              </p>
+                                <p
+                                  className={`font-semibold text-amber-950 group-hover/title:text-amber-700 group-hover/title:underline underline-offset-2 ${
+                                    task.done ? 'line-through text-amber-700' : ''
+                                  }`}
+                                >
+                                  {task.title}
+                                </p>
+                              </button>
                               {task.notes ? (
-                                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                                <p className="text-sm text-gray-600 mt-1 line-clamp-2 break-words">
                                   {task.notes}
                                 </p>
                               ) : null}
                             </div>
+                            <div className="flex items-start gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!teamsToDoSelectedMember) return;
+                                setTeamTaskView({ task, member: teamsToDoSelectedMember });
+                              }}
+                              className="p-2 text-gray-400 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors"
+                              title={t('dashboard.teamsToDoViewTask')}
+                              aria-label={t('dashboard.teamsToDoViewTask')}
+                            >
+                              <Eye className="w-5 h-5" />
+                            </button>
                             <button
                               type="button"
                               onClick={async () => {
@@ -2966,17 +2992,112 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                   showToast(error.message || 'Failed to delete task', 'error');
                                 }
                               }}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0 self-start"
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors self-start"
                               aria-label="Delete task"
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>
+                            </div>
                           </li>
                         ))}
                     </ul>
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TEAMS TO DO — view task detail */}
+      {teamTaskView && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTeamTaskView(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-xl m-2 sm:m-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 sm:p-6 border-b border-amber-200/80 bg-gradient-to-r from-amber-50 to-amber-100 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-amber-900">{t('dashboard.teamsToDoViewTaskTitle')}</h2>
+                <p className="text-sm text-amber-800/80 mt-1 font-medium">{teamTaskView.member}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTeamTaskView(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors shrink-0"
+                aria-label={t('dashboard.teamsToDoCloseView')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
+                  {t('dashboard.teamsToDoTaskTitle')}
+                </p>
+                <p
+                  className={`text-lg font-semibold text-amber-950 ${
+                    teamTaskView.task.done ? 'line-through text-amber-700' : ''
+                  }`}
+                >
+                  {teamTaskView.task.title}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
+                  {t('dashboard.teamsToDoStatusLabel')}
+                </p>
+                <span
+                  className={`inline-flex px-2.5 py-1 rounded-lg text-sm font-semibold ${
+                    teamTaskView.task.done
+                      ? 'bg-green-100 text-green-900'
+                      : 'bg-amber-100 text-amber-900'
+                  }`}
+                >
+                  {teamTaskView.task.done
+                    ? t('dashboard.teamsToDoStatusDone')
+                    : t('dashboard.teamsToDoStatusOpen')}
+                </span>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
+                  {t('dashboard.teamsToDoCreatedAt')}
+                </p>
+                <p className="text-sm text-gray-800">
+                  {(() => {
+                    try {
+                      return new Date(teamTaskView.task.createdAt).toLocaleString(undefined, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      });
+                    } catch {
+                      return teamTaskView.task.createdAt;
+                    }
+                  })()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
+                  {t('dashboard.teamsToDoTaskNotes')}
+                </p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap rounded-lg border border-amber-100 bg-amber-50/40 p-3 min-h-[3rem]">
+                  {teamTaskView.task.notes?.trim()
+                    ? teamTaskView.task.notes
+                    : t('dashboard.teamsToDoNoNotesInView')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTeamTaskView(null)}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold text-sm hover:shadow-md transition-all"
+              >
+                {t('dashboard.teamsToDoCloseView')}
+              </button>
             </div>
           </div>
         </div>
