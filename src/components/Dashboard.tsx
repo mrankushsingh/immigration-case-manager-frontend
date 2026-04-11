@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, User, Eye, Hourglass } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, User, Eye, Hourglass, ArrowRight, Undo2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
 import { Client, Reminder } from '../types';
@@ -26,6 +26,20 @@ function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
     (client.case_type || '').toLowerCase().includes(q) ||
     (client.parent_name || '').toLowerCase().includes(q)
   );
+}
+
+function recursoSubmittedWithDate(client: Client): boolean {
+  return Boolean(client.submitted_to_immigration && client.application_date);
+}
+
+/** Application date + silence period has passed (replacement / contentious appeal may be due). */
+function recursoAdministrativeSilenceEnded(client: Client): boolean {
+  if (!client.application_date) return false;
+  const appDate = new Date(client.application_date);
+  const silenceDays = client.administrative_silence_days || 60;
+  const silenceEndDate = new Date(appDate);
+  silenceEndDate.setDate(silenceEndDate.getDate() + silenceDays);
+  return new Date() > silenceEndDate;
 }
 
 const TEAM_MEMBERS = ['YONA', 'LEDJANA', 'CAROLINA', 'MILAGROS', 'YUSTI'] as const;
@@ -144,7 +158,7 @@ function DashboardModalSearchInput({
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
   // Use shared data from context (loaded once at app startup)
-  const { clients, templates, reminders, loading, refreshAll, refreshReminders } = useData();
+  const { clients, templates, reminders, loading, refreshAll, refreshReminders, refreshClients } = useData();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [returnToRequerimiento, setReturnToRequerimiento] = useState(false);
   const [showReadyToSubmitModal, setShowReadyToSubmitModal] = useState(false);
@@ -157,6 +171,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [recursoModalClientSection, setRecursoModalClientSection] = useState<
     'administrative' | 'appeals' | null
   >(null);
+  const [recursoAppealsBoxLoadingId, setRecursoAppealsBoxLoadingId] = useState<string | null>(null);
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
@@ -669,6 +684,40 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }
   }, [showRecursoModal]);
 
+  const handleRecursoMoveToAppealsBox = useCallback(
+    async (clientId: string, e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      setRecursoAppealsBoxLoadingId(clientId);
+      try {
+        await api.updateClient(clientId, { recurso_in_appeals_box: true });
+        await refreshClients();
+        showToast(t('dashboard.recursoToastMovedToAppeals'), 'success');
+      } catch (err: any) {
+        showToast(err?.message || t('dashboard.recursoToastAppealsBoxError'), 'error');
+      } finally {
+        setRecursoAppealsBoxLoadingId(null);
+      }
+    },
+    [refreshClients]
+  );
+
+  const handleRecursoRemoveFromAppealsBox = useCallback(
+    async (clientId: string, e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      setRecursoAppealsBoxLoadingId(clientId);
+      try {
+        await api.updateClient(clientId, { recurso_in_appeals_box: false });
+        await refreshClients();
+        showToast(t('dashboard.recursoToastRemovedFromAppeals'), 'success');
+      } catch (err: any) {
+        showToast(err?.message || t('dashboard.recursoToastAppealsBoxError'), 'error');
+      } finally {
+        setRecursoAppealsBoxLoadingId(null);
+      }
+    },
+    [refreshClients]
+  );
+
   // Data is loaded once at app startup via DataContext
   // No need to load data here - it's already available from context
 
@@ -797,38 +846,31 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     [reminders]
   );
   
-  /** Submitted cases still within the administrative silence period */
+  /** After administrative silence: queue here until someone moves the case to Appeals. */
   const recursoAdministrativeFile = useMemo(
     () =>
-      clients.filter((client) => {
-        if (!client.submitted_to_immigration || !client.application_date) return false;
-        const appDate = new Date(client.application_date);
-        const silenceDays = client.administrative_silence_days || 60;
-        const silenceEndDate = new Date(appDate);
-        silenceEndDate.setDate(silenceEndDate.getDate() + silenceDays);
-        const now = new Date();
-        return now <= silenceEndDate;
-      }),
+      clients.filter(
+        (c) =>
+          recursoSubmittedWithDate(c) &&
+          recursoAdministrativeSilenceEnded(c) &&
+          !c.recurso_in_appeals_box
+      ),
     [clients]
   );
 
-  /** Submitted cases past silence — appeal (replacement / contentious) may be filed */
+  /** Only cases the team explicitly placed in the Appeals box. */
   const recursoAppeals = useMemo(
-    () =>
-      clients.filter((client) => {
-        if (!client.submitted_to_immigration || !client.application_date) return false;
-        const appDate = new Date(client.application_date);
-        const silenceDays = client.administrative_silence_days || 60;
-        const silenceEndDate = new Date(appDate);
-        silenceEndDate.setDate(silenceEndDate.getDate() + silenceDays);
-        const now = new Date();
-        return now > silenceEndDate;
-      }),
+    () => clients.filter((c) => recursoSubmittedWithDate(c) && Boolean(c.recurso_in_appeals_box)),
     [clients]
   );
 
-  const recursoClientTotal =
-    recursoAdministrativeFile.length + recursoAppeals.length;
+  const recursoSubmittedPipelineCount = useMemo(
+    () => clients.filter(recursoSubmittedWithDate).length,
+    [clients]
+  );
+
+  /** Post-silence clients shown in the two APPEAL tiles (administrative queue + appeals box). */
+  const recursoClientTotal = recursoAdministrativeFile.length + recursoAppeals.length;
   
   // URGENTES: Clients with urgent deadlines within 3 days
   const urgentes = useMemo(() => clients.filter((client) => {
@@ -1199,7 +1241,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.recurso')}</span>
           </div>
-          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">{recursoClientTotal + recursoReminders.length}</p>
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">{recursoSubmittedPipelineCount + recursoReminders.length}</p>
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">{t('dashboard.recursoDesc')}</p>
         </div>
 
@@ -2149,7 +2191,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               )}
               
-              {recursoClientTotal === 0 && recursoReminders.length === 0 && !showRecursoReminderForm ? (
+              {recursoSubmittedPipelineCount === 0 && recursoReminders.length === 0 && !showRecursoReminderForm ? (
                 <div className="text-center py-12">
                   <Gavel className="w-16 h-16 mx-auto text-amber-400 mb-4" />
                   <p className="text-gray-500 font-medium text-lg">No hay recursos pendientes</p>
@@ -2173,7 +2215,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {recursoClientTotal > 0 && (
+                  {recursoSubmittedPipelineCount > 0 && (
                     <>
                       <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         <button
@@ -2236,6 +2278,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         </button>
                       </div>
 
+                      {recursoSubmittedPipelineCount > 0 && recursoClientTotal === 0 && (
+                        <p className="text-center text-[11px] sm:text-xs text-amber-700/85 px-1 leading-snug">
+                          {t('dashboard.recursoModalSilenceOnlyHint')}
+                        </p>
+                      )}
+
                       {recursoModalClientSection === null ? (
                         <p className="text-center text-xs sm:text-sm text-amber-700/80 px-1">
                           {t('dashboard.recursoModalPickSection')}
@@ -2283,6 +2331,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                       </div>
                                       <Hourglass className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 shrink-0" aria-hidden />
                                     </div>
+                                    <div
+                                      className="mt-2 pt-2 border-t border-amber-200/70 flex justify-end"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={recursoAppealsBoxLoadingId === client.id}
+                                        onClick={(e) => void handleRecursoMoveToAppealsBox(client.id, e)}
+                                        className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                                      >
+                                        <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                        {t('dashboard.recursoModalMoveToAppeals')}
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -2322,6 +2384,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                         )}
                                       </div>
                                       <Gavel className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 shrink-0" aria-hidden />
+                                    </div>
+                                    <div
+                                      className="mt-2 pt-2 border-t border-amber-200/70 flex justify-end"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={recursoAppealsBoxLoadingId === client.id}
+                                        onClick={(e) => void handleRecursoRemoveFromAppealsBox(client.id, e)}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+                                      >
+                                        <Undo2 className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                        {t('dashboard.recursoModalRemoveFromAppeals')}
+                                      </button>
                                     </div>
                                   </div>
                                 ))}

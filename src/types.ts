@@ -50,6 +50,8 @@ export interface Client {
   administrative_silence_days: number;
   payment: PaymentInfo;
   submitted_to_immigration: boolean;
+  /** When true, client appears only under APPEAL modal "Appeals" (moved manually from administrative queue). */
+  recurso_in_appeals_box?: boolean;
   application_date?: string;
   custom_reminder_date?: string; // Custom reminder date set by team
   notifications: Notification[];
