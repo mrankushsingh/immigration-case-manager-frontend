@@ -167,6 +167,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showAportarDocumentacionModal, setShowAportarDocumentacionModal] = useState(false);
   const [showRequerimientoModal, setShowRequerimientoModal] = useState(false);
   const [showRecursoModal, setShowRecursoModal] = useState(false);
+  /** APPEAL modal: which option's file list is shown (only after tapping a summary box). */
+  const [recursoModalOpenList, setRecursoModalOpenList] = useState<'option1' | 'option2' | null>(null);
   const [recursoAppealsBoxLoadingId, setRecursoAppealsBoxLoadingId] = useState<string | null>(null);
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
@@ -673,6 +675,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       void fetchTeamTasks();
     }
   }, [showTeamsToDoModal, fetchTeamTasks]);
+
+  useEffect(() => {
+    if (!showRecursoModal) {
+      setRecursoModalOpenList(null);
+    }
+  }, [showRecursoModal]);
 
   const handleRecursoMoveToAppealsBox = useCallback(
     async (clientId: string, e?: React.MouseEvent) => {
@@ -2208,9 +2216,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   {recursoSubmittedPipelineCount > 0 && (
                     <>
                       <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <div className="rounded-xl border-2 border-red-600/90 bg-gradient-to-br from-red-50 to-white p-2.5 sm:p-3 shadow-sm ring-1 ring-red-300/50">
-                          <div className="flex items-start gap-1 mb-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRecursoModalOpenList((s) => (s === 'option1' ? null : 'option1'))
+                          }
+                          className={`rounded-xl border-2 p-2.5 sm:p-3 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 active:scale-[0.99] bg-white ${
+                            recursoModalOpenList === 'option1'
+                              ? 'border-red-600 shadow-md ring-2 ring-red-300/60'
+                              : 'border-red-400/90 hover:border-red-500 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1 mb-1">
                             <Gavel className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-red-700" aria-hidden />
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-red-600 transition-transform ${recursoModalOpenList === 'option1' ? 'rotate-180' : ''}`}
+                              aria-hidden
+                            />
                           </div>
                           <p className="text-[9px] sm:text-[10px] font-extrabold text-red-700 uppercase tracking-wide leading-tight line-clamp-3 min-h-[2.5rem] sm:min-h-0">
                             {t('dashboard.recursoModalOption1Title')}
@@ -2218,10 +2240,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           <p className="text-xl sm:text-2xl font-bold tabular-nums text-red-600 mt-1">
                             {recursoAppealsFiltered.length}
                           </p>
-                        </div>
-                        <div className="rounded-xl border-2 border-amber-300/90 bg-gradient-to-br from-amber-50/95 to-white p-2.5 sm:p-3 shadow-sm">
-                          <div className="flex items-start gap-1 mb-1">
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRecursoModalOpenList((s) => (s === 'option2' ? null : 'option2'))
+                          }
+                          className={`rounded-xl border-2 p-2.5 sm:p-3 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 active:scale-[0.99] bg-white ${
+                            recursoModalOpenList === 'option2'
+                              ? 'border-amber-500 shadow-md ring-2 ring-amber-300/50'
+                              : 'border-amber-300/90 hover:border-amber-400 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1 mb-1">
                             <Hourglass className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-amber-800" aria-hidden />
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-amber-700 transition-transform ${recursoModalOpenList === 'option2' ? 'rotate-180' : ''}`}
+                              aria-hidden
+                            />
                           </div>
                           <p className="text-[9px] sm:text-[10px] font-bold text-amber-900 uppercase tracking-wide leading-tight line-clamp-3 min-h-[2.5rem] sm:min-h-0">
                             {t('dashboard.recursoModalOption2Title')}
@@ -2229,7 +2265,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           <p className="text-xl sm:text-2xl font-bold tabular-nums bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mt-1">
                             {recursoAdministrativeFileFiltered.length}
                           </p>
-                        </div>
+                        </button>
                       </div>
 
                       {recursoSubmittedPipelineCount > 0 && recursoClientTotal === 0 && (
@@ -2238,10 +2274,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         </p>
                       )}
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 lg:items-start gap-3 lg:gap-4">
+                      {recursoModalOpenList === null && (
+                        <p className="text-center text-xs sm:text-sm text-amber-800/85 px-1">
+                          {t('dashboard.recursoModalTapBoxHint')}
+                        </p>
+                      )}
+
+                      {recursoModalOpenList === 'option1' && (
                       <div
                         id="dashboard-recurso-section-option1"
-                        className="rounded-xl border-2 border-red-600 bg-gradient-to-b from-red-50 via-red-50/80 to-white p-3 sm:p-4 shadow-md max-h-[min(48vh,20rem)] sm:max-h-[min(46vh,24rem)] lg:max-h-[min(70vh,32rem)] overflow-y-auto text-red-800"
+                        className="rounded-xl border-2 border-red-600 bg-gradient-to-b from-red-50 via-red-50/80 to-white p-3 sm:p-4 shadow-md max-h-[min(56vh,24rem)] sm:max-h-[min(52vh,28rem)] overflow-y-auto text-red-800"
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <Gavel className="w-5 h-5 text-red-700 shrink-0" aria-hidden />
@@ -2306,10 +2348,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           </div>
                         )}
                       </div>
+                      )}
 
+                      {recursoModalOpenList === 'option2' && (
                       <div
                         id="dashboard-recurso-section-option2"
-                        className="rounded-xl border-2 border-amber-300/95 bg-gradient-to-b from-amber-50/95 to-white p-3 sm:p-4 shadow-sm max-h-[min(48vh,20rem)] sm:max-h-[min(46vh,24rem)] lg:max-h-[min(70vh,32rem)] overflow-y-auto"
+                        className="rounded-xl border-2 border-amber-300/95 bg-gradient-to-b from-amber-50/95 to-white p-3 sm:p-4 shadow-sm max-h-[min(56vh,24rem)] sm:max-h-[min(52vh,28rem)] overflow-y-auto"
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <Hourglass className="w-5 h-5 text-amber-800 shrink-0" aria-hidden />
@@ -2374,7 +2418,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           </div>
                         )}
                       </div>
-                      </div>
+                      )}
                     </>
                   )}
                 </div>

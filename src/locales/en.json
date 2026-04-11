@@ -88,6 +88,7 @@
     "recursoModalRemoveFromOption1": "Remove from Option 1",
     "recursoModalSectionEmpty": "No clients in this category.",
     "recursoModalSectionSearchEmpty": "No matching clients in this category.",
+    "recursoModalTapBoxHint": "Tap Option 1 or Option 2 above to show the file list.",
     "recursoModalSilenceOnlyHint": "These cases are still in the administrative silence period. When silence ends, they will appear under Administrative file.",
     "recursoToastMovedToAppeals": "Case moved to Option 1 (formal appeal).",
     "recursoToastRemovedFromAppeals": "Case removed from Option 1.",

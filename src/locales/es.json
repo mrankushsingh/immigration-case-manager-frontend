@@ -89,6 +89,7 @@
     "recursoModalRemoveFromOption1": "Quitar de Opción 1",
     "recursoModalSectionEmpty": "No hay clientes en esta categoría.",
     "recursoModalSectionSearchEmpty": "Ningún cliente coincide con la búsqueda en esta categoría.",
+    "recursoModalTapBoxHint": "Pulse Opción 1 u Opción 2 arriba para ver la lista de expedientes.",
     "recursoModalSilenceOnlyHint": "Estos expedientes siguen en plazo de silencio administrativo. Al terminar, aparecerán en Expediente administrativo.",
     "recursoToastMovedToAppeals": "Caso pasado a Opción 1 (recurso formal).",
     "recursoToastRemovedFromAppeals": "Caso quitado de Opción 1.",
