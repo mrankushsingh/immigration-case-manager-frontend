@@ -2208,25 +2208,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   {recursoSubmittedPipelineCount > 0 && (
                     <>
                       <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <div className="rounded-xl border-2 border-amber-300/90 bg-gradient-to-br from-amber-50/95 to-white p-2.5 sm:p-3 shadow-sm">
+                        <div className="rounded-xl border-2 border-red-600/90 bg-gradient-to-br from-red-50 to-white p-2.5 sm:p-3 shadow-sm ring-1 ring-red-300/50">
                           <div className="flex items-start gap-1 mb-1">
-                            <Gavel className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-amber-800" aria-hidden />
+                            <Gavel className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-red-700" aria-hidden />
                           </div>
-                          <p className="text-[9px] sm:text-[10px] font-bold text-amber-900 uppercase tracking-wide leading-tight line-clamp-2 min-h-[2rem] sm:min-h-0">
-                            {t('dashboard.recursoModalAppeals')}
+                          <p className="text-[9px] sm:text-[10px] font-extrabold text-red-700 uppercase tracking-wide leading-tight line-clamp-3 min-h-[2.5rem] sm:min-h-0">
+                            {t('dashboard.recursoModalOption1Title')}
                           </p>
-                          <p className="text-xl sm:text-2xl font-bold tabular-nums bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mt-1">
+                          <p className="text-xl sm:text-2xl font-bold tabular-nums text-red-600 mt-1">
                             {recursoAppealsFiltered.length}
                           </p>
                         </div>
-                        <div className="rounded-xl border-2 border-red-400/90 bg-gradient-to-br from-red-50/95 to-white p-2.5 sm:p-3 shadow-sm ring-1 ring-red-200/60">
+                        <div className="rounded-xl border-2 border-amber-300/90 bg-gradient-to-br from-amber-50/95 to-white p-2.5 sm:p-3 shadow-sm">
                           <div className="flex items-start gap-1 mb-1">
-                            <Hourglass className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-red-800" aria-hidden />
+                            <Hourglass className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-amber-800" aria-hidden />
                           </div>
-                          <p className="text-[9px] sm:text-[10px] font-bold text-red-900 uppercase tracking-wide leading-tight line-clamp-2 min-h-[2rem] sm:min-h-0">
-                            {t('dashboard.recursoModalAdministrativeFile')}
+                          <p className="text-[9px] sm:text-[10px] font-bold text-amber-900 uppercase tracking-wide leading-tight line-clamp-3 min-h-[2.5rem] sm:min-h-0">
+                            {t('dashboard.recursoModalOption2Title')}
                           </p>
-                          <p className="text-xl sm:text-2xl font-bold tabular-nums text-red-700 mt-1">
+                          <p className="text-xl sm:text-2xl font-bold tabular-nums bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mt-1">
                             {recursoAdministrativeFileFiltered.length}
                           </p>
                         </div>
@@ -2240,20 +2240,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 lg:items-start gap-3 lg:gap-4">
                       <div
-                        id="dashboard-recurso-section-appeals"
-                        className="rounded-xl border-2 border-amber-200/90 bg-white/95 p-3 sm:p-4 shadow-sm max-h-[min(40vh,18rem)] sm:max-h-[min(38vh,20rem)] lg:max-h-[min(70vh,32rem)] overflow-y-auto"
+                        id="dashboard-recurso-section-option1"
+                        className="rounded-xl border-2 border-red-600 bg-gradient-to-b from-red-50 via-red-50/80 to-white p-3 sm:p-4 shadow-md max-h-[min(48vh,20rem)] sm:max-h-[min(46vh,24rem)] lg:max-h-[min(70vh,32rem)] overflow-y-auto text-red-800"
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <Gavel className="w-5 h-5 text-amber-800 shrink-0" aria-hidden />
-                          <h3 className="text-sm sm:text-base font-bold text-amber-900 uppercase tracking-wide">
-                            {t('dashboard.recursoModalAppeals')}
+                          <Gavel className="w-5 h-5 text-red-700 shrink-0" aria-hidden />
+                          <h3 className="text-xs sm:text-sm font-extrabold text-red-700 uppercase tracking-wide leading-snug">
+                            {t('dashboard.recursoModalOption1Title')}
                           </h3>
                         </div>
-                        <p className="text-xs text-amber-800/90 mb-3 leading-relaxed">
-                          {t('dashboard.recursoModalAppealsDesc')}
+                        <p className="text-xs font-semibold text-red-700 mb-3 leading-relaxed">
+                          {t('dashboard.recursoModalOption1Desc')}
                         </p>
                         {recursoAppealsFiltered.length === 0 ? (
-                          <p className="text-sm text-amber-800/75 py-2">
+                          <p className="text-sm font-semibold text-red-700 py-2">
                             {dashboardModalSearch.recurso.trim()
                               ? t('dashboard.recursoModalSectionSearchEmpty')
                               : t('dashboard.recursoModalSectionEmpty')}
@@ -2268,37 +2268,37 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                   setShowRecursoModal(false);
                                   setDashboardModalSearch((s) => ({ ...s, recurso: '' }));
                                 }}
-                                className="p-3 sm:p-4 border-2 border-amber-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-white"
+                                className="p-3 sm:p-4 border-2 border-red-500 rounded-xl hover:border-red-600 hover:shadow-md transition-all cursor-pointer bg-white/90 shadow-sm"
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-amber-900 text-base sm:text-lg truncate">
+                                    <h3 className="font-bold text-red-700 text-base sm:text-lg truncate">
                                       {client.first_name} {client.last_name}
                                     </h3>
-                                    <p className="text-xs sm:text-sm text-amber-700 mt-1 line-clamp-2">
+                                    <p className="text-xs sm:text-sm text-red-700 mt-1 line-clamp-2 font-semibold">
                                       {client.case_type || 'No template'}
                                     </p>
                                     {client.application_date && (
-                                      <p className="text-[10px] sm:text-xs text-amber-600 mt-1.5">
+                                      <p className="text-[10px] sm:text-xs text-red-700 mt-1.5 font-bold">
                                         Presentado:{' '}
                                         {new Date(client.application_date).toLocaleDateString()}
                                       </p>
                                     )}
                                   </div>
-                                  <Gavel className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 shrink-0" aria-hidden />
+                                  <Gavel className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 shrink-0" aria-hidden />
                                 </div>
                                 <div
-                                  className="mt-2 pt-2 border-t border-amber-200/70 flex justify-end"
+                                  className="mt-2 pt-2 border-t border-red-300 flex justify-end"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <button
                                     type="button"
                                     disabled={recursoAppealsBoxLoadingId === client.id}
                                     onClick={(e) => void handleRecursoRemoveFromAppealsBox(client.id, e)}
-                                    className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+                                    className="inline-flex items-center gap-1 rounded-lg border-2 border-red-600 bg-white px-2.5 py-1.5 text-[10px] sm:text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
                                   >
                                     <Undo2 className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                                    {t('dashboard.recursoModalRemoveFromAppeals')}
+                                    {t('dashboard.recursoModalRemoveFromOption1')}
                                   </button>
                                 </div>
                               </div>
@@ -2308,20 +2308,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       </div>
 
                       <div
-                        id="dashboard-recurso-section-administrative"
-                        className="rounded-xl border-2 border-red-500/85 bg-gradient-to-b from-red-50/90 via-red-50/50 to-white p-3 sm:p-4 shadow-md max-h-[min(48vh,20rem)] sm:max-h-[min(46vh,24rem)] lg:max-h-[min(70vh,32rem)] overflow-y-auto"
+                        id="dashboard-recurso-section-option2"
+                        className="rounded-xl border-2 border-amber-300/95 bg-gradient-to-b from-amber-50/95 to-white p-3 sm:p-4 shadow-sm max-h-[min(48vh,20rem)] sm:max-h-[min(46vh,24rem)] lg:max-h-[min(70vh,32rem)] overflow-y-auto"
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <Hourglass className="w-5 h-5 text-red-700 shrink-0" aria-hidden />
-                          <h3 className="text-sm sm:text-base font-bold text-red-900 uppercase tracking-wide">
-                            {t('dashboard.recursoModalAdministrativeFile')}
+                          <Hourglass className="w-5 h-5 text-amber-800 shrink-0" aria-hidden />
+                          <h3 className="text-xs sm:text-sm font-bold text-amber-950 uppercase tracking-wide leading-snug">
+                            {t('dashboard.recursoModalOption2Title')}
                           </h3>
                         </div>
-                        <p className="text-xs text-red-800/95 mb-3 leading-relaxed font-medium">
-                          {t('dashboard.recursoModalAdministrativeFileDesc')}
+                        <p className="text-xs text-amber-900/95 mb-3 leading-relaxed font-medium">
+                          {t('dashboard.recursoModalOption2Desc')}
                         </p>
                         {recursoAdministrativeFileFiltered.length === 0 ? (
-                          <p className="text-sm text-red-800/80 py-2 font-medium">
+                          <p className="text-sm text-amber-900/80 py-2 font-medium">
                             {dashboardModalSearch.recurso.trim()
                               ? t('dashboard.recursoModalSectionSearchEmpty')
                               : t('dashboard.recursoModalSectionEmpty')}
@@ -2336,37 +2336,37 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                   setShowRecursoModal(false);
                                   setDashboardModalSearch((s) => ({ ...s, recurso: '' }));
                                 }}
-                                className="p-3 sm:p-4 border-2 border-red-400 rounded-xl hover:border-red-500 hover:shadow-md transition-all cursor-pointer bg-white/95 shadow-sm"
+                                className="p-3 sm:p-4 border-2 border-amber-300 rounded-xl hover:border-amber-400 hover:shadow-md transition-all cursor-pointer bg-white/95 shadow-sm"
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-red-950 text-base sm:text-lg truncate">
+                                    <h3 className="font-bold text-amber-950 text-base sm:text-lg truncate">
                                       {client.first_name} {client.last_name}
                                     </h3>
-                                    <p className="text-xs sm:text-sm text-red-800 mt-1 line-clamp-2 font-medium">
+                                    <p className="text-xs sm:text-sm text-amber-900 mt-1 line-clamp-2 font-medium">
                                       {client.case_type || 'No template'}
                                     </p>
                                     {client.application_date && (
-                                      <p className="text-[10px] sm:text-xs text-red-700 mt-1.5 font-semibold">
+                                      <p className="text-[10px] sm:text-xs text-amber-800 mt-1.5 font-semibold">
                                         Presentado:{' '}
                                         {new Date(client.application_date).toLocaleDateString()}
                                       </p>
                                     )}
                                   </div>
-                                  <Hourglass className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 shrink-0" aria-hidden />
+                                  <Hourglass className="w-5 h-5 sm:w-6 sm:h-6 text-amber-700 shrink-0" aria-hidden />
                                 </div>
                                 <div
-                                  className="mt-2 pt-2 border-t border-red-200 flex justify-end"
+                                  className="mt-2 pt-2 border-t border-amber-200 flex justify-end"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <button
                                     type="button"
                                     disabled={recursoAppealsBoxLoadingId === client.id}
                                     onClick={(e) => void handleRecursoMoveToAppealsBox(client.id, e)}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                                    className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
                                   >
                                     <ArrowRight className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                                    {t('dashboard.recursoModalMoveToAppeals')}
+                                    {t('dashboard.recursoModalMoveToOption1')}
                                   </button>
                                 </div>
                               </div>
