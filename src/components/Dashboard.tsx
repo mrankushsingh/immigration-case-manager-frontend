@@ -153,6 +153,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showAportarDocumentacionModal, setShowAportarDocumentacionModal] = useState(false);
   const [showRequerimientoModal, setShowRequerimientoModal] = useState(false);
   const [showRecursoModal, setShowRecursoModal] = useState(false);
+  /** APPEAL modal: which client list is shown below the two summary tiles */
+  const [recursoModalClientSection, setRecursoModalClientSection] = useState<
+    'administrative' | 'appeals' | null
+  >(null);
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
@@ -658,6 +662,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       void fetchTeamTasks();
     }
   }, [showTeamsToDoModal, fetchTeamTasks]);
+
+  useEffect(() => {
+    if (!showRecursoModal) {
+      setRecursoModalClientSection(null);
+    }
+  }, [showRecursoModal]);
 
   // Data is loaded once at app startup via DataContext
   // No need to load data here - it's already available from context
@@ -2162,104 +2172,163 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {recursoClientTotal > 0 && (
                     <>
-                      <div className="rounded-xl border-2 border-amber-200/90 bg-gradient-to-br from-amber-50/95 to-white p-4 sm:p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Hourglass className="w-5 h-5 text-amber-800 shrink-0" aria-hidden />
-                          <h3 className="text-base sm:text-lg font-semibold text-amber-900">
-                            {t('dashboard.recursoModalAdministrativeFile')}
-                          </h3>
-                        </div>
-                        <p className="text-xs sm:text-sm text-amber-700/90 mb-3 leading-relaxed">
-                          {t('dashboard.recursoModalAdministrativeFileDesc')}
-                        </p>
-                        {recursoAdministrativeFileFiltered.length === 0 ? (
-                          <p className="text-sm text-amber-700/70 py-2">
-                            {dashboardModalSearch.recurso.trim()
-                              ? t('dashboard.recursoModalSectionSearchEmpty')
-                              : t('dashboard.recursoModalSectionEmpty')}
-                          </p>
-                        ) : (
-                          <div className="space-y-3">
-                            {recursoAdministrativeFileFiltered.map((client) => (
-                              <div
-                                key={client.id}
-                                onClick={() => {
-                                  setSelectedClient(client);
-                                  setShowRecursoModal(false);
-                                  setDashboardModalSearch((s) => ({ ...s, recurso: '' }));
-                                }}
-                                className="p-4 border-2 border-amber-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-white"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <h3 className="font-bold text-amber-900 text-lg">
-                                      {client.first_name} {client.last_name}
-                                    </h3>
-                                    <p className="text-sm text-amber-700 mt-1">{client.case_type || 'No template'}</p>
-                                    {client.application_date && (
-                                      <p className="text-xs text-amber-600 mt-2">
-                                        Presentado: {new Date(client.application_date).toLocaleDateString()}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <Hourglass className="w-6 h-6 text-amber-600 ml-4 shrink-0" aria-hidden />
-                                </div>
-                              </div>
-                            ))}
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRecursoModalClientSection((s) =>
+                              s === 'administrative' ? null : 'administrative'
+                            )
+                          }
+                          className={`rounded-xl border-2 p-2.5 sm:p-3 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
+                            recursoModalClientSection === 'administrative'
+                              ? 'border-amber-500 bg-amber-100/90 shadow-md ring-2 ring-amber-300/50'
+                              : 'border-amber-200/90 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1 mb-1">
+                            <Hourglass
+                              className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${recursoModalClientSection === 'administrative' ? 'text-amber-900' : 'text-amber-700'}`}
+                              aria-hidden
+                            />
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-amber-700 transition-transform ${recursoModalClientSection === 'administrative' ? 'rotate-180' : ''}`}
+                              aria-hidden
+                            />
                           </div>
-                        )}
+                          <p className="text-[9px] sm:text-[10px] font-bold text-amber-900 uppercase tracking-wide leading-tight line-clamp-2 min-h-[2rem] sm:min-h-0">
+                            {t('dashboard.recursoModalAdministrativeFile')}
+                          </p>
+                          <p className="text-xl sm:text-2xl font-bold tabular-nums bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mt-1">
+                            {recursoAdministrativeFileFiltered.length}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRecursoModalClientSection((s) => (s === 'appeals' ? null : 'appeals'))
+                          }
+                          className={`rounded-xl border-2 p-2.5 sm:p-3 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 active:scale-[0.99] ${
+                            recursoModalClientSection === 'appeals'
+                              ? 'border-amber-500 bg-amber-100/90 shadow-md ring-2 ring-amber-300/50'
+                              : 'border-amber-200/90 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1 mb-1">
+                            <Gavel
+                              className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${recursoModalClientSection === 'appeals' ? 'text-amber-900' : 'text-amber-700'}`}
+                              aria-hidden
+                            />
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-amber-700 transition-transform ${recursoModalClientSection === 'appeals' ? 'rotate-180' : ''}`}
+                              aria-hidden
+                            />
+                          </div>
+                          <p className="text-[9px] sm:text-[10px] font-bold text-amber-900 uppercase tracking-wide leading-tight line-clamp-2 min-h-[2rem] sm:min-h-0">
+                            {t('dashboard.recursoModalAppeals')}
+                          </p>
+                          <p className="text-xl sm:text-2xl font-bold tabular-nums bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mt-1">
+                            {recursoAppealsFiltered.length}
+                          </p>
+                        </button>
                       </div>
 
-                      <div className="rounded-xl border-2 border-amber-200/90 bg-gradient-to-br from-amber-50/95 to-white p-4 sm:p-5 shadow-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Gavel className="w-5 h-5 text-amber-800 shrink-0" aria-hidden />
-                          <h3 className="text-base sm:text-lg font-semibold text-amber-900">
-                            {t('dashboard.recursoModalAppeals')}
-                          </h3>
-                        </div>
-                        <p className="text-xs sm:text-sm text-amber-700/90 mb-3 leading-relaxed">
-                          {t('dashboard.recursoModalAppealsDesc')}
+                      {recursoModalClientSection === null ? (
+                        <p className="text-center text-xs sm:text-sm text-amber-700/80 px-1">
+                          {t('dashboard.recursoModalPickSection')}
                         </p>
-                        {recursoAppealsFiltered.length === 0 ? (
-                          <p className="text-sm text-amber-700/70 py-2">
-                            {dashboardModalSearch.recurso.trim()
-                              ? t('dashboard.recursoModalSectionSearchEmpty')
-                              : t('dashboard.recursoModalSectionEmpty')}
+                      ) : (
+                        <div className="rounded-xl border-2 border-amber-200/90 bg-white/95 p-3 sm:p-4 shadow-sm max-h-[min(52vh,22rem)] sm:max-h-[min(50vh,26rem)] overflow-y-auto">
+                          <p className="text-xs text-amber-700/90 mb-3 leading-relaxed">
+                            {recursoModalClientSection === 'administrative'
+                              ? t('dashboard.recursoModalAdministrativeFileDesc')
+                              : t('dashboard.recursoModalAppealsDesc')}
                           </p>
-                        ) : (
-                          <div className="space-y-3">
-                            {recursoAppealsFiltered.map((client) => (
-                              <div
-                                key={client.id}
-                                onClick={() => {
-                                  setSelectedClient(client);
-                                  setShowRecursoModal(false);
-                                  setDashboardModalSearch((s) => ({ ...s, recurso: '' }));
-                                }}
-                                className="p-4 border-2 border-amber-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-white"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <h3 className="font-bold text-amber-900 text-lg">
-                                      {client.first_name} {client.last_name}
-                                    </h3>
-                                    <p className="text-sm text-amber-700 mt-1">{client.case_type || 'No template'}</p>
-                                    {client.application_date && (
-                                      <p className="text-xs text-amber-600 mt-2">
-                                        Presentado: {new Date(client.application_date).toLocaleDateString()}
-                                      </p>
-                                    )}
+                          {recursoModalClientSection === 'administrative' &&
+                            (recursoAdministrativeFileFiltered.length === 0 ? (
+                              <p className="text-sm text-amber-700/70 py-2">
+                                {dashboardModalSearch.recurso.trim()
+                                  ? t('dashboard.recursoModalSectionSearchEmpty')
+                                  : t('dashboard.recursoModalSectionEmpty')}
+                              </p>
+                            ) : (
+                              <div className="space-y-2 sm:space-y-3">
+                                {recursoAdministrativeFileFiltered.map((client) => (
+                                  <div
+                                    key={client.id}
+                                    onClick={() => {
+                                      setSelectedClient(client);
+                                      setShowRecursoModal(false);
+                                      setDashboardModalSearch((s) => ({ ...s, recurso: '' }));
+                                    }}
+                                    className="p-3 sm:p-4 border-2 border-amber-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-white"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-amber-900 text-base sm:text-lg truncate">
+                                          {client.first_name} {client.last_name}
+                                        </h3>
+                                        <p className="text-xs sm:text-sm text-amber-700 mt-1 line-clamp-2">
+                                          {client.case_type || 'No template'}
+                                        </p>
+                                        {client.application_date && (
+                                          <p className="text-[10px] sm:text-xs text-amber-600 mt-1.5">
+                                            Presentado:{' '}
+                                            {new Date(client.application_date).toLocaleDateString()}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <Hourglass className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 shrink-0" aria-hidden />
+                                    </div>
                                   </div>
-                                  <Gavel className="w-6 h-6 text-amber-600 ml-4 shrink-0" aria-hidden />
-                                </div>
+                                ))}
                               </div>
                             ))}
-                          </div>
-                        )}
-                      </div>
+                          {recursoModalClientSection === 'appeals' &&
+                            (recursoAppealsFiltered.length === 0 ? (
+                              <p className="text-sm text-amber-700/70 py-2">
+                                {dashboardModalSearch.recurso.trim()
+                                  ? t('dashboard.recursoModalSectionSearchEmpty')
+                                  : t('dashboard.recursoModalSectionEmpty')}
+                              </p>
+                            ) : (
+                              <div className="space-y-2 sm:space-y-3">
+                                {recursoAppealsFiltered.map((client) => (
+                                  <div
+                                    key={client.id}
+                                    onClick={() => {
+                                      setSelectedClient(client);
+                                      setShowRecursoModal(false);
+                                      setDashboardModalSearch((s) => ({ ...s, recurso: '' }));
+                                    }}
+                                    className="p-3 sm:p-4 border-2 border-amber-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-white"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-amber-900 text-base sm:text-lg truncate">
+                                          {client.first_name} {client.last_name}
+                                        </h3>
+                                        <p className="text-xs sm:text-sm text-amber-700 mt-1 line-clamp-2">
+                                          {client.case_type || 'No template'}
+                                        </p>
+                                        {client.application_date && (
+                                          <p className="text-[10px] sm:text-xs text-amber-600 mt-1.5">
+                                            Presentado:{' '}
+                                            {new Date(client.application_date).toLocaleDateString()}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <Gavel className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 shrink-0" aria-hidden />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

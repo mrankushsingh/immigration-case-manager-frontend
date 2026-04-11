@@ -86,6 +86,7 @@
     "recursoModalAppealsDesc": "Silence period has ended — pending to file replacement or contentious appeal.",
     "recursoModalSectionEmpty": "No clients in this category.",
     "recursoModalSectionSearchEmpty": "No matching clients in this category.",
+    "recursoModalPickSection": "Tap a box above to open that list.",
     "urgentes": "URGENT",
     "urgentesDesc": "Procedures that must be done in 72h max",
     "recordatorio": "REMINDERS",

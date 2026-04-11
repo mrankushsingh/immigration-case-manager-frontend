@@ -87,6 +87,7 @@
     "recursoModalAppealsDesc": "Ha finalizado el silencio — pendiente presentar recurso de reposición o contencioso.",
     "recursoModalSectionEmpty": "No hay clientes en esta categoría.",
     "recursoModalSectionSearchEmpty": "Ningún cliente coincide con la búsqueda en esta categoría.",
+    "recursoModalPickSection": "Pulse una caja de arriba para abrir esa lista.",
     "urgentes": "URGENTES",
     "urgentesDesc": "Trámites que se deben hacer en 72h max",
     "recordatorio": "RECORDATORIO",
