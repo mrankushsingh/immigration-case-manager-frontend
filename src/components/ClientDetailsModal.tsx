@@ -1268,7 +1268,9 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
               ? 'OCR'
               : classification.method === 'gemini'
                 ? 'AI'
-                : 'auto';
+                : classification.method === 'template-catalog'
+                  ? 'template'
+                  : 'auto';
           sortedToRequired.push(`"${file.name}" → ${classification.documentName} (${via})`);
         } else {
           keptInAllDocuments.push(file.name);
