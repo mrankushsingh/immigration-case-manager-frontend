@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare, Sparkles } from 'lucide-react';
+import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare } from 'lucide-react';
 import {
   SMART_UPLOAD_ACCEPT,
   collectFilesFromDataTransfer,
@@ -67,9 +67,9 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [savingPaymentLine, setSavingPaymentLine] = useState(false);
   const [uploadingAllDocuments, setUploadingAllDocuments] = useState(false);
   const [smartUploadProgress, setSmartUploadProgress] = useState<{ current: number; total: number } | null>(null);
-  const [smartUploadDropZone, setSmartUploadDropZone] = useState<'all' | 'required' | null>(null);
-  const smartUploadDragDepthAll = useRef(0);
-  const smartUploadDragDepthRequired = useRef(0);
+  const [smartUploadDragOver, setSmartUploadDragOver] = useState(false);
+  const smartUploadDragDepth = useRef(0);
+  const allDocumentsFileInputRef = useRef<HTMLInputElement>(null);
   const [showAdditionalDocForm, setShowAdditionalDocForm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', note: '' });
   const [additionalDocForm, setAdditionalDocForm] = useState({ name: '', description: '', file: null as File | null, reminder_days: 10 });
@@ -323,11 +323,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
-    if (e.dataTransfer.types.includes('Files')) {
-      preventDragDefaults(e);
-      if (!uploadingAllDocuments) setSmartUploadDropZone('required');
-      return;
-    }
     e.preventDefault();
     setDragOverIndex(index);
   };
@@ -339,12 +334,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     setDragOverIndex(null);
-
-    if (e.dataTransfer.files?.length > 0 || e.dataTransfer.types.includes('Files')) {
-      setDraggedIndex(null);
-      await handleSmartUploadDrop(e, 'required');
-      return;
-    }
 
     if (draggedIndex === null || draggedIndex === dropIndex) {
       setDraggedIndex(null);
@@ -1350,22 +1339,20 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
-  const beginSmartUpload = async (rawFiles: File[], zone: 'all' | 'required') => {
+  const beginSmartUpload = async (rawFiles: File[]) => {
     const files = filterSmartUploadFiles(rawFiles);
     if (!files.length) {
       showToast('No supported files. Use PDF, images, Word, or Excel.', 'error');
       return;
     }
 
-    if (zone === 'all') {
-      const existingAll = (clientData.additional_documents || []).filter((d) => d.allDocumentsSection).length;
-      if (existingAll + files.length > 15) {
-        showToast(
-          `All Documents allows up to 15 files. You have ${existingAll}; tried to add ${files.length}.`,
-          'error'
-        );
-        return;
-      }
+    const existingAll = (clientData.additional_documents || []).filter((d) => d.allDocumentsSection).length;
+    if (existingAll + files.length > 15) {
+      showToast(
+        `All Documents allows up to 15 files. You have ${existingAll}; tried to add ${files.length}.`,
+        'error'
+      );
+      return;
     }
 
     await processSmartUploadFiles(files);
@@ -1376,72 +1363,47 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     const files = Array.from(input.files || []);
     input.value = '';
     if (!files.length) return;
-    await beginSmartUpload(files, 'all');
+    await beginSmartUpload(files);
   };
 
-  const handleSmartRequiredUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    const files = Array.from(input.files || []);
-    input.value = '';
-    if (!files.length) return;
-    await beginSmartUpload(files, 'required');
-  };
+  const allDocumentsCount = (clientData.additional_documents || []).filter(
+    (d) => d.allDocumentsSection
+  ).length;
+  const allDocumentsUploadDisabled = allDocumentsCount >= 15 || uploadingAllDocuments;
 
-  const handleSmartUploadDragEnter = (e: React.DragEvent, zone: 'all' | 'required') => {
+  const handleSmartUploadDragEnter = (e: React.DragEvent) => {
     preventDragDefaults(e);
-    if (uploadingAllDocuments) return;
-    if (zone === 'all' && allDocumentsSectionFiles.length >= 15) return;
-
-    if (zone === 'all') {
-      smartUploadDragDepthAll.current += 1;
-    } else {
-      smartUploadDragDepthRequired.current += 1;
-    }
-    setSmartUploadDropZone(zone);
+    if (allDocumentsUploadDisabled) return;
+    smartUploadDragDepth.current += 1;
+    setSmartUploadDragOver(true);
   };
 
-  const handleSmartUploadDragLeave = (e: React.DragEvent, zone: 'all' | 'required') => {
+  const handleSmartUploadDragLeave = (e: React.DragEvent) => {
     preventDragDefaults(e);
-    if (zone === 'all') {
-      smartUploadDragDepthAll.current = Math.max(0, smartUploadDragDepthAll.current - 1);
-      if (smartUploadDragDepthAll.current === 0) {
-        setSmartUploadDropZone((z) => (z === 'all' ? null : z));
-      }
-    } else {
-      smartUploadDragDepthRequired.current = Math.max(0, smartUploadDragDepthRequired.current - 1);
-      if (smartUploadDragDepthRequired.current === 0) {
-        setSmartUploadDropZone((z) => (z === 'required' ? null : z));
-      }
-    }
+    smartUploadDragDepth.current = Math.max(0, smartUploadDragDepth.current - 1);
+    if (smartUploadDragDepth.current === 0) setSmartUploadDragOver(false);
   };
 
-  const handleSmartUploadDrop = async (e: React.DragEvent, zone: 'all' | 'required') => {
+  const handleSmartUploadDrop = async (e: React.DragEvent) => {
     preventDragDefaults(e);
-    smartUploadDragDepthAll.current = 0;
-    smartUploadDragDepthRequired.current = 0;
-    setSmartUploadDropZone(null);
+    smartUploadDragDepth.current = 0;
+    setSmartUploadDragOver(false);
 
-    if (uploadingAllDocuments) return;
-    if (zone === 'all' && allDocumentsSectionFiles.length >= 15) return;
+    if (allDocumentsUploadDisabled) return;
 
     const dropped = await collectFilesFromDataTransfer(e.dataTransfer);
     if (!dropped.length) return;
-    await beginSmartUpload(dropped, zone);
+    await beginSmartUpload(dropped);
   };
 
-  const smartDropZoneClass = (zone: 'all' | 'required', disabled: boolean) => {
-    const active = smartUploadDropZone === zone && !disabled;
-    const base =
-      zone === 'all'
-        ? 'border-teal-300 bg-teal-50/40'
-        : 'border-amber-300 bg-amber-50/40';
-    const idle =
-      zone === 'all'
-        ? 'border-gray-300 bg-gray-50/80 hover:border-teal-400 hover:bg-teal-50/30'
-        : 'border-gray-300 bg-gray-50/80 hover:border-amber-400 hover:bg-amber-50/30';
-    return `rounded-xl border-2 border-dashed transition-colors ${
-      disabled ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed' : active ? base : idle
-    }`;
+  const smartDropZoneClass = (disabled: boolean) => {
+    if (disabled) {
+      return 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed';
+    }
+    if (smartUploadDragOver) {
+      return 'border-amber-400 bg-amber-50/70';
+    }
+    return 'border-amber-200 bg-amber-50/40 hover:border-amber-400 hover:bg-amber-50/60 cursor-pointer';
   };
 
   const handleSaveNotes = async () => {
@@ -2750,64 +2712,41 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           })()}
         </div>
 
-        {/* All Documents — direct multi-file upload only (no name/description/reminder form) */}
+        {/* All Documents — drag & drop smart upload only */}
         <div className="mb-6 p-5 bg-gradient-to-br from-slate-50/80 to-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
-                <div className="w-1 h-6 bg-gradient-to-b from-slate-600 to-teal-600 rounded-full"></div>
-                <span>All Documents</span>
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Drag & drop or select multiple files — OCR sorts passport, visa, DNI, etc. into Required Documents.
-                Unrecognized files stay here (up to 15).
-              </p>
-            </div>
-            <div>
-              <label
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments
-                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                    : 'bg-teal-600 text-white border-teal-700 hover:bg-teal-700 cursor-pointer'
-                }`}
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>
-                  {uploadingAllDocuments && smartUploadProgress
-                    ? `Sorting ${smartUploadProgress.current}/${smartUploadProgress.total}…`
-                    : uploadingAllDocuments
-                      ? 'Sorting…'
-                      : 'Smart upload (multiple)'}
-                </span>
-                <input
-                  type="file"
-                  multiple
-                  accept={SMART_UPLOAD_ACCEPT}
-                  className="hidden"
-                  disabled={allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments}
-                  onChange={handleAllDocumentsFileChange}
-                />
-              </label>
-            </div>
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
+              <div className="w-1 h-6 bg-gradient-to-b from-slate-600 to-teal-600 rounded-full"></div>
+              <span>All Documents</span>
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Unrecognized files stay here after auto-sort (up to 15).
+            </p>
           </div>
-          {allDocumentsSectionFiles.length < 15 && (
-            <div
-              className={`mb-4 px-4 py-8 text-center ${smartDropZoneClass(
-                'all',
-                allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments
+          {allDocumentsCount < 15 && (
+            <label
+              className={`block mb-4 px-4 py-10 text-center rounded-xl border-2 border-dashed transition-colors ${smartDropZoneClass(
+                allDocumentsUploadDisabled
               )}`}
-              onDragEnter={(e) => handleSmartUploadDragEnter(e, 'all')}
+              onDragEnter={handleSmartUploadDragEnter}
               onDragOver={(e) => {
                 preventDragDefaults(e);
-                if (!uploadingAllDocuments && allDocumentsSectionFiles.length < 15) {
-                  setSmartUploadDropZone('all');
-                }
+                if (!allDocumentsUploadDisabled) setSmartUploadDragOver(true);
               }}
-              onDragLeave={(e) => handleSmartUploadDragLeave(e, 'all')}
-              onDrop={(e) => void handleSmartUploadDrop(e, 'all')}
+              onDragLeave={handleSmartUploadDragLeave}
+              onDrop={(e) => void handleSmartUploadDrop(e)}
             >
+              <input
+                ref={allDocumentsFileInputRef}
+                type="file"
+                multiple
+                accept={SMART_UPLOAD_ACCEPT}
+                className="hidden"
+                disabled={allDocumentsUploadDisabled}
+                onChange={handleAllDocumentsFileChange}
+              />
               {uploadingAllDocuments ? (
-                <p className="text-sm font-medium text-teal-700">
+                <p className="text-sm font-medium text-amber-800">
                   {smartUploadProgress
                     ? `Sorting ${smartUploadProgress.current} of ${smartUploadProgress.total}…`
                     : 'Sorting files…'}
@@ -2816,18 +2755,21 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 <>
                   <Upload
                     className={`w-10 h-10 mx-auto mb-2 ${
-                      smartUploadDropZone === 'all' ? 'text-teal-600' : 'text-gray-400'
+                      smartUploadDragOver ? 'text-amber-600' : 'text-gray-400'
                     }`}
                   />
                   <p className="text-sm font-medium text-gray-700">
-                    {smartUploadDropZone === 'all' ? 'Drop files to upload' : 'Drag & drop files here'}
+                    {smartUploadDragOver
+                      ? 'Drop files to upload'
+                      : 'Drag & drop files to auto-sort into checklist'}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    PDF, images, Word, Excel — up to 20 files at once
+                    Passport, DNI, penales, etc. — up to 20 at once
                   </p>
+                  <p className="text-xs text-gray-400 mt-2">or click to browse files</p>
                 </>
               )}
-            </div>
+            </label>
           )}
           {allDocumentsSectionFiles.length === 0 ? null : (
             <div className="space-y-3">
@@ -2901,31 +2843,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                   <div className="w-1 h-6 bg-gradient-to-b from-amber-600 to-orange-600 rounded-full"></div>
                   <span>Required Documents</span>
                 </h3>
-                <label
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                    uploadingAllDocuments
-                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-amber-600 text-white border-amber-700 hover:bg-amber-700'
-                  }`}
-                  title="Upload files — auto-detect passport, visa, DNI, etc."
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>
-                    {uploadingAllDocuments && smartUploadProgress
-                      ? `Sorting ${smartUploadProgress.current}/${smartUploadProgress.total}…`
-                      : uploadingAllDocuments
-                        ? 'Sorting…'
-                        : 'Auto-sort (multiple)'}
-                  </span>
-                  <input
-                    type="file"
-                    multiple
-                  accept={SMART_UPLOAD_ACCEPT}
-                  className="hidden"
-                  disabled={uploadingAllDocuments}
-                  onChange={handleSmartRequiredUpload}
-                  />
-                </label>
                 <div className="flex items-center space-x-2">
                   {clientData.required_documents && clientData.required_documents.length > 0 && (
                     <>
@@ -3066,40 +2983,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
               </button>
             )}
           </div>
-          {clientData.required_documents && clientData.required_documents.length > 0 && (
-            <div
-              className={`mb-4 px-4 py-6 text-center ${smartDropZoneClass('required', uploadingAllDocuments)}`}
-              onDragEnter={(e) => handleSmartUploadDragEnter(e, 'required')}
-              onDragOver={(e) => {
-                preventDragDefaults(e);
-                if (!uploadingAllDocuments) setSmartUploadDropZone('required');
-              }}
-              onDragLeave={(e) => handleSmartUploadDragLeave(e, 'required')}
-              onDrop={(e) => void handleSmartUploadDrop(e, 'required')}
-            >
-              {uploadingAllDocuments ? (
-                <p className="text-sm font-medium text-amber-800">
-                  {smartUploadProgress
-                    ? `Sorting ${smartUploadProgress.current} of ${smartUploadProgress.total}…`
-                    : 'Sorting files…'}
-                </p>
-              ) : (
-                <>
-                  <Upload
-                    className={`w-9 h-9 mx-auto mb-2 ${
-                      smartUploadDropZone === 'required' ? 'text-amber-600' : 'text-gray-400'
-                    }`}
-                  />
-                  <p className="text-sm font-medium text-gray-700">
-                    {smartUploadDropZone === 'required'
-                      ? 'Drop files to auto-sort'
-                      : 'Drag & drop files to auto-sort into checklist'}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Passport, DNI, penales, etc. — up to 20 at once</p>
-                </>
-              )}
-            </div>
-          )}
           {!clientData.required_documents || clientData.required_documents.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
