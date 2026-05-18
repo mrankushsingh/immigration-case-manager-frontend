@@ -211,6 +211,47 @@ export const api = {
     return response.json();
   },
 
+  /** Auto-detect document type (passport, visa, etc.) and file under required checklist or All Documents */
+  async smartUploadDocument(
+    clientId: string,
+    file: File,
+    userName: string
+  ): Promise<{
+    classification: {
+      documentCode: string | null;
+      documentName: string | null;
+      confidence: number;
+      method: 'keywords' | 'ocr' | 'gemini' | 'none' | string;
+      routedTo: 'required' | 'all_documents';
+      reason?: string;
+      ocrPreview?: string;
+    };
+    [key: string]: unknown;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userName', userName);
+
+    const token = await (await import('./firebase.js')).getIdToken();
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_URL}/clients/${clientId}/smart-upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Smart upload failed' }));
+      throw new Error(error.error || 'Smart upload failed');
+    }
+
+    return response.json();
+  },
+
   async addPayment(clientId: string, amount: number, method: string, note?: string) {
     const client = await this.getClient(clientId);
     const newPayment = {

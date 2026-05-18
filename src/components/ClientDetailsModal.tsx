@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare } from 'lucide-react';
+import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare, Sparkles } from 'lucide-react';
 import JSZip from 'jszip';
 import { api } from '../utils/api';
 import { Client, RequiredDocument, AdditionalDocument, RequestedDocument } from '../types';
@@ -1231,13 +1231,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
-  const handleAllDocumentsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    // Copy files first: `input.files` is a live FileList — clearing `input.value` empties it,
-    // so clearing before reading causes silent "no files" and no upload/toast.
-    const files = Array.from(input.files || []);
-    input.value = '';
-    if (!files.length) return;
+  const resolveUploaderName = async (): Promise<string | null> => {
     let userNameForUpload = currentUserName;
     if (!userNameForUpload?.trim()) {
       try {
@@ -1250,8 +1244,65 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
     if (!userNameForUpload?.trim()) {
       showToast('Could not resolve user for upload. Please wait a moment and try again.', 'error');
-      return;
+      return null;
     }
+    return userNameForUpload;
+  };
+
+  const processSmartUploadFiles = async (files: File[]) => {
+    const userNameForUpload = await resolveUploaderName();
+    if (!userNameForUpload) return;
+
+    setUploadingAllDocuments(true);
+    setError('');
+    const sortedToRequired: string[] = [];
+    const keptInAllDocuments: string[] = [];
+
+    try {
+      for (const file of files) {
+        const result = await api.smartUploadDocument(client.id, file, userNameForUpload);
+        const { classification } = result;
+        if (classification.routedTo === 'required' && classification.documentName) {
+          const via =
+            classification.method === 'ocr'
+              ? 'OCR'
+              : classification.method === 'gemini'
+                ? 'AI'
+                : 'auto';
+          sortedToRequired.push(`"${file.name}" → ${classification.documentName} (${via})`);
+        } else {
+          keptInAllDocuments.push(file.name);
+        }
+      }
+      await loadClient();
+      onSuccess();
+      if (sortedToRequired.length > 0) {
+        showToast(
+          `${sortedToRequired.length} file(s) auto-sorted to Required Documents`,
+          'success'
+        );
+      }
+      if (keptInAllDocuments.length > 0) {
+        showToast(
+          `${keptInAllDocuments.length} file(s) saved in All Documents (type not recognized)`,
+          sortedToRequired.length > 0 ? 'info' : 'success'
+        );
+      }
+    } catch (err: any) {
+      const msg = err.message || 'Upload failed';
+      setError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setUploadingAllDocuments(false);
+    }
+  };
+
+  const handleAllDocumentsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (!files.length) return;
+
     const existingAll = (clientData.additional_documents || []).filter((d) => d.allDocumentsSection).length;
     if (existingAll + files.length > 15) {
       showToast(
@@ -1260,41 +1311,15 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       );
       return;
     }
-    setUploadingAllDocuments(true);
-    setError('');
-    try {
-      const existingNames = new Set(
-        (clientData.additional_documents || [])
-          .filter((d) => d.allDocumentsSection)
-          .map((d) => d.name)
-      );
-      for (const file of files) {
-        let displayName = file.name;
-        if (existingNames.has(displayName)) {
-          const dot = file.name.lastIndexOf('.');
-          const base = dot >= 0 ? file.name.slice(0, dot) : file.name;
-          const ext = dot >= 0 ? file.name.slice(dot) : '';
-          let i = 2;
-          while (existingNames.has(`${base} (${i})${ext}`)) i += 1;
-          displayName = `${base} (${i})${ext}`;
-        }
-        existingNames.add(displayName);
-        // Same API call as "Additional Documents" → create with file (multipart POST /additional-documents).
-        await api.uploadAdditionalDocument(client.id, displayName, '', file, userNameForUpload, {
-          allDocumentsSection: true,
-          reminderDays: 10,
-        });
-      }
-      await loadClient();
-      onSuccess();
-      showToast(`${files.length} file(s) uploaded to All Documents`, 'success');
-    } catch (err: any) {
-      const msg = err.message || 'Upload failed';
-      setError(msg);
-      showToast(msg, 'error');
-    } finally {
-      setUploadingAllDocuments(false);
-    }
+    await processSmartUploadFiles(files);
+  };
+
+  const handleSmartRequiredUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (!files.length) return;
+    await processSmartUploadFiles(files);
   };
 
   const handleSaveNotes = async () => {
@@ -2612,8 +2637,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 <span>All Documents</span>
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Pick files to upload — no document name, description, or reminders. Up to 15 files; each file keeps its
-                original filename.
+                Upload scanned PDFs or photos — OCR reads the document and sorts passport, visa, DNI, etc. into Required
+                Documents. Unrecognized files stay here (up to 15).
               </p>
             </div>
             <div>
@@ -2624,8 +2649,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                     : 'bg-teal-600 text-white border-teal-700 hover:bg-teal-700 cursor-pointer'
                 }`}
               >
-                <Upload className="w-4 h-4" />
-                <span>{uploadingAllDocuments ? 'Uploading…' : 'Upload files'}</span>
+                <Sparkles className="w-4 h-4" />
+                <span>{uploadingAllDocuments ? 'Sorting…' : 'Smart upload'}</span>
                 <input
                   type="file"
                   multiple
@@ -2713,6 +2738,24 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                   <div className="w-1 h-6 bg-gradient-to-b from-amber-600 to-orange-600 rounded-full"></div>
                   <span>Required Documents</span>
                 </h3>
+                <label
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                    uploadingAllDocuments
+                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                      : 'bg-amber-600 text-white border-amber-700 hover:bg-amber-700'
+                  }`}
+                  title="Upload files — auto-detect passport, visa, DNI, etc."
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{uploadingAllDocuments ? 'Sorting…' : 'Auto-sort upload'}</span>
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    disabled={uploadingAllDocuments}
+                    onChange={handleSmartRequiredUpload}
+                  />
+                </label>
                 <div className="flex items-center space-x-2">
                   {clientData.required_documents && clientData.required_documents.length > 0 && (
                     <>
