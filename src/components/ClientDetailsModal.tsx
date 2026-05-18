@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, CheckCircle, FileText, Download, Trash2, Plus, DollarSign, StickyNote, Archive, XCircle, AlertCircle, Send, Clock, Eye, ToggleLeft, ToggleRight, Calendar, GripVertical, Search, Edit2, Square, CheckSquare, Sparkles } from 'lucide-react';
+import {
+  SMART_UPLOAD_ACCEPT,
+  collectFilesFromDataTransfer,
+  filterSmartUploadFiles,
+  preventDragDefaults,
+} from '../utils/smartUploadFiles';
 import JSZip from 'jszip';
 import { api } from '../utils/api';
 import { Client, RequiredDocument, AdditionalDocument, RequestedDocument } from '../types';
@@ -61,6 +67,9 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [savingPaymentLine, setSavingPaymentLine] = useState(false);
   const [uploadingAllDocuments, setUploadingAllDocuments] = useState(false);
   const [smartUploadProgress, setSmartUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [smartUploadDropZone, setSmartUploadDropZone] = useState<'all' | 'required' | null>(null);
+  const smartUploadDragDepthAll = useRef(0);
+  const smartUploadDragDepthRequired = useRef(0);
   const [showAdditionalDocForm, setShowAdditionalDocForm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', note: '' });
   const [additionalDocForm, setAdditionalDocForm] = useState({ name: '', description: '', file: null as File | null, reminder_days: 10 });
@@ -314,6 +323,11 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      preventDragDefaults(e);
+      if (!uploadingAllDocuments) setSmartUploadDropZone('required');
+      return;
+    }
     e.preventDefault();
     setDragOverIndex(index);
   };
@@ -325,6 +339,12 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     setDragOverIndex(null);
+
+    if (e.dataTransfer.files?.length > 0 || e.dataTransfer.types.includes('Files')) {
+      setDraggedIndex(null);
+      await handleSmartUploadDrop(e, 'required');
+      return;
+    }
 
     if (draggedIndex === null || draggedIndex === dropIndex) {
       setDraggedIndex(null);
@@ -1330,21 +1350,33 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
+  const beginSmartUpload = async (rawFiles: File[], zone: 'all' | 'required') => {
+    const files = filterSmartUploadFiles(rawFiles);
+    if (!files.length) {
+      showToast('No supported files. Use PDF, images, Word, or Excel.', 'error');
+      return;
+    }
+
+    if (zone === 'all') {
+      const existingAll = (clientData.additional_documents || []).filter((d) => d.allDocumentsSection).length;
+      if (existingAll + files.length > 15) {
+        showToast(
+          `All Documents allows up to 15 files. You have ${existingAll}; tried to add ${files.length}.`,
+          'error'
+        );
+        return;
+      }
+    }
+
+    await processSmartUploadFiles(files);
+  };
+
   const handleAllDocumentsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target;
     const files = Array.from(input.files || []);
     input.value = '';
     if (!files.length) return;
-
-    const existingAll = (clientData.additional_documents || []).filter((d) => d.allDocumentsSection).length;
-    if (existingAll + files.length > 15) {
-      showToast(
-        `All Documents allows up to 15 files. You have ${existingAll}; tried to add ${files.length}.`,
-        'error'
-      );
-      return;
-    }
-    await processSmartUploadFiles(files);
+    await beginSmartUpload(files, 'all');
   };
 
   const handleSmartRequiredUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1352,7 +1384,64 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     const files = Array.from(input.files || []);
     input.value = '';
     if (!files.length) return;
-    await processSmartUploadFiles(files);
+    await beginSmartUpload(files, 'required');
+  };
+
+  const handleSmartUploadDragEnter = (e: React.DragEvent, zone: 'all' | 'required') => {
+    preventDragDefaults(e);
+    if (uploadingAllDocuments) return;
+    if (zone === 'all' && allDocumentsSectionFiles.length >= 15) return;
+
+    if (zone === 'all') {
+      smartUploadDragDepthAll.current += 1;
+    } else {
+      smartUploadDragDepthRequired.current += 1;
+    }
+    setSmartUploadDropZone(zone);
+  };
+
+  const handleSmartUploadDragLeave = (e: React.DragEvent, zone: 'all' | 'required') => {
+    preventDragDefaults(e);
+    if (zone === 'all') {
+      smartUploadDragDepthAll.current = Math.max(0, smartUploadDragDepthAll.current - 1);
+      if (smartUploadDragDepthAll.current === 0) {
+        setSmartUploadDropZone((z) => (z === 'all' ? null : z));
+      }
+    } else {
+      smartUploadDragDepthRequired.current = Math.max(0, smartUploadDragDepthRequired.current - 1);
+      if (smartUploadDragDepthRequired.current === 0) {
+        setSmartUploadDropZone((z) => (z === 'required' ? null : z));
+      }
+    }
+  };
+
+  const handleSmartUploadDrop = async (e: React.DragEvent, zone: 'all' | 'required') => {
+    preventDragDefaults(e);
+    smartUploadDragDepthAll.current = 0;
+    smartUploadDragDepthRequired.current = 0;
+    setSmartUploadDropZone(null);
+
+    if (uploadingAllDocuments) return;
+    if (zone === 'all' && allDocumentsSectionFiles.length >= 15) return;
+
+    const dropped = await collectFilesFromDataTransfer(e.dataTransfer);
+    if (!dropped.length) return;
+    await beginSmartUpload(dropped, zone);
+  };
+
+  const smartDropZoneClass = (zone: 'all' | 'required', disabled: boolean) => {
+    const active = smartUploadDropZone === zone && !disabled;
+    const base =
+      zone === 'all'
+        ? 'border-teal-300 bg-teal-50/40'
+        : 'border-amber-300 bg-amber-50/40';
+    const idle =
+      zone === 'all'
+        ? 'border-gray-300 bg-gray-50/80 hover:border-teal-400 hover:bg-teal-50/30'
+        : 'border-gray-300 bg-gray-50/80 hover:border-amber-400 hover:bg-amber-50/30';
+    return `rounded-xl border-2 border-dashed transition-colors ${
+      disabled ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed' : active ? base : idle
+    }`;
   };
 
   const handleSaveNotes = async () => {
@@ -2670,8 +2759,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 <span>All Documents</span>
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Select multiple files at once — OCR sorts passport, visa, DNI, etc. into Required Documents. Unrecognized
-                files stay here (up to 15).
+                Drag & drop or select multiple files — OCR sorts passport, visa, DNI, etc. into Required Documents.
+                Unrecognized files stay here (up to 15).
               </p>
             </div>
             <div>
@@ -2693,7 +2782,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx"
+                  accept={SMART_UPLOAD_ACCEPT}
                   className="hidden"
                   disabled={allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments}
                   onChange={handleAllDocumentsFileChange}
@@ -2701,12 +2790,46 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
               </label>
             </div>
           </div>
-          {allDocumentsSectionFiles.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-              <p>No files in All Documents yet.</p>
+          {allDocumentsSectionFiles.length < 15 && (
+            <div
+              className={`mb-4 px-4 py-8 text-center ${smartDropZoneClass(
+                'all',
+                allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments
+              )}`}
+              onDragEnter={(e) => handleSmartUploadDragEnter(e, 'all')}
+              onDragOver={(e) => {
+                preventDragDefaults(e);
+                if (!uploadingAllDocuments && allDocumentsSectionFiles.length < 15) {
+                  setSmartUploadDropZone('all');
+                }
+              }}
+              onDragLeave={(e) => handleSmartUploadDragLeave(e, 'all')}
+              onDrop={(e) => void handleSmartUploadDrop(e, 'all')}
+            >
+              {uploadingAllDocuments ? (
+                <p className="text-sm font-medium text-teal-700">
+                  {smartUploadProgress
+                    ? `Sorting ${smartUploadProgress.current} of ${smartUploadProgress.total}…`
+                    : 'Sorting files…'}
+                </p>
+              ) : (
+                <>
+                  <Upload
+                    className={`w-10 h-10 mx-auto mb-2 ${
+                      smartUploadDropZone === 'all' ? 'text-teal-600' : 'text-gray-400'
+                    }`}
+                  />
+                  <p className="text-sm font-medium text-gray-700">
+                    {smartUploadDropZone === 'all' ? 'Drop files to upload' : 'Drag & drop files here'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    PDF, images, Word, Excel — up to 20 files at once
+                  </p>
+                </>
+              )}
             </div>
-          ) : (
+          )}
+          {allDocumentsSectionFiles.length === 0 ? null : (
             <div className="space-y-3">
               {allDocumentsSectionFiles.map((doc: AdditionalDocument) => (
                 <div
@@ -2797,10 +2920,10 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                   <input
                     type="file"
                     multiple
-                    accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx"
-                    className="hidden"
-                    disabled={uploadingAllDocuments}
-                    onChange={handleSmartRequiredUpload}
+                  accept={SMART_UPLOAD_ACCEPT}
+                  className="hidden"
+                  disabled={uploadingAllDocuments}
+                  onChange={handleSmartRequiredUpload}
                   />
                 </label>
                 <div className="flex items-center space-x-2">
@@ -2943,6 +3066,40 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
               </button>
             )}
           </div>
+          {clientData.required_documents && clientData.required_documents.length > 0 && (
+            <div
+              className={`mb-4 px-4 py-6 text-center ${smartDropZoneClass('required', uploadingAllDocuments)}`}
+              onDragEnter={(e) => handleSmartUploadDragEnter(e, 'required')}
+              onDragOver={(e) => {
+                preventDragDefaults(e);
+                if (!uploadingAllDocuments) setSmartUploadDropZone('required');
+              }}
+              onDragLeave={(e) => handleSmartUploadDragLeave(e, 'required')}
+              onDrop={(e) => void handleSmartUploadDrop(e, 'required')}
+            >
+              {uploadingAllDocuments ? (
+                <p className="text-sm font-medium text-amber-800">
+                  {smartUploadProgress
+                    ? `Sorting ${smartUploadProgress.current} of ${smartUploadProgress.total}…`
+                    : 'Sorting files…'}
+                </p>
+              ) : (
+                <>
+                  <Upload
+                    className={`w-9 h-9 mx-auto mb-2 ${
+                      smartUploadDropZone === 'required' ? 'text-amber-600' : 'text-gray-400'
+                    }`}
+                  />
+                  <p className="text-sm font-medium text-gray-700">
+                    {smartUploadDropZone === 'required'
+                      ? 'Drop files to auto-sort'
+                      : 'Drag & drop files to auto-sort into checklist'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Passport, DNI, penales, etc. — up to 20 at once</p>
+                </>
+              )}
+            </div>
+          )}
           {!clientData.required_documents || clientData.required_documents.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
