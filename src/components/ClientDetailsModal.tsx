@@ -60,6 +60,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   });
   const [savingPaymentLine, setSavingPaymentLine] = useState(false);
   const [uploadingAllDocuments, setUploadingAllDocuments] = useState(false);
+  const [smartUploadProgress, setSmartUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [showAdditionalDocForm, setShowAdditionalDocForm] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', note: '' });
   const [additionalDocForm, setAdditionalDocForm] = useState({ name: '', description: '', file: null as File | null, reminder_days: 10 });
@@ -1253,15 +1254,30 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     const userNameForUpload = await resolveUploaderName();
     if (!userNameForUpload) return;
 
+    if (files.length > 20) {
+      showToast('You can smart-upload up to 20 files at once.', 'error');
+      return;
+    }
+
     setUploadingAllDocuments(true);
+    setSmartUploadProgress({ current: 0, total: files.length });
     setError('');
     const sortedToRequired: string[] = [];
     const keptInAllDocuments: string[] = [];
+    const failedUploads: string[] = [];
 
     try {
-      for (const file of files) {
-        const result = await api.smartUploadDocument(client.id, file, userNameForUpload);
-        const { classification } = result;
+      setSmartUploadProgress({ current: 1, total: files.length });
+      const result = await api.smartUploadDocuments(client.id, files, userNameForUpload);
+      setSmartUploadProgress({ current: files.length, total: files.length });
+
+      for (const upload of result.uploads || []) {
+        if (!upload.success) {
+          failedUploads.push(`${upload.fileName}: ${upload.error || 'failed'}`);
+          continue;
+        }
+        const classification = upload.classification;
+        if (!classification) continue;
         if (classification.routedTo === 'required' && classification.documentName) {
           const via =
             classification.method === 'ocr'
@@ -1271,24 +1287,38 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 : classification.method === 'template-catalog'
                   ? 'template'
                   : 'auto';
-          sortedToRequired.push(`"${file.name}" → ${classification.documentName} (${via})`);
+          sortedToRequired.push(`"${upload.fileName}" → ${classification.documentName} (${via})`);
         } else {
-          keptInAllDocuments.push(file.name);
+          keptInAllDocuments.push(upload.fileName);
         }
       }
+
       await loadClient();
       onSuccess();
+
+      const summary = result.summary;
+      if (summary && summary.succeeded > 0) {
+        showToast(
+          `Processed ${summary.succeeded} of ${summary.total} file(s)`,
+          summary.failed > 0 ? 'info' : 'success'
+        );
+      }
       if (sortedToRequired.length > 0) {
         showToast(
-          `${sortedToRequired.length} file(s) auto-sorted to Required Documents`,
+          `${sortedToRequired.length} sorted to Required Documents`,
           'success'
         );
       }
       if (keptInAllDocuments.length > 0) {
         showToast(
-          `${keptInAllDocuments.length} file(s) saved in All Documents (type not recognized)`,
+          `${keptInAllDocuments.length} saved in All Documents (type not recognized)`,
           sortedToRequired.length > 0 ? 'info' : 'success'
         );
+      }
+      if (failedUploads.length > 0) {
+        const msg = failedUploads.join('; ');
+        setError(msg);
+        showToast(`${failedUploads.length} file(s) failed: ${msg}`, 'error');
       }
     } catch (err: any) {
       const msg = err.message || 'Upload failed';
@@ -1296,6 +1326,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       showToast(msg, 'error');
     } finally {
       setUploadingAllDocuments(false);
+      setSmartUploadProgress(null);
     }
   };
 
@@ -2639,8 +2670,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 <span>All Documents</span>
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                Upload scanned PDFs or photos — OCR reads the document and sorts passport, visa, DNI, etc. into Required
-                Documents. Unrecognized files stay here (up to 15).
+                Select multiple files at once — OCR sorts passport, visa, DNI, etc. into Required Documents. Unrecognized
+                files stay here (up to 15).
               </p>
             </div>
             <div>
@@ -2652,10 +2683,17 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{uploadingAllDocuments ? 'Sorting…' : 'Smart upload'}</span>
+                <span>
+                  {uploadingAllDocuments && smartUploadProgress
+                    ? `Sorting ${smartUploadProgress.current}/${smartUploadProgress.total}…`
+                    : uploadingAllDocuments
+                      ? 'Sorting…'
+                      : 'Smart upload (multiple)'}
+                </span>
                 <input
                   type="file"
                   multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx"
                   className="hidden"
                   disabled={allDocumentsSectionFiles.length >= 15 || uploadingAllDocuments}
                   onChange={handleAllDocumentsFileChange}
@@ -2749,10 +2787,17 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                   title="Upload files — auto-detect passport, visa, DNI, etc."
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{uploadingAllDocuments ? 'Sorting…' : 'Auto-sort upload'}</span>
+                  <span>
+                    {uploadingAllDocuments && smartUploadProgress
+                      ? `Sorting ${smartUploadProgress.current}/${smartUploadProgress.total}…`
+                      : uploadingAllDocuments
+                        ? 'Sorting…'
+                        : 'Auto-sort (multiple)'}
+                  </span>
                   <input
                     type="file"
                     multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx"
                     className="hidden"
                     disabled={uploadingAllDocuments}
                     onChange={handleSmartRequiredUpload}

@@ -211,25 +211,46 @@ export const api = {
     return response.json();
   },
 
-  /** Auto-detect document type (passport, visa, etc.) and file under required checklist or All Documents */
-  async smartUploadDocument(
+  /** Auto-detect document type(s) and route to required checklist or All Documents */
+  async smartUploadDocuments(
     clientId: string,
-    file: File,
+    files: File[],
     userName: string
   ): Promise<{
+    summary: { total: number; succeeded: number; failed: number };
+    uploads: Array<{
+      fileName: string;
+      success: boolean;
+      error?: string;
+      classification?: {
+        documentCode: string | null;
+        documentName: string | null;
+        confidence: number;
+        method: 'keywords' | 'ocr' | 'gemini' | 'none' | string;
+        routedTo: 'required' | 'all_documents';
+        reason?: string;
+        ocrPreview?: string;
+      };
+    }>;
     classification: {
       documentCode: string | null;
       documentName: string | null;
       confidence: number;
-      method: 'keywords' | 'ocr' | 'gemini' | 'none' | string;
+      method: string;
       routedTo: 'required' | 'all_documents';
       reason?: string;
       ocrPreview?: string;
     };
     [key: string]: unknown;
   }> {
+    if (!files.length) {
+      throw new Error('No files selected');
+    }
+
     const formData = new FormData();
-    formData.append('file', file);
+    for (const file of files) {
+      formData.append('files', file);
+    }
     formData.append('userName', userName);
 
     const token = await (await import('./firebase.js')).getIdToken();
@@ -244,12 +265,26 @@ export const api = {
       body: formData,
     });
 
+    const data = await response.json().catch(() => ({ error: 'Smart upload failed' }));
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Smart upload failed' }));
-      throw new Error(error.error || 'Smart upload failed');
+      throw new Error(data.error || 'Smart upload failed');
     }
 
-    return response.json();
+    if (data.summary?.failed > 0 && data.summary?.succeeded === 0) {
+      const detail =
+        (data.uploads as Array<{ fileName: string; error?: string }> | undefined)
+          ?.map((u) => `${u.fileName}: ${u.error || 'failed'}`)
+          .join('; ') || data.error;
+      throw new Error(detail || 'Smart upload failed');
+    }
+
+    return data;
+  },
+
+  /** @deprecated Use smartUploadDocuments — kept for single-file callers */
+  async smartUploadDocument(clientId: string, file: File, userName: string) {
+    return this.smartUploadDocuments(clientId, [file], userName);
   },
 
   async addPayment(clientId: string, amount: number, method: string, note?: string) {
