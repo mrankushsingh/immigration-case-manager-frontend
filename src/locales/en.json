@@ -124,6 +124,12 @@
     "teamsToDoCloseView": "Close",
     "pagos": "PAYMENTS",
     "pagosDesc": "Pending payments",
+    "paytrack": "PAYTRACK",
+    "paytrackDesc": "Track client payment progress",
+    "paytrackEmpty": "No clients with payment plans yet",
+    "paytrackPaid": "Paid in full",
+    "paytrackPartial": "In progress",
+    "paytrackBehind": "Balance due",
     "addPayment": "ADD Payment",
     "aportarDocumentacion": "ADD DOCUMENTS",
     "aportarDocumentacionDesc": "Add missing documents to the file"

@@ -125,6 +125,12 @@
     "teamsToDoCloseView": "Cerrar",
     "pagos": "PAGOS",
     "pagosDesc": "Pagos pendientes",
+    "paytrack": "PAYTRACK",
+    "paytrackDesc": "Seguimiento del progreso de pagos",
+    "paytrackEmpty": "No hay clientes con plan de pago",
+    "paytrackPaid": "Pagado",
+    "paytrackPartial": "En curso",
+    "paytrackBehind": "Pendiente",
     "addPayment": "AGREGAR PAGO",
     "aportarDocumentacion": "APORTAR DOCUMENTACIÓN",
     "aportarDocumentacionDesc": "Aportar documentación que falta al expediente"

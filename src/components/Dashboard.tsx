@@ -172,6 +172,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [recursoAppealsBoxLoadingId, setRecursoAppealsBoxLoadingId] = useState<string | null>(null);
   const [showUrgentesModal, setShowUrgentesModal] = useState(false);
   const [showPagosModal, setShowPagosModal] = useState(false);
+  const [showPayTrackModal, setShowPayTrackModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
   const [showTeamsToDoModal, setShowTeamsToDoModal] = useState(false);
   const [teamTasksByMember, setTeamTasksByMember] = useState<Record<TeamMemberName, TeamMemberTask[]>>(emptyTeamTasksMap);
@@ -391,8 +392,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     );
   };
   const [paymentsUnlocked, setPaymentsUnlocked] = useState(false);
+  const [paytrackUnlocked, setPaytrackUnlocked] = useState(false);
   const [overviewUnlocked, setOverviewUnlocked] = useState(false);
-  const [unlockingFeature, setUnlockingFeature] = useState<'payments' | 'overview' | null>(null);
+  const [unlockingFeature, setUnlockingFeature] = useState<'payments' | 'paytrack' | 'overview' | null>(null);
   const [showPasscodeModal, setShowPasscodeModal] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
@@ -405,6 +407,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     reminder: null,
   });
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paytrackQuery, setPaytrackQuery] = useState('');
+  const [paytrackFilter, setPaytrackFilter] = useState<'all' | 'pending' | 'settled'>('all');
+  const [paytrackSort, setPaytrackSort] = useState<'pending' | 'recent' | 'name'>('pending');
+  const [showPaytrackActivity, setShowPaytrackActivity] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     client_name: '',
     client_surname: '',
@@ -435,6 +441,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   void showRecursoModal;
   void showUrgentesModal;
   void showPagosModal;
+  void showPayTrackModal;
 
   const handlePaymentsClick = useCallback(() => {
     if (paymentsUnlocked) {
@@ -446,6 +453,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setPasscodeError('');
     }
   }, [paymentsUnlocked]);
+
+  const handlePayTrackClick = useCallback(() => {
+    if (paytrackUnlocked) {
+      setShowPayTrackModal(true);
+    } else {
+      setUnlockingFeature('paytrack');
+      setShowPasscodeModal(true);
+      setPasscodeInput('');
+      setPasscodeError('');
+    }
+  }, [paytrackUnlocked]);
 
   const handleOverviewClick = useCallback(() => {
     if (overviewUnlocked) {
@@ -469,6 +487,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           setPaymentsUnlocked(true);
           setShowPasscodeModal(false);
           setShowPagosModal(true);
+        } else if (unlockingFeature === 'paytrack') {
+          setPaytrackUnlocked(true);
+          setShowPasscodeModal(false);
+          setShowPayTrackModal(true);
         } else if (unlockingFeature === 'overview') {
           setOverviewUnlocked(true);
           setShowPasscodeModal(false);
@@ -1038,6 +1060,82 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return acc;
   }, { advance: 0, pending: 0 });
 
+  // PAYTRACK: All clients with fee or payment activity
+  const paytrackClients = clients.filter((client) => {
+    const totalFee = client.payment?.totalFee || 0;
+    const paidAmount = client.payment?.paidAmount || 0;
+    return totalFee > 0 || paidAmount > 0;
+  });
+
+  const paytrackStats = paytrackClients.reduce(
+    (acc, client) => {
+      const totalFee = client.payment?.totalFee || 0;
+      const paidAmount = client.payment?.paidAmount || 0;
+      const remaining = totalFee - paidAmount;
+      if (remaining <= 0) acc.paidFull++;
+      else if (paidAmount > 0) acc.inProgress++;
+      else acc.behind++;
+      return acc;
+    },
+    { paidFull: 0, inProgress: 0, behind: 0 }
+  );
+
+  const paytrackTotals = paytrackClients.reduce(
+    (acc, client) => {
+      acc.totalFee += client.payment?.totalFee || 0;
+      acc.totalPaid += client.payment?.paidAmount || 0;
+      return acc;
+    },
+    { totalFee: 0, totalPaid: 0 }
+  );
+
+  const paytrackRecentActivity = useMemo(() => {
+    return paytrackClients
+      .flatMap((client) =>
+        (client.payment?.payments || []).map((payment) => ({
+          id: `${client.id}-${payment.date}-${payment.amount}`,
+          client,
+          payment,
+        }))
+      )
+      .sort((a, b) => new Date(b.payment.date).getTime() - new Date(a.payment.date).getTime())
+      .slice(0, 10);
+  }, [paytrackClients]);
+
+  const filteredPaytrackClients = useMemo(() => {
+    const q = paytrackQuery.trim().toLowerCase();
+
+    let list = paytrackClients.filter((client) => {
+      const totalFee = client.payment?.totalFee || 0;
+      const paidAmount = client.payment?.paidAmount || 0;
+      const remaining = totalFee - paidAmount;
+
+      if (paytrackFilter === 'pending' && remaining <= 0) return false;
+      if (paytrackFilter === 'settled' && remaining > 0) return false;
+
+      if (!q) return true;
+      return (
+        `${client.first_name} ${client.last_name}`.toLowerCase().includes(q) ||
+        (client.phone || '').toLowerCase().includes(q) ||
+        (client.case_type || '').toLowerCase().includes(q)
+      );
+    });
+
+    list = [...list].sort((a, b) => {
+      if (paytrackSort === 'name') {
+        return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+      }
+      if (paytrackSort === 'recent') {
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      }
+      const pendingA = (a.payment?.totalFee || 0) - (a.payment?.paidAmount || 0);
+      const pendingB = (b.payment?.totalFee || 0) - (b.payment?.paidAmount || 0);
+      return pendingB - pendingA;
+    });
+
+    return list;
+  }, [paytrackClients, paytrackFilter, paytrackQuery, paytrackSort]);
+
   // Calculate overall payment statistics (all clients)
   const overallPaymentStats = clients.reduce((acc, client) => {
     const totalFee = client.payment?.totalFee || 0;
@@ -1353,6 +1451,60 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           )}
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">
             {paymentsUnlocked ? t('dashboard.pagosDesc') : 'Enter passcode to view'}
+          </p>
+        </div>
+
+        {/* PAYTRACK Box */}
+        <div
+          onClick={handlePayTrackClick}
+          className="glass-gold rounded-2xl p-5 sm:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl relative"
+          style={{ animationDelay: '0.92s' }}
+        >
+          {!paytrackUnlocked && (
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
+              <div className="text-center">
+                <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-white mx-auto mb-2" />
+                <p className="text-white text-sm font-semibold">Locked</p>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between mb-4">
+            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
+              {paytrackUnlocked ? (
+                <TrendingUp className="w-6 h-6 text-amber-800" />
+              ) : (
+                <Lock className="w-6 h-6 text-amber-800" />
+              )}
+            </div>
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">
+              {t('dashboard.paytrack')}
+            </span>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">
+            {paytrackUnlocked ? paytrackClients.length : '🔒'}
+          </p>
+          {paytrackUnlocked && paytrackClients.length > 0 && (
+            <div className="flex items-center gap-3 mb-2">
+              {paytrackStats.behind > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                  <span className="text-xs text-amber-700 font-medium">
+                    {paytrackStats.behind} {t('dashboard.paytrackBehind')}
+                  </span>
+                </div>
+              )}
+              {paytrackStats.paidFull > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                  <span className="text-xs text-green-700 font-medium">
+                    {paytrackStats.paidFull} {t('dashboard.paytrackPaid')}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">
+            {paytrackUnlocked ? t('dashboard.paytrackDesc') : 'Enter passcode to view'}
           </p>
         </div>
 
@@ -3389,10 +3541,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">
-                    {unlockingFeature === 'overview' ? 'Overview Access' : 'Payment Access'}
+                    {unlockingFeature === 'overview'
+                      ? 'Overview Access'
+                      : unlockingFeature === 'paytrack'
+                        ? 'PayTrack Access'
+                        : 'Payment Access'}
                   </h2>
                   <p className="text-sm text-gray-600 mt-0.5">
-                    {unlockingFeature === 'overview' ? 'Enter passcode to view overview' : 'Enter passcode to view payments'}
+                    {unlockingFeature === 'overview'
+                      ? 'Enter passcode to view overview'
+                      : unlockingFeature === 'paytrack'
+                        ? 'Enter passcode to view PayTrack'
+                        : 'Enter passcode to view payments'}
                   </p>
                 </div>
               </div>
@@ -3873,6 +4033,185 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYTRACK Modal */}
+      {showPayTrackModal && paytrackUnlocked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-amber-900">{t('dashboard.paytrack')}</h2>
+                  <p className="text-amber-700 mt-1">{t('dashboard.paytrackDesc')}</p>
+                </div>
+                <button
+                  onClick={() => setShowPayTrackModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700/80">Honorarios</p>
+                  <p className="text-xl font-bold text-amber-900">€{paytrackTotals.totalFee.toFixed(2)}</p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-green-700/80">{t('dashboard.paytrackPaid')}</p>
+                  <p className="text-xl font-bold text-green-900">€{paytrackTotals.totalPaid.toFixed(2)}</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700/80">{t('dashboard.paytrackBehind')}</p>
+                  <p className="text-xl font-bold text-red-900">€{Math.max(0, paytrackTotals.totalFee - paytrackTotals.totalPaid).toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600/70 w-4 h-4" />
+                  <input
+                    value={paytrackQuery}
+                    onChange={(e) => setPaytrackQuery(e.target.value)}
+                    placeholder="Search name, phone, template..."
+                    className="w-full pl-10 pr-3 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {(['all', 'pending', 'settled'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setPaytrackFilter(f)}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition ${
+                        paytrackFilter === f
+                          ? 'bg-amber-600 text-white border-amber-700'
+                          : 'bg-white border-amber-200 text-amber-700'
+                      }`}
+                    >
+                      {f === 'all' ? 'All' : f === 'pending' ? t('dashboard.paytrackBehind') : t('dashboard.paytrackPaid')}
+                    </button>
+                  ))}
+                </div>
+                <select
+                  value={paytrackSort}
+                  onChange={(e) => setPaytrackSort(e.target.value as 'pending' | 'recent' | 'name')}
+                  className="text-xs bg-white border border-amber-200 rounded-full px-3 py-1.5 outline-none"
+                >
+                  <option value="pending">Sort: Pending</option>
+                  <option value="recent">Sort: Recent</option>
+                  <option value="name">Sort: A–Z</option>
+                </select>
+              </div>
+
+              <div className="mb-5 bg-amber-50/60 border border-amber-200 rounded-xl">
+                <button
+                  onClick={() => setShowPaytrackActivity((s) => !s)}
+                  className="w-full px-4 py-2.5 flex items-center justify-between text-sm font-medium text-amber-900"
+                >
+                  <span>Recent activity</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showPaytrackActivity ? 'rotate-180' : ''}`} />
+                </button>
+                {showPaytrackActivity && (
+                  <div className="px-4 pb-3 space-y-2 max-h-56 overflow-auto">
+                    {paytrackRecentActivity.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-2">No activity yet.</p>
+                    ) : (
+                      paytrackRecentActivity.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between gap-3 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-800 truncate">
+                              {entry.client.first_name} {entry.client.last_name}
+                            </p>
+                            <p className="text-gray-500 truncate">
+                              {entry.payment.method || 'Payment'} · {new Date(entry.payment.date).toLocaleString()}
+                            </p>
+                          </div>
+                          <span className="font-semibold text-green-700">€{entry.payment.amount.toFixed(2)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {paytrackClients.length === 0 ? (
+                <div className="text-center py-12">
+                  <TrendingUp className="w-16 h-16 mx-auto text-amber-400 mb-4" />
+                  <p className="text-gray-500 font-medium text-lg">{t('dashboard.paytrackEmpty')}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredPaytrackClients.map((client) => {
+                    const totalFee = client.payment?.totalFee || 0;
+                    const paidAmount = client.payment?.paidAmount || 0;
+                    const remaining = totalFee - paidAmount;
+                    const pct =
+                      totalFee > 0 ? Math.min(100, Math.round((paidAmount / totalFee) * 100)) : 0;
+                    const isPaid = totalFee > 0 && remaining <= 0;
+                    const isBehind = remaining > 0 && paidAmount === 0;
+                    return (
+                      <div
+                        key={client.id}
+                        onClick={() => {
+                          setSelectedClient(client);
+                          setShowPayTrackModal(false);
+                        }}
+                        className={`p-4 border-2 rounded-xl hover:shadow-md transition-all cursor-pointer bg-gradient-to-br ${
+                          isPaid
+                            ? 'border-green-200 hover:border-green-300 from-green-50 to-white'
+                            : isBehind
+                              ? 'border-red-200 hover:border-red-300 from-red-50 to-white'
+                              : 'border-amber-200 hover:border-amber-300 from-amber-50 to-white'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3
+                              className={`font-bold text-lg truncate ${
+                                isPaid ? 'text-green-900' : isBehind ? 'text-red-900' : 'text-amber-900'
+                              }`}
+                            >
+                              {client.first_name} {client.last_name}
+                            </h3>
+                            <p className="text-sm text-gray-600 mt-0.5 truncate">
+                              {client.case_type || 'No template'}
+                            </p>
+                            <p className="text-xs mt-2 font-medium text-gray-700">
+                              €{paidAmount.toFixed(2)} / €{totalFee.toFixed(2)}
+                              {remaining > 0 ? ` · ${t('dashboard.paytrackBehind')}: €${remaining.toFixed(2)}` : ''}
+                            </p>
+                            <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  isPaid ? 'bg-green-500' : isBehind ? 'bg-red-400' : 'bg-amber-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-1">{pct}% paid</p>
+                          </div>
+                          <TrendingUp
+                            className={`w-6 h-6 shrink-0 ${
+                              isPaid ? 'text-green-600' : isBehind ? 'text-red-500' : 'text-amber-600'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredPaytrackClients.length === 0 && (
+                    <p className="text-center text-sm text-gray-500 py-8">No matches for these filters.</p>
+                  )}
                 </div>
               )}
             </div>
