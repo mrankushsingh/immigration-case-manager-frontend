@@ -411,6 +411,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [paytrackFilter, setPaytrackFilter] = useState<'all' | 'pending' | 'settled'>('all');
   const [paytrackSort, setPaytrackSort] = useState<'pending' | 'recent' | 'name'>('pending');
   const [showPaytrackActivity, setShowPaytrackActivity] = useState(false);
+  const [paytrackClientView, setPaytrackClientView] = useState<Client | null>(null);
+  const [paytrackClientEntry, setPaytrackClientEntry] = useState<{
+    amount: string;
+    type: 'payment' | 'honorario' | 'pending';
+    note: string;
+  }>({
+    amount: '',
+    type: 'payment',
+    note: '',
+  });
+  const [paytrackClientSaving, setPaytrackClientSaving] = useState(false);
   const [paytrackQuickNote, setPaytrackQuickNote] = useState('');
   const [paytrackQuickNoteSaving, setPaytrackQuickNoteSaving] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
@@ -589,6 +600,68 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       showToast(error.message || 'Failed to save quick note', 'error');
     } finally {
       setPaytrackQuickNoteSaving(false);
+    }
+  };
+
+  const getPaytrackClientTotals = (client: Client | null) => {
+    const totalFee = client?.payment?.totalFee || 0;
+    const paidAmount = client?.payment?.paidAmount || 0;
+    const pending = Math.max(0, totalFee - paidAmount);
+    return { totalFee, paidAmount, pending };
+  };
+
+  const openPaytrackClient = (client: Client) => {
+    setPaytrackClientView(client);
+    setPaytrackClientEntry({ amount: '', type: 'payment', note: '' });
+  };
+
+  const refreshPaytrackClient = async (clientId: string) => {
+    await refreshClients();
+    try {
+      const latest = await api.getClient(clientId);
+      setPaytrackClientView(latest);
+    } catch {
+      // fallback: close if refresh fetch fails
+      setPaytrackClientView(null);
+    }
+  };
+
+  const handlePaytrackClientAddEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paytrackClientView) return;
+
+    const amount = parseFloat(paytrackClientEntry.amount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast('Please enter a valid amount', 'error');
+      return;
+    }
+
+    try {
+      setPaytrackClientSaving(true);
+      if (paytrackClientEntry.type === 'payment') {
+        await api.addPayment(
+          paytrackClientView.id,
+          amount,
+          'PayTrack',
+          paytrackClientEntry.note || undefined
+        );
+      } else {
+        const current = paytrackClientView.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+        await api.updateClient(paytrackClientView.id, {
+          payment: {
+            ...current,
+            totalFee: (current.totalFee || 0) + amount,
+          },
+        });
+      }
+
+      await refreshPaytrackClient(paytrackClientView.id);
+      setPaytrackClientEntry({ amount: '', type: 'payment', note: '' });
+      showToast('Payment details updated', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to add entry', 'error');
+    } finally {
+      setPaytrackClientSaving(false);
     }
   };
 
@@ -4311,8 +4384,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedClient(client);
-                              setShowPayTrackModal(false);
+                              openPaytrackClient(client);
                             }}
                             className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors"
                           >
@@ -4776,6 +4848,116 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYTRACK Client Payment View */}
+      {paytrackClientView && (
+        <div className="fixed inset-0 z-[120] bg-[#06080f] text-white overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
+            <div className="flex items-center justify-between mb-6">
+              <button
+                type="button"
+                onClick={() => setPaytrackClientView(null)}
+                className="inline-flex items-center gap-2 text-white/80 hover:text-white"
+              >
+                <ArrowRight className="w-4 h-4 rotate-180" />
+                <span className="text-sm">Back</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaytrackClientView(null)}
+                className="p-2 text-red-400 hover:text-red-300"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <h2 className="text-3xl font-semibold">
+              {paytrackClientView.first_name} {paytrackClientView.last_name}
+            </h2>
+            {paytrackClientView.phone && (
+              <p className="text-lg text-white/75 mt-1">{paytrackClientView.phone}</p>
+            )}
+            <p className="text-xs text-white/55 mt-1">
+              Created by {paytrackClientView.parent_name || '-'} · {new Date(paytrackClientView.created_at).toLocaleDateString('en-GB')}
+            </p>
+
+            {(() => {
+              const totals = getPaytrackClientTotals(paytrackClientView);
+              return (
+                <div className="mt-6 bg-[#11152a] border border-white/10 rounded-3xl p-6">
+                  <div className="flex items-center justify-between py-2 border-b border-white/10">
+                    <span className="text-white/70 tracking-wide">HONORARIOS</span>
+                    <span className="text-amber-300 text-3xl font-semibold">€{totals.totalFee.toFixed(0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-white/10">
+                    <span className="text-white/70 tracking-wide">PAGADO</span>
+                    <span className="text-green-400 text-3xl font-semibold">€{totals.paidAmount.toFixed(0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-white/70 tracking-wide">PENDIENTE</span>
+                    <span className="text-red-400 text-4xl font-semibold">€{totals.pending.toFixed(0)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {paytrackClientView.phone && (
+              <button
+                type="button"
+                onClick={() => {
+                  const totals = getPaytrackClientTotals(paytrackClientView);
+                  const text = `Hola ${paytrackClientView.first_name}, saldo pendiente: €${totals.pending.toFixed(2)}.`;
+                  window.open(`https://wa.me/${paytrackClientView.phone?.replace(/[^\d]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+                }}
+                className="mt-4 w-full py-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-medium"
+              >
+                Send balance via WhatsApp
+              </button>
+            )}
+
+            <form onSubmit={handlePaytrackClientAddEntry} className="mt-5 bg-[#11152a] border border-white/10 rounded-3xl p-5">
+              <p className="text-xl font-semibold mb-4">Add payment</p>
+              <div className="flex gap-2">
+                <input
+                  value={paytrackClientEntry.amount}
+                  onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, amount: e.target.value }))}
+                  placeholder="0"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-xl outline-none"
+                  required
+                />
+                <select
+                  value={paytrackClientEntry.type}
+                  onChange={(e) =>
+                    setPaytrackClientEntry((s) => ({
+                      ...s,
+                      type: e.target.value as 'payment' | 'honorario' | 'pending',
+                    }))
+                  }
+                  className="bg-white/5 border border-white/10 rounded-2xl px-3 py-3 min-w-[130px]"
+                >
+                  <option value="payment">PAYMENT</option>
+                  <option value="honorario">HONORARIO</option>
+                  <option value="pending">PENDING</option>
+                </select>
+              </div>
+              <input
+                value={paytrackClientEntry.note}
+                onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, note: e.target.value }))}
+                placeholder="Notes (optional)"
+                className="mt-3 w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={paytrackClientSaving}
+                className="mt-4 w-full rounded-2xl py-3 bg-amber-400 text-black font-semibold disabled:opacity-60"
+              >
+                {paytrackClientSaving ? 'Saving...' : '+ Add'}
+              </button>
+            </form>
           </div>
         </div>
       )}
