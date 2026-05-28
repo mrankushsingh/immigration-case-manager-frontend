@@ -4854,13 +4854,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* PAYTRACK Client Payment View */}
       {paytrackClientView && (
-        <div className="fixed inset-0 z-[120] bg-[#06080f] text-white overflow-y-auto">
+        <div className="fixed inset-0 z-[120] bg-black/50 backdrop-blur-sm overflow-y-auto">
           <div className="max-w-4xl mx-auto px-3 sm:px-6 py-5 sm:py-8">
             <div className="flex items-center justify-between mb-6">
               <button
                 type="button"
                 onClick={() => setPaytrackClientView(null)}
-                className="inline-flex items-center gap-2 text-white/80 hover:text-white"
+                className="inline-flex items-center gap-2 text-slate-700 hover:text-slate-900"
               >
                 <ArrowRight className="w-4 h-4 rotate-180" />
                 <span className="text-sm">Back</span>
@@ -4868,38 +4868,38 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <button
                 type="button"
                 onClick={() => setPaytrackClientView(null)}
-                className="p-2 text-red-400 hover:text-red-300"
+                className="p-2 text-red-500 hover:text-red-600"
                 title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <h2 className="text-3xl font-semibold">
+            <h2 className="text-3xl font-semibold text-slate-900">
               {paytrackClientView.first_name} {paytrackClientView.last_name}
             </h2>
             {paytrackClientView.phone && (
-              <p className="text-lg text-white/75 mt-1">{paytrackClientView.phone}</p>
+              <p className="text-lg text-slate-600 mt-1">{paytrackClientView.phone}</p>
             )}
-            <p className="text-xs text-white/55 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Created by {paytrackClientView.parent_name || '-'} · {new Date(paytrackClientView.created_at).toLocaleDateString('en-GB')}
             </p>
 
             {(() => {
               const totals = getPaytrackClientTotals(paytrackClientView);
               return (
-                <div className="mt-6 bg-[#11152a] border border-white/10 rounded-3xl p-6">
-                  <div className="flex items-center justify-between py-2 border-b border-white/10">
-                    <span className="text-white/70 tracking-wide">HONORARIOS</span>
-                    <span className="text-amber-300 text-3xl font-semibold">€{totals.totalFee.toFixed(0)}</span>
+                <div className="mt-6 glass-gold border border-amber-200 rounded-3xl p-6">
+                  <div className="flex items-center justify-between py-2 border-b border-amber-200">
+                    <span className="text-amber-700 tracking-wide">HONORARIOS</span>
+                    <span className="text-amber-700 text-3xl font-semibold">€{totals.totalFee.toFixed(0)}</span>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-b border-white/10">
-                    <span className="text-white/70 tracking-wide">PAGADO</span>
-                    <span className="text-green-400 text-3xl font-semibold">€{totals.paidAmount.toFixed(0)}</span>
+                  <div className="flex items-center justify-between py-2 border-b border-amber-200">
+                    <span className="text-amber-700 tracking-wide">PAGADO</span>
+                    <span className="text-green-600 text-3xl font-semibold">€{totals.paidAmount.toFixed(0)}</span>
                   </div>
                   <div className="flex items-center justify-between py-2">
-                    <span className="text-white/70 tracking-wide">PENDIENTE</span>
-                    <span className="text-red-400 text-4xl font-semibold">€{totals.pending.toFixed(0)}</span>
+                    <span className="text-amber-700 tracking-wide">PENDIENTE</span>
+                    <span className="text-red-600 text-4xl font-semibold">€{totals.pending.toFixed(0)}</span>
                   </div>
                 </div>
               );
@@ -4913,20 +4913,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   const text = `Hola ${paytrackClientView.first_name}, saldo pendiente: €${totals.pending.toFixed(2)}.`;
                   window.open(`https://wa.me/${paytrackClientView.phone?.replace(/[^\d]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
                 }}
-                className="mt-4 w-full py-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-medium"
+                className="mt-4 w-full py-3 rounded-2xl border border-emerald-300 bg-emerald-50 text-emerald-700 font-medium"
               >
                 Send balance via WhatsApp
               </button>
             )}
 
-            <form onSubmit={handlePaytrackClientAddEntry} className="mt-5 bg-[#11152a] border border-white/10 rounded-3xl p-5">
-              <p className="text-xl font-semibold mb-4">Add payment</p>
+            <form onSubmit={handlePaytrackClientAddEntry} className="mt-5 glass-gold border border-amber-200 rounded-3xl p-5">
+              <p className="text-xl font-semibold text-slate-900 mb-4">Add payment</p>
               <div className="flex gap-2">
                 <input
                   value={paytrackClientEntry.amount}
                   onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, amount: e.target.value }))}
                   placeholder="0"
-                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-xl outline-none"
+                  className="flex-1 bg-white border border-amber-200 rounded-2xl px-4 py-3 text-xl outline-none focus:ring-2 focus:ring-amber-400"
                   required
                 />
                 <select
@@ -4937,7 +4937,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       type: e.target.value as 'payment' | 'honorario' | 'pending',
                     }))
                   }
-                  className="bg-white/5 border border-white/10 rounded-2xl px-3 py-3 min-w-[130px]"
+                  className="bg-white border border-amber-200 rounded-2xl px-3 py-3 min-w-[130px] outline-none focus:ring-2 focus:ring-amber-400"
                 >
                   <option value="payment">PAYMENT</option>
                   <option value="honorario">HONORARIO</option>
@@ -4948,16 +4948,48 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 value={paytrackClientEntry.note}
                 onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, note: e.target.value }))}
                 placeholder="Notes (optional)"
-                className="mt-3 w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 outline-none"
+                className="mt-3 w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
               />
               <button
                 type="submit"
                 disabled={paytrackClientSaving}
-                className="mt-4 w-full rounded-2xl py-3 bg-amber-400 text-black font-semibold disabled:opacity-60"
+                className="mt-4 w-full rounded-2xl py-3 bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold disabled:opacity-60"
               >
                 {paytrackClientSaving ? 'Saving...' : '+ Add'}
               </button>
             </form>
+
+            <div className="mt-5 glass-gold border border-amber-200 rounded-3xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xl font-semibold text-slate-900">History</p>
+                <span className="text-xs text-amber-700">
+                  {(paytrackClientView.payment?.payments || []).length} entries
+                </span>
+              </div>
+              {(paytrackClientView.payment?.payments || []).length === 0 ? (
+                <p className="text-sm text-slate-500 py-3">No payment history yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-auto">
+                  {[...(paytrackClientView.payment?.payments || [])]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((entry, idx) => (
+                      <div
+                        key={`${entry.date}-${entry.amount}-${idx}`}
+                        className="bg-white border border-amber-100 rounded-xl px-3 py-2.5 flex items-start justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800">{entry.method || 'Payment'}</p>
+                          <p className="text-xs text-slate-500">
+                            {new Date(entry.date).toLocaleString('en-GB')}
+                            {entry.note ? ` · ${entry.note}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-green-700">€{(entry.amount || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
