@@ -411,6 +411,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [paytrackFilter, setPaytrackFilter] = useState<'all' | 'pending' | 'settled'>('all');
   const [paytrackSort, setPaytrackSort] = useState<'pending' | 'recent' | 'name'>('pending');
   const [showPaytrackActivity, setShowPaytrackActivity] = useState(false);
+  const [paytrackQuickNote, setPaytrackQuickNote] = useState('');
+  const [paytrackQuickNoteSaving, setPaytrackQuickNoteSaving] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     client_name: '',
     client_surname: '',
@@ -507,6 +509,88 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setPasscodeInput('');
     }
   }, [passcodeInput, unlockingFeature]);
+
+  const parseQuickNoteAmount = (text: string): number | null => {
+    const match = text.match(/(\d+(?:[.,]\d{1,2})?)/);
+    if (!match) return null;
+    const amount = Number(match[1].replace(',', '.'));
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+  };
+
+  const detectQuickNoteType = (text: string): 'payment' | 'honorario' | 'pending' => {
+    const normalized = text.toLowerCase();
+    if (/honorario|fee/.test(normalized)) return 'honorario';
+    if (/pending|pendiente|due/.test(normalized)) return 'pending';
+    return 'payment';
+  };
+
+  const resolveClientFromQuickNote = (text: string): Client | null => {
+    const words = (text.toLowerCase().match(/[a-zA-ZÀ-ÿ]{3,}/g) || []).filter(
+      (w) => !['paid', 'pago', 'payment', 'hoy', 'today', 'quick', 'note', 'honorario', 'pending', 'pendiente', 'due'].includes(w)
+    );
+    if (!words.length) return null;
+
+    let best: { client: Client; score: number } | null = null;
+    for (const client of clients) {
+      const fullName = `${client.first_name} ${client.last_name}`.toLowerCase();
+      let score = 0;
+      for (const word of words) {
+        if (fullName.includes(word)) score += word.length;
+      }
+      if (score > 0 && (!best || score > best.score)) {
+        best = { client, score };
+      }
+    }
+    return best?.client || null;
+  };
+
+  const handlePaytrackQuickNote = async () => {
+    const note = paytrackQuickNote.trim();
+    if (!note) {
+      showToast('Please enter a quick note', 'error');
+      return;
+    }
+
+    const amount = parseQuickNoteAmount(note);
+    if (!amount) {
+      showToast('Could not detect amount in note', 'error');
+      return;
+    }
+
+    const client = resolveClientFromQuickNote(note);
+    if (!client) {
+      showToast('Could not match client from note', 'error');
+      return;
+    }
+
+    const entryType = detectQuickNoteType(note);
+
+    try {
+      setPaytrackQuickNoteSaving(true);
+      if (entryType === 'payment') {
+        await api.addPayment(client.id, amount, 'Quick Note', note);
+      } else {
+        const current = client.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+        await api.updateClient(client.id, {
+          payment: {
+            ...current,
+            totalFee: (current.totalFee || 0) + amount,
+          },
+        });
+      }
+
+      await refreshClients();
+      setPaytrackQuickNote('');
+      showToast(
+        `${client.first_name} ${client.last_name}: ${entryType === 'payment' ? 'payment' : 'fee'} €${amount.toFixed(2)} added`,
+        'success'
+      );
+    } catch (error: any) {
+      showToast(error.message || 'Failed to save quick note', 'error');
+    } finally {
+      setPaytrackQuickNoteSaving(false);
+    }
+  };
 
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -4075,6 +4159,27 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </div>
 
               <div className="mb-4">
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-amber-900">Quick Note</p>
+                    <span className="text-[11px] text-amber-700">e.g. “Valentina paid 480 today”</span>
+                  </div>
+                  <textarea
+                    value={paytrackQuickNote}
+                    onChange={(e) => setPaytrackQuickNote(e.target.value)}
+                    rows={2}
+                    placeholder="Type quick payment note..."
+                    className="w-full bg-white rounded-xl px-3 py-2 outline-none resize-none border border-amber-200 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                  />
+                  <button
+                    onClick={handlePaytrackQuickNote}
+                    disabled={paytrackQuickNoteSaving || !paytrackQuickNote.trim()}
+                    className="mt-2 w-full sm:w-auto px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {paytrackQuickNoteSaving ? 'Saving...' : 'Add quick note'}
+                  </button>
+                </div>
+
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600/70 w-4 h-4" />
                   <input
@@ -4162,11 +4267,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     return (
                       <div
                         key={client.id}
-                        onClick={() => {
-                          setSelectedClient(client);
-                          setShowPayTrackModal(false);
-                        }}
-                        className={`p-4 border-2 rounded-xl hover:shadow-md transition-all cursor-pointer bg-gradient-to-br ${
+                        className={`p-4 border-2 rounded-xl transition-all bg-gradient-to-br ${
                           isPaid
                             ? 'border-green-200 hover:border-green-300 from-green-50 to-white'
                             : isBehind
@@ -4183,9 +4284,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             >
                               {client.first_name} {client.last_name}
                             </h3>
-                            <p className="text-sm text-gray-600 mt-0.5 truncate">
-                              {client.case_type || 'No template'}
-                            </p>
+                            {client.phone && (
+                              <p className="text-sm text-gray-600 mt-0.5 truncate">Phone: {client.phone}</p>
+                            )}
                             <p className="text-xs mt-2 font-medium text-gray-700">
                               €{paidAmount.toFixed(2)} / €{totalFee.toFixed(2)}
                               {remaining > 0 ? ` · ${t('dashboard.paytrackBehind')}: €${remaining.toFixed(2)}` : ''}
@@ -4205,6 +4306,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               isPaid ? 'text-green-600' : isBehind ? 'text-red-500' : 'text-amber-600'
                             }`}
                           />
+                        </div>
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedClient(client);
+                              setShowPayTrackModal(false);
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors"
+                          >
+                            Open client
+                          </button>
                         </div>
                       </div>
                     );
