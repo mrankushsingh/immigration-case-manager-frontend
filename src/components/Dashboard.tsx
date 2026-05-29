@@ -4487,9 +4487,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     const isPaid = totalFee > 0 && remaining <= 0;
                     const isBehind = remaining > 0 && paidAmount === 0;
                     return (
-                      <div
+                      <button
                         key={client.id}
-                        className={`p-4 border-2 rounded-xl transition-all bg-gradient-to-br ${
+                        type="button"
+                        onClick={() =>
+                          openPaytrackClient(client, { prefillPending: remaining > 0 })
+                        }
+                        className={`w-full text-left p-4 border-2 rounded-xl transition-all bg-gradient-to-br cursor-pointer hover:shadow-md ${
                           isPaid
                             ? 'border-green-200 hover:border-green-300 from-green-50 to-white'
                             : isBehind
@@ -4514,17 +4518,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {remaining > 0 ? (
                                 <>
                                   {' · '}
-                                  <button
-                                    type="button"
-                                    onClick={() => openPaytrackClient(client, { prefillPending: true })}
-                                    className="text-red-700 font-semibold underline underline-offset-2 hover:text-red-800"
-                                  >
+                                  <span className="text-red-700 font-semibold">
                                     {t('dashboard.paytrackBehind')}: €{remaining.toFixed(2)}
-                                  </button>
+                                  </span>
                                 </>
-                              ) : (
-                                ''
-                              )}
+                              ) : null}
                             </p>
                             <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
                               <div
@@ -4542,25 +4540,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             }`}
                           />
                         </div>
-                        <div className="mt-3 flex justify-end gap-2">
-                          {remaining > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => openPaytrackClient(client, { prefillPending: true })}
-                              className="text-xs px-3 py-1.5 rounded-lg border border-red-300 text-red-800 bg-red-50 hover:bg-red-100 transition-colors"
-                            >
-                              {t('dashboard.paytrackBalanceDue')}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => openPaytrackClient(client)}
-                            className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors"
-                          >
-                            Open client
-                          </button>
-                        </div>
-                      </div>
+                      </button>
                     );
                   })}
                   {filteredPaytrackClients.length === 0 && (
