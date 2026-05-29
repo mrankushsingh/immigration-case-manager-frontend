@@ -134,6 +134,7 @@
     "paytrackAddClient": "Añadir cliente",
     "paytrackBalanceDue": "Saldo pendiente",
     "paytrackModifyPayment": "Modificar importe",
+    "paytrackShowDueOnly": "Toca para ver solo clientes con saldo pendiente",
     "addPayment": "AGREGAR PAGO",
     "aportarDocumentacion": "APORTAR DOCUMENTACIÓN",
     "aportarDocumentacionDesc": "Aportar documentación que falta al expediente"

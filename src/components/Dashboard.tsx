@@ -4329,18 +4329,47 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <button
+                  type="button"
+                  onClick={() => setPaytrackFilter('all')}
+                  className={`text-left bg-amber-50 border rounded-xl p-3 transition-all hover:shadow-md ${
+                    paytrackFilter === 'all'
+                      ? 'border-amber-500 ring-2 ring-amber-400'
+                      : 'border-amber-200'
+                  }`}
+                >
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700/80">Honorarios</p>
                   <p className="text-xl font-bold text-amber-900">€{paytrackTotals.totalFee.toFixed(2)}</p>
-                </div>
-                <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaytrackFilter('settled')}
+                  className={`text-left bg-green-50 border rounded-xl p-3 transition-all hover:shadow-md ${
+                    paytrackFilter === 'settled'
+                      ? 'border-green-500 ring-2 ring-green-400'
+                      : 'border-green-200'
+                  }`}
+                >
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-green-700/80">{t('dashboard.paytrackPaid')}</p>
                   <p className="text-xl font-bold text-green-900">€{paytrackTotals.totalPaid.toFixed(2)}</p>
-                </div>
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaytrackFilter('pending');
+                    setPaytrackSort('pending');
+                  }}
+                  title={t('dashboard.paytrackShowDueOnly')}
+                  className={`text-left bg-red-50 border rounded-xl p-3 transition-all hover:shadow-md cursor-pointer ${
+                    paytrackFilter === 'pending'
+                      ? 'border-red-500 ring-2 ring-red-400'
+                      : 'border-red-200 hover:border-red-300'
+                  }`}
+                >
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700/80">{t('dashboard.paytrackBehind')}</p>
                   <p className="text-xl font-bold text-red-900">€{Math.max(0, paytrackTotals.totalFee - paytrackTotals.totalPaid).toFixed(2)}</p>
-                </div>
+                  <p className="text-[10px] text-red-600/80 mt-1">{t('dashboard.paytrackShowDueOnly')}</p>
+                </button>
               </div>
 
               <div className="mb-4">

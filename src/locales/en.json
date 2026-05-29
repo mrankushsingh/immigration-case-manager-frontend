@@ -133,6 +133,7 @@
     "paytrackAddClient": "Add client",
     "paytrackBalanceDue": "Balance due",
     "paytrackModifyPayment": "Modify amount",
+    "paytrackShowDueOnly": "Tap to show due clients only",
     "addPayment": "ADD Payment",
     "aportarDocumentacion": "ADD DOCUMENTS",
     "aportarDocumentacionDesc": "Add missing documents to the file"
