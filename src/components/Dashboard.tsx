@@ -4,6 +4,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { api } from '../utils/api';
 import { Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
+import CreateClientModal from './CreateClientModal';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
@@ -424,6 +425,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [paytrackClientSaving, setPaytrackClientSaving] = useState(false);
   const [paytrackQuickNote, setPaytrackQuickNote] = useState('');
   const [paytrackQuickNoteSaving, setPaytrackQuickNoteSaving] = useState(false);
+  const [showPaytrackAddClient, setShowPaytrackAddClient] = useState(false);
+  const [paytrackEditingPaymentIdx, setPaytrackEditingPaymentIdx] = useState<number | null>(null);
+  const [paytrackPaymentDraft, setPaytrackPaymentDraft] = useState({
+    amount: '',
+    method: '',
+    note: '',
+  });
+  const [paytrackEditingTotalFee, setPaytrackEditingTotalFee] = useState(false);
+  const [paytrackTotalFeeDraft, setPaytrackTotalFeeDraft] = useState('');
   const [paymentForm, setPaymentForm] = useState({
     client_name: '',
     client_surname: '',
@@ -610,9 +620,111 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return { totalFee, paidAmount, pending };
   };
 
-  const openPaytrackClient = (client: Client) => {
+  const openPaytrackClient = (client: Client, options?: { prefillPending?: boolean }) => {
     setPaytrackClientView(client);
-    setPaytrackClientEntry({ amount: '', type: 'payment', note: '' });
+    setPaytrackEditingPaymentIdx(null);
+    setPaytrackEditingTotalFee(false);
+    const pending = Math.max(0, (client.payment?.totalFee || 0) - (client.payment?.paidAmount || 0));
+    setPaytrackClientEntry({
+      amount: options?.prefillPending && pending > 0 ? pending.toFixed(2) : '',
+      type: 'payment',
+      note: '',
+    });
+  };
+
+  const savePaytrackPayments = async (
+    clientId: string,
+    payments: Client['payment']['payments'],
+    totalFee?: number
+  ) => {
+    const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const current = paytrackClientView?.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+    await api.updateClient(clientId, {
+      payment: {
+        ...current,
+        totalFee: totalFee ?? current.totalFee ?? 0,
+        paidAmount,
+        payments,
+      },
+    });
+  };
+
+  const startPaytrackPaymentEdit = (index: number) => {
+    if (!paytrackClientView?.payment?.payments?.[index]) return;
+    const entry = paytrackClientView.payment.payments[index];
+    setPaytrackEditingPaymentIdx(index);
+    setPaytrackPaymentDraft({
+      amount: String(entry.amount ?? ''),
+      method: entry.method || '',
+      note: entry.note || '',
+    });
+  };
+
+  const handlePaytrackPaymentSave = async () => {
+    if (!paytrackClientView || paytrackEditingPaymentIdx === null) return;
+    const amount = parseFloat(paytrackPaymentDraft.amount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast('Please enter a valid amount', 'error');
+      return;
+    }
+    const payments = [...(paytrackClientView.payment?.payments || [])];
+    if (!payments[paytrackEditingPaymentIdx]) return;
+    payments[paytrackEditingPaymentIdx] = {
+      ...payments[paytrackEditingPaymentIdx],
+      amount,
+      method: paytrackPaymentDraft.method.trim() || 'Payment',
+      note: paytrackPaymentDraft.note.trim() || undefined,
+    };
+    try {
+      setPaytrackClientSaving(true);
+      await savePaytrackPayments(paytrackClientView.id, payments);
+      await refreshPaytrackClient(paytrackClientView.id);
+      setPaytrackEditingPaymentIdx(null);
+      showToast('Payment updated', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to update payment', 'error');
+    } finally {
+      setPaytrackClientSaving(false);
+    }
+  };
+
+  const handlePaytrackPaymentDelete = async (index: number) => {
+    if (!paytrackClientView) return;
+    const payments = (paytrackClientView.payment?.payments || []).filter((_, i) => i !== index);
+    try {
+      setPaytrackClientSaving(true);
+      await savePaytrackPayments(paytrackClientView.id, payments);
+      await refreshPaytrackClient(paytrackClientView.id);
+      if (paytrackEditingPaymentIdx === index) setPaytrackEditingPaymentIdx(null);
+      showToast('Payment removed', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to remove payment', 'error');
+    } finally {
+      setPaytrackClientSaving(false);
+    }
+  };
+
+  const handlePaytrackTotalFeeSave = async () => {
+    if (!paytrackClientView) return;
+    const totalFee = parseFloat(paytrackTotalFeeDraft.replace(',', '.'));
+    if (!Number.isFinite(totalFee) || totalFee < 0) {
+      showToast('Please enter a valid honorarios amount', 'error');
+      return;
+    }
+    try {
+      setPaytrackClientSaving(true);
+      const current = paytrackClientView.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+      await api.updateClient(paytrackClientView.id, {
+        payment: { ...current, totalFee },
+      });
+      await refreshPaytrackClient(paytrackClientView.id);
+      setPaytrackEditingTotalFee(false);
+      showToast('Honorarios updated', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to update honorarios', 'error');
+    } finally {
+      setPaytrackClientSaving(false);
+    }
   };
 
   const refreshPaytrackClient = async (clientId: string) => {
@@ -4265,7 +4377,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </div>
 
               <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPaytrackAddClient(true)}
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-amber-600 bg-amber-600 text-white hover:bg-amber-700 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    {t('dashboard.paytrackAddClient')}
+                  </button>
                   {(['all', 'pending', 'settled'] as const).map((f) => (
                     <button
                       key={f}
@@ -4362,7 +4482,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             )}
                             <p className="text-xs mt-2 font-medium text-gray-700">
                               €{paidAmount.toFixed(2)} / €{totalFee.toFixed(2)}
-                              {remaining > 0 ? ` · ${t('dashboard.paytrackBehind')}: €${remaining.toFixed(2)}` : ''}
+                              {remaining > 0 ? (
+                                <>
+                                  {' · '}
+                                  <button
+                                    type="button"
+                                    onClick={() => openPaytrackClient(client, { prefillPending: true })}
+                                    className="text-red-700 font-semibold underline underline-offset-2 hover:text-red-800"
+                                  >
+                                    {t('dashboard.paytrackBehind')}: €{remaining.toFixed(2)}
+                                  </button>
+                                </>
+                              ) : (
+                                ''
+                              )}
                             </p>
                             <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
                               <div
@@ -4380,12 +4513,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             }`}
                           />
                         </div>
-                        <div className="mt-3 flex justify-end">
+                        <div className="mt-3 flex justify-end gap-2">
+                          {remaining > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openPaytrackClient(client, { prefillPending: true })}
+                              className="text-xs px-3 py-1.5 rounded-lg border border-red-300 text-red-800 bg-red-50 hover:bg-red-100 transition-colors"
+                            >
+                              {t('dashboard.paytrackBalanceDue')}
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => {
-                              openPaytrackClient(client);
-                            }}
+                            onClick={() => openPaytrackClient(client)}
                             className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors"
                           >
                             Open client
@@ -4889,9 +5029,47 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               const totals = getPaytrackClientTotals(paytrackClientView);
               return (
                 <div className="mt-6 glass-gold border border-amber-200 rounded-3xl p-6">
-                  <div className="flex items-center justify-between py-2 border-b border-amber-200">
+                  <div className="flex items-center justify-between py-2 border-b border-amber-200 gap-3">
                     <span className="text-amber-700 tracking-wide">HONORARIOS</span>
-                    <span className="text-amber-700 text-3xl font-semibold">€{totals.totalFee.toFixed(0)}</span>
+                    {paytrackEditingTotalFee ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={paytrackTotalFeeDraft}
+                          onChange={(e) => setPaytrackTotalFeeDraft(e.target.value)}
+                          className="w-28 bg-white border border-amber-200 rounded-xl px-2 py-1 text-lg outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                        <button
+                          type="button"
+                          disabled={paytrackClientSaving}
+                          onClick={handlePaytrackTotalFeeSave}
+                          className="text-xs px-2 py-1 rounded-lg bg-amber-600 text-white"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaytrackEditingTotalFee(false)}
+                          className="text-xs px-2 py-1 rounded-lg border border-amber-200"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-700 text-3xl font-semibold">€{totals.totalFee.toFixed(0)}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaytrackTotalFeeDraft(String(totals.totalFee));
+                            setPaytrackEditingTotalFee(true);
+                          }}
+                          className="p-1 text-amber-700 hover:text-amber-900"
+                          title="Edit honorarios"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-amber-200">
                     <span className="text-amber-700 tracking-wide">PAGADO</span>
@@ -4901,6 +5079,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     <span className="text-amber-700 tracking-wide">PENDIENTE</span>
                     <span className="text-red-600 text-4xl font-semibold">€{totals.pending.toFixed(0)}</span>
                   </div>
+                  {totals.pending > 0 && (
+                    <p className="text-sm text-red-700 mt-2">
+                      Balance due — amount pre-filled below when you opened from the list.
+                    </p>
+                  )}
                 </div>
               );
             })()}
@@ -4969,22 +5152,97 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {(paytrackClientView.payment?.payments || []).length === 0 ? (
                 <p className="text-sm text-slate-500 py-3">No payment history yet.</p>
               ) : (
-                <div className="space-y-2 max-h-64 overflow-auto">
-                  {[...(paytrackClientView.payment?.payments || [])]
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .map((entry, idx) => (
+                <div className="space-y-2 max-h-80 overflow-auto">
+                  {(paytrackClientView.payment?.payments || [])
+                    .map((entry, index) => ({ entry, index }))
+                    .sort(
+                      (a, b) =>
+                        new Date(b.entry.date).getTime() - new Date(a.entry.date).getTime()
+                    )
+                    .map(({ entry, index }) => (
                       <div
-                        key={`${entry.date}-${entry.amount}-${idx}`}
-                        className="bg-white border border-amber-100 rounded-xl px-3 py-2.5 flex items-start justify-between gap-3"
+                        key={`${entry.date}-${entry.amount}-${index}`}
+                        className="bg-white border border-amber-100 rounded-xl px-3 py-2.5"
                       >
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">{entry.method || 'Payment'}</p>
-                          <p className="text-xs text-slate-500">
-                            {new Date(entry.date).toLocaleString('en-GB')}
-                            {entry.note ? ` · ${entry.note}` : ''}
-                          </p>
-                        </div>
-                        <span className="text-sm font-semibold text-green-700">€{(entry.amount || 0).toFixed(2)}</span>
+                        {paytrackEditingPaymentIdx === index ? (
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <input
+                                value={paytrackPaymentDraft.amount}
+                                onChange={(e) =>
+                                  setPaytrackPaymentDraft((s) => ({ ...s, amount: e.target.value }))
+                                }
+                                placeholder="Amount"
+                                className="flex-1 bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                              />
+                              <input
+                                value={paytrackPaymentDraft.method}
+                                onChange={(e) =>
+                                  setPaytrackPaymentDraft((s) => ({ ...s, method: e.target.value }))
+                                }
+                                placeholder="Method"
+                                className="flex-1 bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                              />
+                            </div>
+                            <input
+                              value={paytrackPaymentDraft.note}
+                              onChange={(e) =>
+                                setPaytrackPaymentDraft((s) => ({ ...s, note: e.target.value }))
+                              }
+                              placeholder="Note (optional)"
+                              className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setPaytrackEditingPaymentIdx(null)}
+                                className="text-xs px-2 py-1 rounded-lg border border-amber-200"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={paytrackClientSaving}
+                                onClick={handlePaytrackPaymentSave}
+                                className="text-xs px-2 py-1 rounded-lg bg-amber-600 text-white disabled:opacity-60"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-800">{entry.method || 'Payment'}</p>
+                              <p className="text-xs text-slate-500">
+                                {new Date(entry.date).toLocaleString('en-GB')}
+                                {entry.note ? ` · ${entry.note}` : ''}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-semibold text-green-700">
+                                €{(entry.amount || 0).toFixed(2)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => startPaytrackPaymentEdit(index)}
+                                className="p-1 text-amber-700 hover:text-amber-900"
+                                title={t('dashboard.paytrackModifyPayment')}
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={paytrackClientSaving}
+                                onClick={() => handlePaytrackPaymentDelete(index)}
+                                className="p-1 text-red-500 hover:text-red-700 disabled:opacity-50"
+                                title="Remove payment"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                 </div>
@@ -4992,6 +5250,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {showPaytrackAddClient && (
+        <CreateClientModal
+          onClose={() => setShowPaytrackAddClient(false)}
+          onSuccess={async () => {
+            await refreshClients();
+            setShowPaytrackAddClient(false);
+          }}
+        />
       )}
 
       {selectedClient && (

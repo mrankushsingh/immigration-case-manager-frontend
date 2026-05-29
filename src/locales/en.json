@@ -130,6 +130,9 @@
     "paytrackPaid": "Paid in full",
     "paytrackPartial": "In progress",
     "paytrackBehind": "Balance due",
+    "paytrackAddClient": "Add client",
+    "paytrackBalanceDue": "Balance due",
+    "paytrackModifyPayment": "Modify amount",
     "addPayment": "ADD Payment",
     "aportarDocumentacion": "ADD DOCUMENTS",
     "aportarDocumentacionDesc": "Add missing documents to the file"

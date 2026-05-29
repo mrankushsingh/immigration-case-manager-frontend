@@ -131,6 +131,9 @@
     "paytrackPaid": "Pagado",
     "paytrackPartial": "En curso",
     "paytrackBehind": "Pendiente",
+    "paytrackAddClient": "Añadir cliente",
+    "paytrackBalanceDue": "Saldo pendiente",
+    "paytrackModifyPayment": "Modificar importe",
     "addPayment": "AGREGAR PAGO",
     "aportarDocumentacion": "APORTAR DOCUMENTACIÓN",
     "aportarDocumentacionDesc": "Aportar documentación que falta al expediente"
