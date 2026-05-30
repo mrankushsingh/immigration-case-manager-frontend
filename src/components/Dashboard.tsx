@@ -60,6 +60,10 @@ function readPaytrackSort(): 'pending' | 'recent' | 'name' {
   return 'recent';
 }
 
+function recursoSubmittedWithDate(client: Client): boolean {
+  return Boolean(client.submitted_to_immigration && client.application_date);
+}
+
 /** Application date + silence period has passed (replacement / contentious appeal may be due). */
 function recursoAdministrativeSilenceEnded(client: Client): boolean {
   if (!client.application_date) return false;
