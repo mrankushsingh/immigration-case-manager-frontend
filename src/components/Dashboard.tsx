@@ -4548,9 +4548,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   {filteredPaytrackClients.map((client) => {
                     const totalFee = client.payment?.totalFee || 0;
                     const paidAmount = client.payment?.paidAmount || 0;
-                    const remaining = totalFee - paidAmount;
+                    const remaining = Math.max(0, totalFee - paidAmount);
                     const clientNotes = client.details || client.notes;
-                    const isSettled = totalFee > 0 && remaining <= 0;
                     return (
                       <button
                         key={client.id}
@@ -4558,73 +4557,50 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         onClick={() =>
                           openPaytrackClient(client, { prefillPending: remaining > 0 })
                         }
-                        className="w-full text-left bg-white border border-amber-200 rounded-2xl p-4 transition-all cursor-pointer hover:shadow-md hover:border-amber-300 space-y-3"
+                        className="w-full text-left bg-white border border-amber-200 rounded-2xl p-4 transition-all cursor-pointer hover:shadow-md hover:border-amber-300"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0 space-y-3">
-                            <div>
-                              <p className="text-sm font-medium text-slate-700 mb-1">
-                                {t('dashboard.paytrackFullName')}
-                              </p>
-                              <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-slate-900 font-medium truncate">
-                                {client.first_name} {client.last_name}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-700 mb-1">
-                                {t('dashboard.paytrackPhone')}
-                              </p>
-                              <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-slate-700 truncate">
-                                {client.phone || '—'}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-700 mb-1">
-                                {t('dashboard.paytrackTotalFee')}
-                              </p>
-                              <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-slate-700">
-                                {totalFee > 0 ? `€${totalFee.toFixed(2)}` : '—'}
-                              </div>
-                            </div>
-                            {clientNotes ? (
-                              <div>
-                                <p className="text-sm font-medium text-slate-700 mb-1">
-                                  {t('dashboard.paytrackNotes')}
-                                </p>
-                                <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-slate-600 line-clamp-2">
-                                  {clientNotes}
-                                </div>
-                              </div>
-                            ) : null}
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-lg text-amber-900 truncate">
+                            {client.first_name} {client.last_name}
+                          </h3>
+                          {client.phone && (
+                            <p className="text-sm text-slate-600 mt-0.5 truncate">{client.phone}</p>
+                          )}
+                          {clientNotes ? (
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">{clientNotes}</p>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-center min-w-0">
+                            <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-700/80 truncate">
+                              {t('dashboard.paytrackHonorarios')}
+                            </p>
+                            <p className="text-sm font-bold text-amber-900 mt-0.5 truncate">
+                              €{totalFee.toFixed(0)}
+                            </p>
                           </div>
-                          <div
-                            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                              isSettled
-                                ? 'bg-green-50 text-green-700 border border-green-200'
-                                : remaining > 0
-                                  ? 'bg-red-50 text-red-700 border border-red-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}
-                          >
-                            {isSettled
-                              ? t('dashboard.paytrackPaid')
-                              : remaining > 0
-                                ? `€${remaining.toFixed(2)}`
-                                : '—'}
+                          <div className="bg-green-50 border border-green-200 rounded-xl p-2.5 text-center min-w-0">
+                            <p className="text-[9px] font-semibold uppercase tracking-wide text-green-700/80 truncate">
+                              {t('dashboard.paytrackPagado')}
+                            </p>
+                            <p className="text-sm font-bold text-green-900 mt-0.5 truncate">
+                              €{paidAmount.toFixed(0)}
+                            </p>
+                          </div>
+                          <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 text-center min-w-0">
+                            <p className="text-[9px] font-semibold uppercase tracking-wide text-red-700/80 truncate">
+                              {t('dashboard.paytrackPendiente')}
+                            </p>
+                            <p
+                              className={`text-sm font-bold mt-0.5 truncate ${
+                                remaining > 0 ? 'text-red-900' : 'text-green-700'
+                              }`}
+                            >
+                              €{remaining.toFixed(0)}
+                            </p>
                           </div>
                         </div>
-                        {totalFee > 0 && (
-                          <p className="text-xs text-slate-500 pt-1 border-t border-amber-100">
-                            {remaining > 0
-                              ? t('dashboard.paytrackPaidSummary', {
-                                  paid: paidAmount.toFixed(2),
-                                  remaining: remaining.toFixed(2),
-                                })
-                              : t('dashboard.paytrackFullyPaidSummary', {
-                                  paid: paidAmount.toFixed(2),
-                                })}
-                          </p>
-                        )}
                       </button>
                     );
                   })}
