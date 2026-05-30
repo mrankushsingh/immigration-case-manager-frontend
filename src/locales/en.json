@@ -143,6 +143,9 @@
     "paytrackOptional": "optional",
     "paytrackNotes": "Notes",
     "paytrackNotesPlaceholder": "Optional notes…",
+    "paytrackClients": "Clients",
+    "paytrackPaidSummary": "€{paid} paid · Balance due: €{remaining}",
+    "paytrackFullyPaidSummary": "€{paid} paid · Paid in full",
     "addPayment": "ADD Payment",
     "aportarDocumentacion": "ADD DOCUMENTS",
     "aportarDocumentacionDesc": "Add missing documents to the file"

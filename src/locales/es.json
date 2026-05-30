@@ -144,6 +144,9 @@
     "paytrackOptional": "opcional",
     "paytrackNotes": "Notas",
     "paytrackNotesPlaceholder": "Notas opcionales…",
+    "paytrackClients": "Clientes",
+    "paytrackPaidSummary": "€{paid} pagado · Pendiente: €{remaining}",
+    "paytrackFullyPaidSummary": "€{paid} pagado · Pagado completo",
     "addPayment": "AGREGAR PAGO",
     "aportarDocumentacion": "APORTAR DOCUMENTACIÓN",
     "aportarDocumentacionDesc": "Aportar documentación que falta al expediente"

@@ -4536,15 +4536,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   <p className="text-gray-500 font-medium text-lg">{t('dashboard.paytrackEmpty')}</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
+                  <h2 className="text-sm uppercase tracking-wider text-amber-800/70 font-medium">
+                    {t('dashboard.paytrackClients')}
+                    {filteredPaytrackClients.length !== paytrackClients.length && (
+                      <span className="ml-1 text-[10px] normal-case">
+                        ({filteredPaytrackClients.length}/{paytrackClients.length})
+                      </span>
+                    )}
+                  </h2>
                   {filteredPaytrackClients.map((client) => {
                     const totalFee = client.payment?.totalFee || 0;
                     const paidAmount = client.payment?.paidAmount || 0;
                     const remaining = totalFee - paidAmount;
-                    const pct =
-                      totalFee > 0 ? Math.min(100, Math.round((paidAmount / totalFee) * 100)) : 0;
-                    const isPaid = totalFee > 0 && remaining <= 0;
-                    const isBehind = remaining > 0 && paidAmount === 0;
+                    const clientNotes = client.details || client.notes;
+                    const isSettled = totalFee > 0 && remaining <= 0;
                     return (
                       <button
                         key={client.id}
@@ -4552,53 +4558,73 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         onClick={() =>
                           openPaytrackClient(client, { prefillPending: remaining > 0 })
                         }
-                        className={`w-full text-left p-4 border-2 rounded-xl transition-all bg-gradient-to-br cursor-pointer hover:shadow-md ${
-                          isPaid
-                            ? 'border-green-200 hover:border-green-300 from-green-50 to-white'
-                            : isBehind
-                              ? 'border-red-200 hover:border-red-300 from-red-50 to-white'
-                              : 'border-amber-200 hover:border-amber-300 from-amber-50 to-white'
-                        }`}
+                        className="w-full text-left bg-white border border-amber-200 rounded-2xl p-4 transition-all cursor-pointer hover:shadow-md hover:border-amber-300 space-y-3"
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3
-                              className={`font-bold text-lg truncate ${
-                                isPaid ? 'text-green-900' : isBehind ? 'text-red-900' : 'text-amber-900'
-                              }`}
-                            >
-                              {client.first_name} {client.last_name}
-                            </h3>
-                            {client.phone && (
-                              <p className="text-sm text-gray-600 mt-0.5 truncate">Phone: {client.phone}</p>
-                            )}
-                            <p className="text-xs mt-2 font-medium text-gray-700">
-                              €{paidAmount.toFixed(2)} / €{totalFee.toFixed(2)}
-                              {remaining > 0 ? (
-                                <>
-                                  {' · '}
-                                  <span className="text-red-700 font-semibold">
-                                    {t('dashboard.paytrackBehind')}: €{remaining.toFixed(2)}
-                                  </span>
-                                </>
-                              ) : null}
-                            </p>
-                            <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  isPaid ? 'bg-green-500' : isBehind ? 'bg-red-400' : 'bg-amber-500'
-                                }`}
-                                style={{ width: `${pct}%` }}
-                              />
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0 space-y-3">
+                            <div>
+                              <p className="text-sm font-medium text-slate-700 mb-1">
+                                {t('dashboard.paytrackFullName')}
+                              </p>
+                              <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-slate-900 font-medium truncate">
+                                {client.first_name} {client.last_name}
+                              </div>
                             </div>
-                            <p className="text-[10px] text-gray-500 mt-1">{pct}% paid</p>
+                            <div>
+                              <p className="text-sm font-medium text-slate-700 mb-1">
+                                {t('dashboard.paytrackPhone')}
+                              </p>
+                              <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-slate-700 truncate">
+                                {client.phone || '—'}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-700 mb-1">
+                                {t('dashboard.paytrackTotalFee')}
+                              </p>
+                              <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-slate-700">
+                                {totalFee > 0 ? `€${totalFee.toFixed(2)}` : '—'}
+                              </div>
+                            </div>
+                            {clientNotes ? (
+                              <div>
+                                <p className="text-sm font-medium text-slate-700 mb-1">
+                                  {t('dashboard.paytrackNotes')}
+                                </p>
+                                <div className="bg-white border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-slate-600 line-clamp-2">
+                                  {clientNotes}
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
-                          <TrendingUp
-                            className={`w-6 h-6 shrink-0 ${
-                              isPaid ? 'text-green-600' : isBehind ? 'text-red-500' : 'text-amber-600'
+                          <div
+                            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                              isSettled
+                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                : remaining > 0
+                                  ? 'bg-red-50 text-red-700 border border-red-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
                             }`}
-                          />
+                          >
+                            {isSettled
+                              ? t('dashboard.paytrackPaid')
+                              : remaining > 0
+                                ? `€${remaining.toFixed(2)}`
+                                : '—'}
+                          </div>
                         </div>
+                        {totalFee > 0 && (
+                          <p className="text-xs text-slate-500 pt-1 border-t border-amber-100">
+                            {remaining > 0
+                              ? t('dashboard.paytrackPaidSummary', {
+                                  paid: paidAmount.toFixed(2),
+                                  remaining: remaining.toFixed(2),
+                                })
+                              : t('dashboard.paytrackFullyPaidSummary', {
+                                  paid: paidAmount.toFixed(2),
+                                })}
+                          </p>
+                        )}
                       </button>
                     );
                   })}
