@@ -158,7 +158,7 @@
     "paytrackPendiente": "Pendiente",
     "paytrackPaidSummary": "€{paid} paid · Balance due: €{remaining}",
     "paytrackFullyPaidSummary": "€{paid} paid · Paid in full",
-    "paytrackWhatsAppBalance": "Hola {name}, Pending fees: {amount}€\n\nThank you\n*Anisa Berliku Law Firm*",
+    "paytrackWhatsAppBalance": "Hola {name}, honorarios pendientes: {amount}€\nGracias\nAnisa Berliku Law Firm",
     "paytrackWhatsAppBalanceSq": "Përshëndetje {name},\nPagesa e mbetur :{amount}€\n\nShumë Faleminderit\nAnisa Berliku Law Firm",
     "paytrackWhatsAppButton": "Send balance via WhatsApp",
     "paytrackQuickNote": "Quick Note",
