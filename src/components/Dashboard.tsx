@@ -430,6 +430,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     fullName: '',
     phone: '',
     totalFee: '',
+    amountPaid: '',
     notes: '',
   });
   const [paytrackEditingPaymentIdx, setPaytrackEditingPaymentIdx] = useState<number | null>(null);
@@ -746,7 +747,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const closePaytrackAddClient = () => {
     setShowPaytrackAddClient(false);
-    setPaytrackAddClientForm({ fullName: '', phone: '', totalFee: '', notes: '' });
+    setPaytrackAddClientForm({ fullName: '', phone: '', totalFee: '', amountPaid: '', notes: '' });
+  };
+
+  const parsePaytrackMoney = (raw: string): number | null => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const value = parseFloat(trimmed.replace(',', '.'));
+    return Number.isFinite(value) && value >= 0 ? value : null;
   };
 
   const handlePaytrackAddClientSubmit = async (e: React.FormEvent) => {
@@ -756,14 +764,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       showToast('Please enter full name', 'error');
       return;
     }
-    const totalFeeRaw = paytrackAddClientForm.totalFee.trim();
-    let totalFee: number | undefined;
-    if (totalFeeRaw) {
-      totalFee = parseFloat(totalFeeRaw.replace(',', '.'));
-      if (!Number.isFinite(totalFee) || totalFee < 0) {
-        showToast('Please enter a valid total fees amount', 'error');
-        return;
-      }
+    const totalFee = parsePaytrackMoney(paytrackAddClientForm.totalFee);
+    const amountPaid = parsePaytrackMoney(paytrackAddClientForm.amountPaid);
+    if (paytrackAddClientForm.totalFee.trim() && totalFee === null) {
+      showToast('Please enter a valid total fees amount', 'error');
+      return;
+    }
+    if (paytrackAddClientForm.amountPaid.trim() && amountPaid === null) {
+      showToast('Please enter a valid paid amount', 'error');
+      return;
+    }
+    if (amountPaid != null && amountPaid > 0 && totalFee != null && amountPaid > totalFee) {
+      showToast('Paid amount cannot exceed total fees', 'error');
+      return;
     }
     const { firstName, lastName } = splitPaytrackFullName(fullName);
     try {
@@ -772,13 +785,28 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         firstName,
         lastName,
         phone: paytrackAddClientForm.phone.trim() || undefined,
-        totalFee,
+        totalFee: totalFee ?? undefined,
         details: paytrackAddClientForm.notes.trim() || undefined,
       });
+      let clientForView = created;
+      if (amountPaid != null && amountPaid > 0) {
+        clientForView = await api.addPayment(
+          created.id,
+          amountPaid,
+          'PayTrack',
+          paytrackAddClientForm.notes.trim() || undefined
+        );
+      }
       await refreshClients();
       closePaytrackAddClient();
-      showToast(`${firstName} ${lastName} added`, 'success');
-      openPaytrackClient(created);
+      const pending = Math.max(0, (totalFee ?? 0) - (amountPaid ?? 0));
+      showToast(
+        pending > 0
+          ? `${firstName} ${lastName} added · Pending €${pending.toFixed(2)}`
+          : `${firstName} ${lastName} added`,
+        'success'
+      );
+      openPaytrackClient(clientForView, { prefillPending: pending > 0 });
     } catch (error: any) {
       showToast(error.message || 'Failed to add client', 'error');
     } finally {
@@ -5335,6 +5363,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </button>
             </div>
             <form onSubmit={handlePaytrackAddClientSubmit} className="p-5 space-y-4">
+              {(() => {
+                const totalFeePreview = parsePaytrackMoney(paytrackAddClientForm.totalFee) ?? 0;
+                const paidPreview = parsePaytrackMoney(paytrackAddClientForm.amountPaid) ?? 0;
+                const pendingPreview = Math.max(0, totalFeePreview - paidPreview);
+                const showPendingPreview =
+                  paytrackAddClientForm.totalFee.trim() !== '' ||
+                  paytrackAddClientForm.amountPaid.trim() !== '';
+                return (
+                  <>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   {t('dashboard.paytrackFullName')}
@@ -5380,6 +5417,43 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {t('dashboard.paytrackAmountPaid')}{' '}
+                  <span className="text-slate-400 font-normal">({t('dashboard.paytrackOptional')})</span>
+                </label>
+                <input
+                  value={paytrackAddClientForm.amountPaid}
+                  onChange={(e) =>
+                    setPaytrackAddClientForm((s) => ({ ...s, amountPaid: e.target.value }))
+                  }
+                  placeholder={t('dashboard.paytrackAmountPaidPlaceholder')}
+                  inputMode="decimal"
+                  className="w-full bg-white border border-amber-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              {showPendingPreview && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-center">
+                    <p className="text-[10px] font-semibold uppercase text-amber-700">
+                      {t('dashboard.paytrackHonorarios')}
+                    </p>
+                    <p className="text-sm font-bold text-amber-900">€{totalFeePreview.toFixed(0)}</p>
+                  </div>
+                  <div className="rounded-xl border border-green-200 bg-green-50 px-2 py-2 text-center">
+                    <p className="text-[10px] font-semibold uppercase text-green-700">
+                      {t('dashboard.paytrackPagado')}
+                    </p>
+                    <p className="text-sm font-bold text-green-900">€{paidPreview.toFixed(0)}</p>
+                  </div>
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-2 py-2 text-center">
+                    <p className="text-[10px] font-semibold uppercase text-sky-700">
+                      {t('dashboard.paytrackPendiente')}
+                    </p>
+                    <p className="text-sm font-bold text-sky-900">€{pendingPreview.toFixed(0)}</p>
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   {t('dashboard.paytrackNotes')}{' '}
                   <span className="text-slate-400 font-normal">({t('dashboard.paytrackOptional')})</span>
                 </label>
@@ -5393,6 +5467,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   className="w-full bg-white border border-amber-200 rounded-xl px-4 py-3 outline-none resize-none focus:ring-2 focus:ring-amber-400"
                 />
               </div>
+                  </>
+                );
+              })()}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"

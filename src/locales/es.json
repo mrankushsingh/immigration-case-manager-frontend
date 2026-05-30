@@ -141,6 +141,8 @@
     "paytrackPhonePlaceholder": "+34 600 000 000",
     "paytrackTotalFee": "Honorarios totales",
     "paytrackTotalFeePlaceholder": "ej. 1500",
+    "paytrackAmountPaid": "Importe pagado",
+    "paytrackAmountPaidPlaceholder": "ej. 900",
     "paytrackOptional": "opcional",
     "paytrackNotes": "Notas",
     "paytrackNotesPlaceholder": "Notas opcionales…",
