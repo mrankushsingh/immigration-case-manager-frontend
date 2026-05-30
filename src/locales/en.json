@@ -147,7 +147,7 @@
     "paytrackNotesPlaceholder": "Optional notes…",
     "paytrackClients": "Clients",
     "paytrackExpedientes": "Client",
-    "paytrackNew": "+ New",
+    "paytrackNew": "New",
     "paytrackSearchPlaceholder": "Search client…",
     "paytrackSort": "Sort",
     "paytrackSortRecent": "Recent",
@@ -158,6 +158,8 @@
     "paytrackPendiente": "Pendiente",
     "paytrackPaidSummary": "€{paid} paid · Balance due: €{remaining}",
     "paytrackFullyPaidSummary": "€{paid} paid · Paid in full",
+    "paytrackWhatsAppBalance": "Hola {name}, Pending fees: {amount}€\n\nThank you\n*Anisa Berliku Law Firm*",
+    "paytrackWhatsAppButton": "Send balance via WhatsApp",
     "addPayment": "ADD Payment",
     "aportarDocumentacion": "ADD DOCUMENTS",
     "aportarDocumentacionDesc": "Add missing documents to the file"

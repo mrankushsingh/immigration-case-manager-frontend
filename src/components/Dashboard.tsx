@@ -60,6 +60,17 @@ function readPaytrackSort(): 'pending' | 'recent' | 'name' {
   return 'recent';
 }
 
+function formatPaytrackWhatsAppAmount(amount: number): string {
+  return amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
+}
+
+function buildPaytrackWhatsAppBalanceMessage(firstName: string, pending: number): string {
+  return t('dashboard.paytrackWhatsAppBalance', {
+    name: firstName,
+    amount: formatPaytrackWhatsAppAmount(pending),
+  });
+}
+
 function recursoSubmittedWithDate(client: Client): boolean {
   return Boolean(client.submitted_to_immigration && client.application_date);
 }
@@ -4625,9 +4636,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     <button
                       type="button"
                       onClick={() => setShowPaytrackAddClient(true)}
-                      className="inline-flex items-center gap-2 text-base font-bold px-5 py-2.5 rounded-xl bg-amber-400 text-black hover:bg-amber-300 transition shadow-sm"
+                      className="inline-flex items-center gap-2.5 text-lg font-bold px-6 py-3 rounded-2xl bg-amber-400 text-black hover:bg-amber-300 transition shadow-md min-h-[48px]"
                     >
-                      <Plus className="w-5 h-5" />
+                      <Plus className="w-6 h-6 stroke-[2.5]" />
                       {t('dashboard.paytrackNew')}
                     </button>
                   </div>
@@ -5246,12 +5257,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 type="button"
                 onClick={() => {
                   const totals = getPaytrackClientTotals(paytrackClientView);
-                  const text = `Hola ${paytrackClientView.first_name}, saldo pendiente: €${totals.pending.toFixed(2)}.`;
+                  const text = buildPaytrackWhatsAppBalanceMessage(
+                    paytrackClientView.first_name,
+                    totals.pending
+                  );
                   window.open(`https://wa.me/${paytrackClientView.phone?.replace(/[^\d]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
                 }}
                 className="mt-4 w-full py-3 rounded-2xl border border-emerald-300 bg-emerald-50 text-emerald-700 font-medium"
               >
-                Send balance via WhatsApp
+                {t('dashboard.paytrackWhatsAppButton')}
               </button>
             )}
 
