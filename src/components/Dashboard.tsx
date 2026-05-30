@@ -4,7 +4,6 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { api } from '../utils/api';
 import { Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
-import CreateClientModal from './CreateClientModal';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
 import ConfirmDialog from './ConfirmDialog';
@@ -426,6 +425,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [paytrackQuickNote, setPaytrackQuickNote] = useState('');
   const [paytrackQuickNoteSaving, setPaytrackQuickNoteSaving] = useState(false);
   const [showPaytrackAddClient, setShowPaytrackAddClient] = useState(false);
+  const [paytrackAddClientSaving, setPaytrackAddClientSaving] = useState(false);
+  const [paytrackAddClientForm, setPaytrackAddClientForm] = useState({
+    fullName: '',
+    phone: '',
+    totalFee: '',
+    notes: '',
+  });
   const [paytrackEditingPaymentIdx, setPaytrackEditingPaymentIdx] = useState<number | null>(null);
   const [paytrackPaymentDraft, setPaytrackPaymentDraft] = useState({
     amount: '',
@@ -724,6 +730,59 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       showToast(error.message || 'Failed to update honorarios', 'error');
     } finally {
       setPaytrackClientSaving(false);
+    }
+  };
+
+  const splitPaytrackFullName = (fullName: string) => {
+    const trimmed = fullName.trim();
+    const spaceIdx = trimmed.indexOf(' ');
+    if (spaceIdx === -1) {
+      return { firstName: trimmed, lastName: trimmed };
+    }
+    const firstName = trimmed.slice(0, spaceIdx).trim();
+    const lastName = trimmed.slice(spaceIdx + 1).trim() || firstName;
+    return { firstName, lastName };
+  };
+
+  const closePaytrackAddClient = () => {
+    setShowPaytrackAddClient(false);
+    setPaytrackAddClientForm({ fullName: '', phone: '', totalFee: '', notes: '' });
+  };
+
+  const handlePaytrackAddClientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const fullName = paytrackAddClientForm.fullName.trim();
+    if (!fullName) {
+      showToast('Please enter full name', 'error');
+      return;
+    }
+    const totalFeeRaw = paytrackAddClientForm.totalFee.trim();
+    let totalFee: number | undefined;
+    if (totalFeeRaw) {
+      totalFee = parseFloat(totalFeeRaw.replace(',', '.'));
+      if (!Number.isFinite(totalFee) || totalFee < 0) {
+        showToast('Please enter a valid total fees amount', 'error');
+        return;
+      }
+    }
+    const { firstName, lastName } = splitPaytrackFullName(fullName);
+    try {
+      setPaytrackAddClientSaving(true);
+      const created = await api.createClient({
+        firstName,
+        lastName,
+        phone: paytrackAddClientForm.phone.trim() || undefined,
+        totalFee,
+        details: paytrackAddClientForm.notes.trim() || undefined,
+      });
+      await refreshClients();
+      closePaytrackAddClient();
+      showToast(`${firstName} ${lastName} added`, 'success');
+      openPaytrackClient(created);
+    } catch (error: any) {
+      showToast(error.message || 'Failed to add client', 'error');
+    } finally {
+      setPaytrackAddClientSaving(false);
     }
   };
 
@@ -5262,13 +5321,96 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       )}
 
       {showPaytrackAddClient && (
-        <CreateClientModal
-          onClose={() => setShowPaytrackAddClient(false)}
-          onSuccess={async () => {
-            await refreshClients();
-            setShowPaytrackAddClient(false);
-          }}
-        />
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-amber-200 overflow-hidden">
+            <div className="p-5 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-amber-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-amber-900">{t('dashboard.paytrackAddClient')}</h3>
+              <button
+                type="button"
+                onClick={closePaytrackAddClient}
+                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handlePaytrackAddClientSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {t('dashboard.paytrackFullName')}
+                </label>
+                <input
+                  value={paytrackAddClientForm.fullName}
+                  onChange={(e) =>
+                    setPaytrackAddClientForm((s) => ({ ...s, fullName: e.target.value }))
+                  }
+                  placeholder={t('dashboard.paytrackFullNamePlaceholder')}
+                  className="w-full bg-white border border-amber-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {t('dashboard.paytrackPhone')}
+                </label>
+                <input
+                  value={paytrackAddClientForm.phone}
+                  onChange={(e) =>
+                    setPaytrackAddClientForm((s) => ({ ...s, phone: e.target.value }))
+                  }
+                  placeholder={t('dashboard.paytrackPhonePlaceholder')}
+                  className="w-full bg-white border border-amber-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {t('dashboard.paytrackTotalFee')}{' '}
+                  <span className="text-slate-400 font-normal">({t('dashboard.paytrackOptional')})</span>
+                </label>
+                <input
+                  value={paytrackAddClientForm.totalFee}
+                  onChange={(e) =>
+                    setPaytrackAddClientForm((s) => ({ ...s, totalFee: e.target.value }))
+                  }
+                  placeholder={t('dashboard.paytrackTotalFeePlaceholder')}
+                  inputMode="decimal"
+                  className="w-full bg-white border border-amber-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {t('dashboard.paytrackNotes')}{' '}
+                  <span className="text-slate-400 font-normal">({t('dashboard.paytrackOptional')})</span>
+                </label>
+                <textarea
+                  value={paytrackAddClientForm.notes}
+                  onChange={(e) =>
+                    setPaytrackAddClientForm((s) => ({ ...s, notes: e.target.value }))
+                  }
+                  placeholder={t('dashboard.paytrackNotesPlaceholder')}
+                  rows={3}
+                  className="w-full bg-white border border-amber-200 rounded-xl px-4 py-3 outline-none resize-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closePaytrackAddClient}
+                  className="flex-1 py-3 rounded-xl border border-amber-200 text-amber-800 hover:bg-amber-50"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={paytrackAddClientSaving}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold disabled:opacity-60"
+                >
+                  {paytrackAddClientSaving ? t('common.loading') : t('dashboard.paytrackAddClient')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {selectedClient && (
