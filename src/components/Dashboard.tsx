@@ -64,11 +64,31 @@ function formatPaytrackWhatsAppAmount(amount: number): string {
   return amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
 }
 
-function buildPaytrackWhatsAppBalanceMessage(firstName: string, pending: number): string {
-  return t('dashboard.paytrackWhatsAppBalance', {
-    name: firstName,
-    amount: formatPaytrackWhatsAppAmount(pending),
-  });
+function getPaytrackWhatsAppLocaleFromPhone(phone?: string): 'sq' | 'es' | 'en' {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (!digits) return 'en';
+  if (digits.startsWith('00355') || digits.startsWith('355')) return 'sq';
+  if (digits.startsWith('0034') || digits.startsWith('34')) return 'es';
+  return 'en';
+}
+
+function buildPaytrackWhatsAppBalanceMessage(
+  firstName: string,
+  pending: number,
+  phone?: string
+): string {
+  const amount = formatPaytrackWhatsAppAmount(pending);
+  const locale = getPaytrackWhatsAppLocaleFromPhone(phone);
+
+  if (locale === 'sq') {
+    return `Përshëndetje ${firstName},\nPagesa e mbetur :${amount}€\n\nShumë Faleminderit\nAnisa Berliku Law Firm`;
+  }
+
+  if (locale === 'es') {
+    return `Hola ${firstName}, honorarios pendientes: ${amount}€\nGracias\nAnisa Berliku Law Firm`;
+  }
+
+  return `Hola ${firstName}, Pending fees: ${amount}€\n\nThank you\n*Anisa Berliku Law Firm*`;
 }
 
 function recursoSubmittedWithDate(client: Client): boolean {
@@ -5312,7 +5332,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   const totals = getPaytrackClientTotals(paytrackClientView);
                   const text = buildPaytrackWhatsAppBalanceMessage(
                     paytrackClientView.first_name,
-                    totals.pending
+                    totals.pending,
+                    paytrackClientView.phone
                   );
                   window.open(`https://wa.me/${paytrackClientView.phone?.replace(/[^\d]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
                 }}
