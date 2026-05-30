@@ -160,6 +160,10 @@
     "paytrackFullyPaidSummary": "€{paid} paid · Paid in full",
     "paytrackWhatsAppBalance": "Hola {name}, Pending fees: {amount}€\n\nThank you\n*Anisa Berliku Law Firm*",
     "paytrackWhatsAppButton": "Send balance via WhatsApp",
+    "paytrackQuickNote": "Quick Note",
+    "paytrackQuickNoteHint": "e.g. “Valentina paid 480” or “Valentina will call tomorrow”",
+    "paytrackQuickNotePlaceholder": "Payment or simple note about a client…",
+    "paytrackQuickNoteSave": "Add note",
     "addPayment": "ADD Payment",
     "aportarDocumentacion": "ADD DOCUMENTS",
     "aportarDocumentacionDesc": "Add missing documents to the file"

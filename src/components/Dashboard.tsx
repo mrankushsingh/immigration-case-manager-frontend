@@ -613,7 +613,27 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const resolveClientFromQuickNote = (text: string): Client | null => {
     const words = (text.toLowerCase().match(/[a-zA-ZÀ-ÿ]{3,}/g) || []).filter(
-      (w) => !['paid', 'pago', 'payment', 'hoy', 'today', 'quick', 'note', 'honorario', 'pending', 'pendiente', 'due'].includes(w)
+      (w) =>
+        ![
+          'paid',
+          'pago',
+          'payment',
+          'hoy',
+          'today',
+          'quick',
+          'note',
+          'nota',
+          'honorario',
+          'honorarios',
+          'pending',
+          'pendiente',
+          'due',
+          'fees',
+          'fee',
+          'will',
+          'call',
+          'about',
+        ].includes(w)
     );
     if (!words.length) return null;
 
@@ -631,16 +651,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return best?.client || null;
   };
 
+  const appendPaytrackClientNote = (existing: string | undefined, newNote: string) => {
+    const line = `[${new Date().toLocaleDateString('en-GB')}] ${newNote}`;
+    return existing?.trim() ? `${existing.trim()}\n${line}` : line;
+  };
+
   const handlePaytrackQuickNote = async () => {
     const note = paytrackQuickNote.trim();
     if (!note) {
       showToast('Please enter a quick note', 'error');
-      return;
-    }
-
-    const amount = parseQuickNoteAmount(note);
-    if (!amount) {
-      showToast('Could not detect amount in note', 'error');
       return;
     }
 
@@ -650,10 +669,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       return;
     }
 
-    const entryType = detectQuickNoteType(note);
+    const amount = parseQuickNoteAmount(note);
 
     try {
       setPaytrackQuickNoteSaving(true);
+
+      if (!amount) {
+        const existing = client.details || client.notes || '';
+        await api.updateClient(client.id, {
+          details: appendPaytrackClientNote(existing, note),
+        });
+        await refreshClients();
+        setPaytrackQuickNote('');
+        showToast(`${client.first_name} ${client.last_name}: note saved`, 'success');
+        return;
+      }
+
+      const entryType = detectQuickNoteType(note);
       if (entryType === 'payment') {
         await api.addPayment(client.id, amount, 'Quick Note', note);
       } else {
@@ -4515,15 +4547,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
               <div className="mb-4">
                 <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-amber-900">Quick Note</p>
-                    <span className="text-[11px] text-amber-700">e.g. “Valentina paid 480 today”</span>
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <p className="text-sm font-semibold text-amber-900">{t('dashboard.paytrackQuickNote')}</p>
+                    <span className="text-[11px] text-amber-700 text-right">{t('dashboard.paytrackQuickNoteHint')}</span>
                   </div>
                   <textarea
                     value={paytrackQuickNote}
                     onChange={(e) => setPaytrackQuickNote(e.target.value)}
                     rows={2}
-                    placeholder="Type quick payment note..."
+                    placeholder={t('dashboard.paytrackQuickNotePlaceholder')}
                     className="w-full bg-white rounded-xl px-3 py-2 outline-none resize-none border border-amber-200 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
                   />
                   <button
@@ -4531,7 +4563,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     disabled={paytrackQuickNoteSaving || !paytrackQuickNote.trim()}
                     className="mt-2 w-full sm:w-auto px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   >
-                    {paytrackQuickNoteSaving ? 'Saving...' : 'Add quick note'}
+                    {paytrackQuickNoteSaving ? t('common.loading') : t('dashboard.paytrackQuickNoteSave')}
                   </button>
                 </div>
 
