@@ -651,9 +651,26 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return best?.client || null;
   };
 
-  const appendPaytrackClientNote = (existing: string | undefined, newNote: string) => {
-    const line = `[${new Date().toLocaleDateString('en-GB')}] ${newNote}`;
-    return existing?.trim() ? `${existing.trim()}\n${line}` : line;
+  const appendPaytrackHistoryNote = async (client: Client, note: string) => {
+    const current = client.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+    const payments = [
+      ...(current.payments || []),
+      {
+        amount: 0,
+        date: new Date().toISOString(),
+        method: 'Quick Note',
+        note,
+      },
+    ];
+    return api.updateClientPayment(
+      client.id,
+      {
+        ...current,
+        paidAmount: current.paidAmount || 0,
+        payments,
+      },
+      true
+    );
   };
 
   const handlePaytrackQuickNote = async () => {
@@ -675,13 +692,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setPaytrackQuickNoteSaving(true);
 
       if (!amount) {
-        const existing = client.details || client.notes || '';
-        await api.updateClient(client.id, {
-          details: appendPaytrackClientNote(existing, note),
-        });
+        await appendPaytrackHistoryNote(client, note);
         await refreshClients();
+        if (paytrackClientView?.id === client.id) {
+          await refreshPaytrackClient(client.id);
+        }
         setPaytrackQuickNote('');
-        showToast(`${client.first_name} ${client.last_name}: note saved`, 'success');
+        showToast(`${client.first_name} ${client.last_name}: note saved to history`, 'success');
         return;
       }
 
@@ -736,15 +753,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     totalFee?: number
   ) => {
     const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const current = paytrackClientView?.payment || { totalFee: 0, paidAmount: 0, payments: [] };
-    await api.updateClient(clientId, {
-      payment: {
+    const latest = await api.getClient(clientId);
+    const current = latest.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+    return api.updateClientPayment(
+      clientId,
+      {
         ...current,
         totalFee: totalFee ?? current.totalFee ?? 0,
         paidAmount,
         payments,
       },
-    });
+      true
+    );
   };
 
   const startPaytrackPaymentEdit = (index: number) => {
@@ -760,12 +780,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const handlePaytrackPaymentSave = async () => {
     if (!paytrackClientView || paytrackEditingPaymentIdx === null) return;
+    const payments = [...(paytrackClientView.payment?.payments || [])];
     const amount = parseFloat(paytrackPaymentDraft.amount.replace(',', '.'));
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const isNoteEntry = (payments[paytrackEditingPaymentIdx]?.amount || 0) === 0;
+    if (!Number.isFinite(amount) || amount < 0 || (!isNoteEntry && amount <= 0)) {
       showToast('Please enter a valid amount', 'error');
       return;
     }
-    const payments = [...(paytrackClientView.payment?.payments || [])];
     if (!payments[paytrackEditingPaymentIdx]) return;
     payments[paytrackEditingPaymentIdx] = {
       ...payments[paytrackEditingPaymentIdx],
@@ -5419,9 +5440,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               </p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold text-green-700">
-                                €{(entry.amount || 0).toFixed(2)}
-                              </span>
+                              {(entry.amount || 0) > 0 ? (
+                                <span className="text-sm font-semibold text-green-700">
+                                  €{(entry.amount || 0).toFixed(2)}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-semibold text-amber-700 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">
+                                  Note
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => startPaytrackPaymentEdit(index)}

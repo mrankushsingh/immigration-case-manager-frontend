@@ -186,6 +186,13 @@ export const api = {
     return response.json();
   },
 
+  async updateClientPayment(clientId: string, payment: Client['payment'], replacePayments = false) {
+    return this.updateClient(clientId, {
+      payment,
+      replacePayments,
+    });
+  },
+
   async uploadDocument(clientId: string, documentCode: string, file: File, userName: string) {
     const formData = new FormData();
     formData.append('file', file);
