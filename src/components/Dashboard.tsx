@@ -28,8 +28,36 @@ function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
   );
 }
 
-function recursoSubmittedWithDate(client: Client): boolean {
-  return Boolean(client.submitted_to_immigration && client.application_date);
+function paytrackClientRecentTime(client: Client): number {
+  const latestPayment = (client.payment?.payments || []).reduce(
+    (max, p) => Math.max(max, new Date(p.date).getTime()),
+    0
+  );
+  return Math.max(
+    latestPayment,
+    new Date(client.updated_at).getTime(),
+    new Date(client.created_at).getTime()
+  );
+}
+
+function readPaytrackFilter(): 'all' | 'pending' | 'settled' {
+  try {
+    const saved = localStorage.getItem('paytrack-filter');
+    if (saved === 'all' || saved === 'pending' || saved === 'settled') return saved;
+  } catch {
+    // ignore
+  }
+  return 'all';
+}
+
+function readPaytrackSort(): 'pending' | 'recent' | 'name' {
+  try {
+    const saved = localStorage.getItem('paytrack-sort');
+    if (saved === 'pending' || saved === 'recent' || saved === 'name') return saved;
+  } catch {
+    // ignore
+  }
+  return 'recent';
 }
 
 /** Application date + silence period has passed (replacement / contentious appeal may be due). */
@@ -408,8 +436,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   });
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paytrackQuery, setPaytrackQuery] = useState('');
-  const [paytrackFilter, setPaytrackFilter] = useState<'all' | 'pending' | 'settled'>('all');
-  const [paytrackSort, setPaytrackSort] = useState<'pending' | 'recent' | 'name'>('pending');
+  const [paytrackFilter, setPaytrackFilter] = useState<'all' | 'pending' | 'settled'>(readPaytrackFilter);
+  const [paytrackSort, setPaytrackSort] = useState<'pending' | 'recent' | 'name'>(readPaytrackSort);
   const [showPaytrackActivity, setShowPaytrackActivity] = useState(false);
   const [paytrackClientView, setPaytrackClientView] = useState<Client | null>(null);
   const [paytrackClientEntry, setPaytrackClientEntry] = useState<{
@@ -464,6 +492,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     recordatorio: '',
   });
   const paymentTemplateDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('paytrack-filter', paytrackFilter);
+    } catch {
+      // ignore
+    }
+  }, [paytrackFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('paytrack-sort', paytrackSort);
+    } catch {
+      // ignore
+    }
+  }, [paytrackSort]);
   
   // Explicitly reference modal states to satisfy TypeScript
   void showAportarDocumentacionModal;
@@ -788,9 +832,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         totalFee: totalFee ?? undefined,
         details: paytrackAddClientForm.notes.trim() || undefined,
       });
-      let clientForView = created;
       if (amountPaid != null && amountPaid > 0) {
-        clientForView = await api.addPayment(
+        await api.addPayment(
           created.id,
           amountPaid,
           'PayTrack',
@@ -806,7 +849,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           : `${firstName} ${lastName} added`,
         'success'
       );
-      openPaytrackClient(clientForView, { prefillPending: pending > 0 });
     } catch (error: any) {
       showToast(error.message || 'Failed to add client', 'error');
     } finally {
@@ -1482,7 +1524,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
       }
       if (paytrackSort === 'recent') {
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        return paytrackClientRecentTime(b) - paytrackClientRecentTime(a);
       }
       const pendingA = (a.payment?.totalFee || 0) - (a.payment?.paidAmount || 0);
       const pendingB = (b.payment?.totalFee || 0) - (b.payment?.paidAmount || 0);
@@ -4442,10 +4484,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaytrackFilter('pending');
-                    setPaytrackSort('pending');
-                  }}
+                  onClick={() => setPaytrackFilter('pending')}
                   title={t('dashboard.paytrackShowDueOnly')}
                   className={`text-left bg-red-50 border rounded-xl p-3 transition-all hover:shadow-md cursor-pointer ${
                     paytrackFilter === 'pending'
@@ -4492,11 +4531,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               </div>
 
-              <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="mb-5 flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   {(['all', 'pending', 'settled'] as const).map((f) => (
                     <button
                       key={f}
+                      type="button"
                       onClick={() => setPaytrackFilter(f)}
                       className={`text-xs px-3 py-1.5 rounded-full border transition ${
                         paytrackFilter === f
@@ -4508,15 +4548,27 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     </button>
                   ))}
                 </div>
-                <select
-                  value={paytrackSort}
-                  onChange={(e) => setPaytrackSort(e.target.value as 'pending' | 'recent' | 'name')}
-                  className="text-xs bg-white border border-amber-200 rounded-full px-3 py-1.5 outline-none"
-                >
-                  <option value="pending">Sort: Pending</option>
-                  <option value="recent">Sort: Recent</option>
-                  <option value="name">Sort: A–Z</option>
-                </select>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-amber-800/70">{t('dashboard.paytrackSort')}:</span>
+                  {(['recent', 'pending', 'name'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setPaytrackSort(s)}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition ${
+                        paytrackSort === s
+                          ? 'bg-amber-600 text-white border-amber-700'
+                          : 'bg-white border-amber-200 text-amber-700'
+                      }`}
+                    >
+                      {s === 'recent'
+                        ? t('dashboard.paytrackSortRecent')
+                        : s === 'pending'
+                          ? t('dashboard.paytrackSortPending')
+                          : t('dashboard.paytrackSortName')}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="mb-5 bg-amber-50/60 border border-amber-200 rounded-xl">
