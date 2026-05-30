@@ -4625,9 +4625,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     <button
                       type="button"
                       onClick={() => setShowPaytrackAddClient(true)}
-                      className="inline-flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-lg bg-amber-400 text-black hover:bg-amber-300 transition"
+                      className="inline-flex items-center gap-2 text-base font-bold px-5 py-2.5 rounded-xl bg-amber-400 text-black hover:bg-amber-300 transition shadow-sm"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-5 h-5" />
                       {t('dashboard.paytrackNew')}
                     </button>
                   </div>
