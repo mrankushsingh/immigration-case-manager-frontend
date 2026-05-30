@@ -4637,7 +4637,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       <span className="min-w-[4.75rem] text-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-400 border border-green-500/45 rounded-full">
                         {t('dashboard.paytrackPagado')}
                       </span>
-                      <span className="min-w-[4.75rem] text-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-400 border border-sky-500/45 rounded-full">
+                      <span className="min-w-[4.75rem] text-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-400 border border-red-500/45 rounded-full">
                         {t('dashboard.paytrackPendiente')}
                       </span>
                     </div>
@@ -4678,7 +4678,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <span className="inline-flex min-w-[4.75rem] justify-center px-2.5 py-1 text-xs font-semibold text-green-400 border border-green-500/45 rounded-full">
                               €{paidAmount.toFixed(0)}
                             </span>
-                            <span className="inline-flex min-w-[4.75rem] justify-center px-2.5 py-1 text-xs font-semibold text-sky-400 border border-sky-500/45 rounded-full">
+                            <span className="inline-flex min-w-[4.75rem] justify-center px-2.5 py-1 text-xs font-semibold text-red-400 border border-red-500/45 rounded-full">
                               €{remaining.toFixed(0)}
                             </span>
                           </div>
@@ -5496,11 +5496,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     </p>
                     <p className="text-sm font-bold text-green-900">€{paidPreview.toFixed(0)}</p>
                   </div>
-                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-2 py-2 text-center">
-                    <p className="text-[10px] font-semibold uppercase text-sky-700">
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-center">
+                    <p className="text-[10px] font-semibold uppercase text-red-700">
                       {t('dashboard.paytrackPendiente')}
                     </p>
-                    <p className="text-sm font-bold text-sky-900">€{pendingPreview.toFixed(0)}</p>
+                    <p className="text-sm font-bold text-red-900">€{pendingPreview.toFixed(0)}</p>
                   </div>
                 </div>
               )}
