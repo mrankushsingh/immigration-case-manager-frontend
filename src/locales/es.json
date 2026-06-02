@@ -80,7 +80,7 @@
     "requerimiento": "REQUERIMIENTO",
     "requerimientoDesc": "Pendiente Aportar y subsanar expediente",
     "recurso": "RECURSO",
-    "recursoDesc": "Recursos que añade (en rojo). Expediente administrativo tras silencio (aparte). Más recordatorios.",
+    "recursoDesc": "Recursos que ha añadido a la lista roja.",
     "recursoModalOption1Title": "RECURSOS QUE AÑADO",
     "recursoModalOption1Desc": "Solo recurso contencioso o vía formal ante el juzgado. Pase aquí el expediente cuando vaya realmente por esa vía — no para todos los casos al terminar el silencio.",
     "recursoModalOption2Title": "EXPEDIENTE ADMINISTRATIVO (TRAS SILENCIO)",

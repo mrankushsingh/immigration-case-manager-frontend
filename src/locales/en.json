@@ -79,7 +79,7 @@
     "requerimiento": "REQUIREMENT",
     "requerimientoDesc": "Pending to provide and correct file",
     "recurso": "APPEAL",
-    "recursoDesc": "Appeals you add (red). Administrative file after silence (separate). Plus reminders.",
+    "recursoDesc": "Appeals you added to the red list.",
     "recursoModalOption1Title": "APPEALS I ADD",
     "recursoModalOption1Desc": "Court or formal contentious appeal only. You move a case here when you are actually pursuing that route — not for every file after silence.",
     "recursoModalOption2Title": "ADMINISTRATIVE FILE (AFTER SILENCE)",
