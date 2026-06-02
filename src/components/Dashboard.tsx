@@ -3366,32 +3366,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     return (
                       <div
                         key={reminder.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowUrgentesModal(false);
-                          setDashboardModalSearch((s) => ({ ...s, urgentes: '' }));
-                          setShowRecordatorioModal(true);
-                          setEditingReminder(reminder);
-                          const dateStr = reminder.reminder_date;
-                          const date = new Date(dateStr);
-                          const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-                          const formattedDate = localDate.toISOString().slice(0, 16);
-                          setReminderForm({
-                            client_id: reminder.client_id || '',
-                            client_name: reminder.client_name || '',
-                            client_surname: reminder.client_surname || '',
-                            phone: reminder.phone || '',
-                            reminder_date: formattedDate,
-                            notes: reminder.notes || '',
-                          });
-                          setShowReminderForm(true);
-                        }}
-                        className="p-4 border-2 border-red-400 rounded-xl bg-gradient-to-br from-red-50 to-white cursor-pointer hover:border-red-500 hover:shadow-md transition-all"
+                        className="p-4 border-2 border-red-400 rounded-xl bg-gradient-to-br from-red-50 to-white hover:border-red-500 hover:shadow-md transition-all"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-1">
-                              <Bell className="w-4 h-4 text-red-600" />
+                              <Bell className="w-4 h-4 text-red-600 shrink-0" />
                               <h3 className="font-bold text-red-900 text-lg">
                                 {reminder.client_name} {reminder.client_surname}
                               </h3>
@@ -3414,6 +3394,43 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             {reminder.notes && (
                               <p className="text-sm text-gray-600 mt-1">{reminder.notes}</p>
                             )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-4 shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingReminder(reminder);
+                                const dateStr = reminder.reminder_date;
+                                const date = new Date(dateStr);
+                                const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                                const formattedDate = localDate.toISOString().slice(0, 16);
+                                setReminderForm({
+                                  client_id: reminder.client_id || '',
+                                  client_name: reminder.client_name || '',
+                                  client_surname: reminder.client_surname || '',
+                                  phone: reminder.phone || '',
+                                  reminder_date: formattedDate,
+                                  notes: reminder.notes || '',
+                                });
+                                setShowReminderForm(true);
+                              }}
+                              className="p-2 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-5 h-5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteConfirm({ isOpen: true, reminder });
+                              }}
+                              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
                           </div>
                         </div>
                       </div>
