@@ -3,6 +3,7 @@ import { Bell, X, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 import { api } from '../utils/api';
 import { Client, Reminder as ReminderType } from '../types';
 import { useData } from '../context/DataContext';
+import { reminderDisplayName } from '../utils/reminderNames';
 
 interface Reminder {
   client: Client;
@@ -251,10 +252,10 @@ export default function Notifications({ onClientClick, onReminderClick }: Props)
           // Only show if within 7 days (past or future)
           if (Math.abs(daysUntilReminder) <= 7) {
             const message = daysUntilReminder < 0
-              ? `Reminder for ${reminder.client_name} ${reminder.client_surname} is overdue by ${Math.abs(daysUntilReminder)} day(s)`
+              ? `Reminder for ${reminderDisplayName(reminder)} is overdue by ${Math.abs(daysUntilReminder)} day(s)`
               : daysUntilReminder === 0
-              ? `Reminder for ${reminder.client_name} ${reminder.client_surname} is due today`
-              : `Reminder for ${reminder.client_name} ${reminder.client_surname} is in ${daysUntilReminder} day(s)`;
+              ? `Reminder for ${reminderDisplayName(reminder)} is due today`
+              : `Reminder for ${reminderDisplayName(reminder)} is in ${daysUntilReminder} day(s)`;
 
             // Create a minimal client object for the reminder
             // Use a special prefix to identify RECORDATORIO reminders
@@ -681,7 +682,7 @@ export default function Notifications({ onClientClick, onReminderClick }: Props)
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Cliente</label>
                 <p className="text-lg font-bold text-gray-900">
-                  {selectedReminder.client_name} {selectedReminder.client_surname}
+                  {reminderDisplayName(selectedReminder)}
                 </p>
               </div>
 
