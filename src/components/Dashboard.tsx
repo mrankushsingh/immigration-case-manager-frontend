@@ -167,6 +167,18 @@ type DashboardModalSearchKey =
   | 'urgentes'
   | 'recordatorio';
 
+type ReminderSelectionGroup = 'recordatorio' | 'requerimiento' | 'recurso' | 'urgentes' | 'pagos';
+
+function emptyReminderSelection(): Record<ReminderSelectionGroup, string[]> {
+  return {
+    recordatorio: [],
+    requerimiento: [],
+    recurso: [],
+    urgentes: [],
+    pagos: [],
+  };
+}
+
 function DashboardModalSearchInput({
   value,
   onChange,
@@ -463,6 +475,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     isOpen: false,
     reminder: null,
   });
+  const [selectedReminderIds, setSelectedReminderIds] = useState(emptyReminderSelection);
+  const [bulkDeleteReminderGroup, setBulkDeleteReminderGroup] = useState<ReminderSelectionGroup | null>(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paytrackQuery, setPaytrackQuery] = useState('');
   const [paytrackFilter, setPaytrackFilter] = useState<'all' | 'pending' | 'settled'>(readPaytrackFilter);
@@ -1519,6 +1533,109 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return base.filter((r) => reminderMatchesDashboardSearch(r, q));
   }, [reminders, dashboardModalSearch.recordatorio]);
 
+  const toggleReminderSelection = (group: ReminderSelectionGroup, id: string) => {
+    setSelectedReminderIds((prev) => ({
+      ...prev,
+      [group]: prev[group].includes(id)
+        ? prev[group].filter((x) => x !== id)
+        : [...prev[group], id],
+    }));
+  };
+
+  const allRemindersSelected = (group: ReminderSelectionGroup, visible: Reminder[]) =>
+    visible.length > 0 && visible.every((r) => selectedReminderIds[group].includes(r.id));
+
+  const toggleSelectAllReminders = (group: ReminderSelectionGroup, visible: Reminder[]) => {
+    if (allRemindersSelected(group, visible)) {
+      const visibleIds = new Set(visible.map((r) => r.id));
+      setSelectedReminderIds((prev) => ({
+        ...prev,
+        [group]: prev[group].filter((id) => !visibleIds.has(id)),
+      }));
+      return;
+    }
+    const merged = new Set([...selectedReminderIds[group], ...visible.map((r) => r.id)]);
+    setSelectedReminderIds((prev) => ({ ...prev, [group]: [...merged] }));
+  };
+
+  const clearReminderSelection = (group: ReminderSelectionGroup) => {
+    setSelectedReminderIds((prev) => ({ ...prev, [group]: [] }));
+  };
+
+  const handleBulkDeleteReminders = async (group: ReminderSelectionGroup) => {
+    const ids = selectedReminderIds[group];
+    if (ids.length === 0) return;
+    const count = ids.length;
+    try {
+      await Promise.all(ids.map((id) => api.deleteReminder(id)));
+      await refreshAll();
+      clearReminderSelection(group);
+      setBulkDeleteReminderGroup(null);
+      showToast(`${count} recordatorio(s) eliminado(s)`, 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Error al eliminar recordatorios', 'error');
+      setBulkDeleteReminderGroup(null);
+    }
+  };
+
+  const renderReminderSelectionToolbar = (
+    group: ReminderSelectionGroup,
+    visibleReminders: Reminder[],
+    tone: 'amber' | 'red' = 'amber'
+  ) => {
+    if (visibleReminders.length === 0) return null;
+    const selectedCount = selectedReminderIds[group].length;
+    const panelClass =
+      tone === 'red'
+        ? 'border-red-200 bg-red-50/80'
+        : 'border-amber-200 bg-amber-50/80';
+    const labelClass = tone === 'red' ? 'text-red-900' : 'text-amber-900';
+    const subLabelClass = tone === 'red' ? 'text-red-700/80' : 'text-amber-700/80';
+    const checkboxClass =
+      tone === 'red'
+        ? 'w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500'
+        : 'w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500';
+
+    return (
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border mb-3 ${panelClass}`}
+      >
+        <label className={`flex items-center gap-2 cursor-pointer text-sm font-medium ${labelClass}`}>
+          <input
+            type="checkbox"
+            checked={allRemindersSelected(group, visibleReminders)}
+            onChange={() => toggleSelectAllReminders(group, visibleReminders)}
+            className={checkboxClass}
+          />
+          Seleccionar todos
+          {selectedCount > 0 && (
+            <span className={`${subLabelClass} font-normal`}>
+              ({selectedCount} seleccionado{selectedCount === 1 ? '' : 's'})
+            </span>
+          )}
+        </label>
+        {selectedCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setBulkDeleteReminderGroup(group)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Eliminar seleccionados
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const reminderCardCheckboxClass = (tone: 'amber' | 'red') =>
+    tone === 'red'
+      ? 'mt-1 w-4 h-4 shrink-0 rounded border-red-300 text-red-600 focus:ring-red-500'
+      : 'mt-1 w-4 h-4 shrink-0 rounded border-amber-300 text-amber-600 focus:ring-amber-500';
+
+  const reminderSelectedRingClass = (group: ReminderSelectionGroup, id: string) =>
+    selectedReminderIds[group].includes(id) ? 'ring-2 ring-amber-500 ring-offset-1' : '';
+
   // PAGOS: Clients with pending payments or advance payments
   const pagos = clients.filter((client) => {
     const totalFee = client.payment?.totalFee || 0;
@@ -2401,6 +2518,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     onClick={() => {
                       setShowRequerimientoModal(false);
                       setDashboardModalSearch((s) => ({ ...s, requerimiento: '' }));
+                      clearReminderSelection('requerimiento');
                     }}
                     className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
                   >
@@ -2564,16 +2682,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {/* REQUERIMIENTO Reminders */}
               {requerimientoRemindersFiltered.length > 0 && (
                 <div className="mb-6">
+                  {renderReminderSelectionToolbar('requerimiento', requerimientoRemindersFiltered)}
                   <div className="space-y-3">
                     {requerimientoRemindersFiltered.map((reminder) => {
                       const reminderDate = new Date(reminder.reminder_date);
                       return (
                         <div
                           key={reminder.id}
-                          className="p-4 border-2 border-amber-300 rounded-xl hover:border-amber-400 hover:shadow-md transition-all bg-gradient-to-br from-amber-100 to-white"
+                          className={`p-4 border-2 border-amber-300 rounded-xl hover:border-amber-400 hover:shadow-md transition-all bg-gradient-to-br from-amber-100 to-white ${reminderSelectedRingClass('requerimiento', reminder.id)}`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="flex items-start gap-3 flex-1 cursor-pointer min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={selectedReminderIds.requerimiento.includes(reminder.id)}
+                                onChange={() => toggleReminderSelection('requerimiento', reminder.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className={reminderCardCheckboxClass('amber')}
+                              />
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="px-2 py-0.5 bg-amber-600 text-white text-xs font-semibold rounded">REQUERIMIENTO</span>
                                 <h3 className="font-bold text-amber-900 text-lg">{reminder.client_name} {reminder.client_surname}</h3>
@@ -2594,7 +2721,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 <p className="text-xs text-amber-600 mt-1">Notas: {reminder.notes}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
+                            </label>
+                            <div className="flex items-center gap-2 ml-4 shrink-0">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2730,6 +2858,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     onClick={() => {
                       setShowRecursoModal(false);
                       setDashboardModalSearch((s) => ({ ...s, recurso: '' }));
+                      clearReminderSelection('recurso');
                     }}
                     className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
                   >
@@ -2749,16 +2878,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {/* RECURSO Reminders */}
               {recursoRemindersFiltered.length > 0 && (
                 <div className="mb-6">
+                  {renderReminderSelectionToolbar('recurso', recursoRemindersFiltered)}
                   <div className="space-y-3">
                     {recursoRemindersFiltered.map((reminder) => {
                       const reminderDate = new Date(reminder.reminder_date);
                       return (
                         <div
                           key={reminder.id}
-                          className="p-4 border-2 border-amber-300 rounded-xl bg-gradient-to-br from-amber-100 to-white"
+                          className={`p-4 border-2 border-amber-300 rounded-xl bg-gradient-to-br from-amber-100 to-white ${reminderSelectedRingClass('recurso', reminder.id)}`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="flex items-start gap-3 flex-1 cursor-pointer min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={selectedReminderIds.recurso.includes(reminder.id)}
+                                onChange={() => toggleReminderSelection('recurso', reminder.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className={reminderCardCheckboxClass('amber')}
+                              />
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="px-2 py-0.5 bg-amber-600 text-white text-xs font-semibold rounded">RECURSO</span>
                                 <h3 className="font-bold text-amber-900 text-lg">{reminder.client_name} {reminder.client_surname}</h3>
@@ -2779,7 +2917,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 <p className="text-xs text-amber-600 mt-1">Notas: {reminder.notes}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
+                            </label>
+                            <div className="flex items-center gap-2 ml-4 shrink-0">
                               <button
             onClick={async (e) => {
               e.stopPropagation();
@@ -3094,6 +3233,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     onClick={() => {
                       setShowUrgentesModal(false);
                       setDashboardModalSearch((s) => ({ ...s, urgentes: '' }));
+                      clearReminderSelection('urgentes');
                     }}
                     className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
                   >
@@ -3114,16 +3254,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {/* URGENTES Reminders */}
               {urgentesRemindersFiltered.length > 0 && (
                 <div className="mb-6">
+                  {renderReminderSelectionToolbar('urgentes', urgentesRemindersFiltered, 'red')}
                   <div className="space-y-3">
                     {urgentesRemindersFiltered.map((reminder) => {
                       const reminderDate = new Date(reminder.reminder_date);
                       return (
                         <div
                           key={reminder.id}
-                          className="p-4 border-2 border-red-300 rounded-xl bg-gradient-to-br from-red-100 to-white"
+                          className={`p-4 border-2 border-red-300 rounded-xl bg-gradient-to-br from-red-100 to-white ${selectedReminderIds.urgentes.includes(reminder.id) ? 'ring-2 ring-red-500 ring-offset-1' : ''}`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="flex items-start gap-3 flex-1 cursor-pointer min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={selectedReminderIds.urgentes.includes(reminder.id)}
+                                onChange={() => toggleReminderSelection('urgentes', reminder.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className={reminderCardCheckboxClass('red')}
+                              />
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-semibold rounded">URGENTES</span>
                                 <h3 className="font-bold text-red-900 text-lg">{reminder.client_name} {reminder.client_surname}</h3>
@@ -3144,7 +3293,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 <p className="text-xs text-red-600 mt-1">Notas: {reminder.notes}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
+                            </label>
+                            <div className="flex items-center gap-2 ml-4 shrink-0">
                               <button
             onClick={async (e) => {
               e.stopPropagation();
@@ -3330,6 +3480,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     onClick={() => {
                       setShowRecordatorioModal(false);
                       setDashboardModalSearch((s) => ({ ...s, recordatorio: '' }));
+                      clearReminderSelection('recordatorio');
                     }}
                     className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
                   >
@@ -3364,6 +3515,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {renderReminderSelectionToolbar('recordatorio', recordatorioRemindersFiltered)}
                   {recordatorioRemindersFiltered.map((reminder) => {
                     const reminderDate = new Date(reminder.reminder_date);
                     const now = new Date();
@@ -3376,6 +3528,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       <div
                         key={reminder.id}
                         className={`p-4 border-2 rounded-xl transition-all ${
+                          reminderSelectedRingClass('recordatorio', reminder.id)
+                        } ${
                           isUrgent
                             ? 'border-red-300 bg-red-50'
                             : isOverdue
@@ -3383,8 +3537,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             : 'border-amber-200 bg-gradient-to-br from-amber-50 to-white'
                         }`}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex items-start gap-3 flex-1 cursor-pointer min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={selectedReminderIds.recordatorio.includes(reminder.id)}
+                              onChange={() => toggleReminderSelection('recordatorio', reminder.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={reminderCardCheckboxClass('amber')}
+                            />
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-2">
                               <h3 className="font-bold text-amber-900 text-lg">
                                 {reminder.client_name} {reminder.client_surname}
@@ -3419,7 +3581,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               <p className="text-sm text-gray-600 mt-2">{reminder.notes}</p>
                             )}
                           </div>
-                          <div className="flex items-center space-x-2 ml-4">
+                          </label>
+                          <div className="flex items-center space-x-2 ml-4 shrink-0">
                             <button
                               onClick={() => {
                                 setEditingReminder(reminder);
@@ -4128,7 +4291,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     <Plus className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => setShowPagosModal(false)}
+                    onClick={() => {
+                      setShowPagosModal(false);
+                      clearReminderSelection('pagos');
+                    }}
                     className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
                   >
                     <X className="w-6 h-6" />
@@ -4143,16 +4309,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {pagosReminders.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-amber-900 mb-3">Recordatorios de Pago</h3>
+                  {renderReminderSelectionToolbar('pagos', pagosReminders)}
                   <div className="space-y-3">
                     {pagosReminders.map((reminder) => {
                       const reminderDate = new Date(reminder.reminder_date);
                       return (
                         <div
                           key={reminder.id}
-                          className="p-4 border-2 border-amber-300 rounded-xl bg-gradient-to-br from-amber-100 to-white"
+                          className={`p-4 border-2 border-amber-300 rounded-xl bg-gradient-to-br from-amber-100 to-white ${reminderSelectedRingClass('pagos', reminder.id)}`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="flex items-start gap-3 flex-1 cursor-pointer min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={selectedReminderIds.pagos.includes(reminder.id)}
+                                onChange={() => toggleReminderSelection('pagos', reminder.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className={reminderCardCheckboxClass('amber')}
+                              />
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="px-2 py-0.5 bg-amber-600 text-white text-xs font-semibold rounded">PAGOS</span>
                                 <h3 className="font-bold text-amber-900 text-lg">{reminder.client_name} {reminder.client_surname}</h3>
@@ -4173,7 +4348,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 <p className="text-xs text-amber-600 mt-1">Notas: {reminder.notes}</p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
+                            </label>
+                            <div className="flex items-center gap-2 ml-4 shrink-0">
                               <button
             onClick={async (e) => {
               e.stopPropagation();
@@ -6105,6 +6281,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         onCancel={() => {
           setDeleteConfirm({ isOpen: false, reminder: null });
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteReminderGroup !== null}
+        title="Eliminar recordatorios"
+        message={`¿Está seguro de que desea eliminar ${
+          bulkDeleteReminderGroup ? selectedReminderIds[bulkDeleteReminderGroup].length : 0
+        } recordatorio(s) seleccionado(s)?`}
+        type="danger"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={() => {
+          if (bulkDeleteReminderGroup) {
+            void handleBulkDeleteReminders(bulkDeleteReminderGroup);
+          }
+        }}
+        onCancel={() => setBulkDeleteReminderGroup(null)}
       />
 
       {/* Delete Confirmation Dialog for REQUERIMIENTO Reminders */}
