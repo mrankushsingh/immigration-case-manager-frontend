@@ -165,6 +165,8 @@
     "paytrackQuickNoteHint": "e.g. “Valentina paid 480” or “Valentina will call tomorrow”",
     "paytrackQuickNotePlaceholder": "Payment or simple note about a client…",
     "paytrackQuickNoteSave": "Add note",
+    "paytrackPaymentDate": "Payment date",
+    "paytrackLastPaid": "Last paid",
     "addPayment": "ADD Payment",
     "aportarDocumentacion": "ADD DOCUMENTS",
     "aportarDocumentacionDesc": "Add missing documents to the file"

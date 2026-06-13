@@ -33,6 +33,45 @@ function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
   );
 }
 
+function paytrackDefaultDateLocal(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatPaytrackPaymentDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function toPaytrackDateLocal(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return paytrackDefaultDateLocal();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function paytrackDateToIso(dateLocal: string): string {
+  const [y, m, d] = dateLocal.split('-').map(Number);
+  if (!y || !m || !d) return new Date().toISOString();
+  return new Date(y, m - 1, d, 12, 0, 0, 0).toISOString();
+}
+
+function getPaytrackLastPaidPayment(client: Client) {
+  return (client.payment?.payments || [])
+    .filter((p) => (p.amount || 0) > 0)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+}
+
 function paytrackClientRecentTime(client: Client): number {
   const latestPayment = (client.payment?.payments || []).reduce(
     (max, p) => Math.max(max, new Date(p.date).getTime()),
@@ -459,10 +498,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     amount: string;
     type: 'payment' | 'honorario' | 'pending';
     note: string;
+    date: string;
   }>({
     amount: '',
     type: 'payment',
     note: '',
+    date: paytrackDefaultDateLocal(),
   });
   const [paytrackClientSaving, setPaytrackClientSaving] = useState(false);
   const [paytrackQuickNote, setPaytrackQuickNote] = useState('');
@@ -481,6 +522,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     amount: '',
     method: '',
     note: '',
+    date: paytrackDefaultDateLocal(),
   });
   const [paytrackEditingTotalFee, setPaytrackEditingTotalFee] = useState(false);
   const [paytrackTotalFeeDraft, setPaytrackTotalFeeDraft] = useState('');
@@ -743,6 +785,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       amount: options?.prefillPending && pending > 0 ? pending.toFixed(2) : '',
       type: 'payment',
       note: '',
+      date: paytrackDefaultDateLocal(),
     });
   };
 
@@ -774,6 +817,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       amount: String(entry.amount ?? ''),
       method: entry.method || '',
       note: entry.note || '',
+      date: toPaytrackDateLocal(entry.date),
     });
   };
 
@@ -790,6 +834,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     payments[paytrackEditingPaymentIdx] = {
       ...payments[paytrackEditingPaymentIdx],
       amount,
+      date: paytrackDateToIso(paytrackPaymentDraft.date),
       method: paytrackPaymentDraft.method.trim() || 'Payment',
       note: paytrackPaymentDraft.note.trim() || undefined,
     };
@@ -951,7 +996,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           paytrackClientView.id,
           amount,
           'PayTrack',
-          paytrackClientEntry.note || undefined
+          paytrackClientEntry.note || undefined,
+          paytrackDateToIso(paytrackClientEntry.date)
         );
       } else {
         const current = paytrackClientView.payment || { totalFee: 0, paidAmount: 0, payments: [] };
@@ -964,7 +1010,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       }
 
       await refreshPaytrackClient(paytrackClientView.id);
-      setPaytrackClientEntry({ amount: '', type: 'payment', note: '' });
+      setPaytrackClientEntry({ amount: '', type: 'payment', note: '', date: paytrackDefaultDateLocal() });
       showToast('Payment details updated', 'success');
     } catch (error: any) {
       showToast(error.message || 'Failed to add entry', 'error');
@@ -4721,7 +4767,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {entry.client.first_name} {entry.client.last_name}
                             </p>
                             <p className="text-gray-500 truncate">
-                              {entry.payment.method || 'Payment'} · {new Date(entry.payment.date).toLocaleString()}
+                              {entry.payment.method || 'Payment'} · {formatPaytrackPaymentDate(entry.payment.date)}
                             </p>
                           </div>
                           <span className="font-semibold text-green-700">€{entry.payment.amount.toFixed(2)}</span>
@@ -4784,6 +4830,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       const totalFee = client.payment?.totalFee || 0;
                       const paidAmount = client.payment?.paidAmount || 0;
                       const remaining = Math.max(0, totalFee - paidAmount);
+                      const lastPaid = getPaytrackLastPaidPayment(client);
                       return (
                         <button
                           key={client.id}
@@ -4799,6 +4846,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             </p>
                             {client.phone ? (
                               <p className="text-xs text-slate-400 mt-0.5 truncate">{client.phone}</p>
+                            ) : null}
+                            {lastPaid ? (
+                              <p className="text-xs text-slate-500 mt-0.5 truncate">
+                                {t('dashboard.paytrackLastPaid')}: {formatPaytrackPaymentDate(lastPaid.date)}
+                              </p>
                             ) : null}
                           </div>
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
@@ -5416,6 +5468,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 placeholder="Notes (optional)"
                 className="mt-3 w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
               />
+              {paytrackClientEntry.type === 'payment' && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-amber-800 mb-1">
+                    {t('dashboard.paytrackPaymentDate')}
+                  </label>
+                  <input
+                    type="date"
+                    value={paytrackClientEntry.date}
+                    onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, date: e.target.value }))}
+                    className="w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={paytrackClientSaving}
@@ -5475,6 +5540,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               placeholder="Note (optional)"
                               className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-400"
                             />
+                            <input
+                              type="date"
+                              value={paytrackPaymentDraft.date}
+                              onChange={(e) =>
+                                setPaytrackPaymentDraft((s) => ({ ...s, date: e.target.value }))
+                              }
+                              className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                            />
                             <div className="flex gap-2 justify-end">
                               <button
                                 type="button"
@@ -5496,11 +5569,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         ) : (
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-slate-800">{entry.method || 'Payment'}</p>
-                              <p className="text-xs text-slate-500">
-                                {new Date(entry.date).toLocaleString('en-GB')}
-                                {entry.note ? ` · ${entry.note}` : ''}
+                              <p className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 inline-block px-2 py-0.5 rounded-full mb-1">
+                                {formatPaytrackPaymentDate(entry.date)}
                               </p>
+                              <p className="text-sm font-semibold text-slate-800">{entry.method || 'Payment'}</p>
+                              {entry.note ? (
+                                <p className="text-xs text-slate-500 mt-0.5">{entry.note}</p>
+                              ) : null}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               {(entry.amount || 0) > 0 ? (

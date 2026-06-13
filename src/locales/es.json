@@ -166,6 +166,8 @@
     "paytrackQuickNoteHint": "ej. “Valentina pagó 480” o “Valentina llamará mañana”",
     "paytrackQuickNotePlaceholder": "Pago o nota simple sobre un cliente…",
     "paytrackQuickNoteSave": "Añadir nota",
+    "paytrackPaymentDate": "Fecha de pago",
+    "paytrackLastPaid": "Último pago",
     "addPayment": "AGREGAR PAGO",
     "aportarDocumentacion": "APORTAR DOCUMENTACIÓN",
     "aportarDocumentacionDesc": "Aportar documentación que falta al expediente"

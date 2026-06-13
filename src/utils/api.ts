@@ -294,11 +294,11 @@ export const api = {
     return this.smartUploadDocuments(clientId, [file], userName);
   },
 
-  async addPayment(clientId: string, amount: number, method: string, note?: string) {
+  async addPayment(clientId: string, amount: number, method: string, note?: string, date?: string) {
     const client = await this.getClient(clientId);
     const newPayment = {
       amount,
-      date: new Date().toISOString(),
+      date: date ? new Date(date).toISOString() : new Date().toISOString(),
       method,
       note: note || undefined,
     };
