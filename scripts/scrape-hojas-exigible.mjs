@@ -321,7 +321,7 @@ async function main() {
           const officialText = `${sectionPrefix}${item.name}`.trim();
           requiredDocuments.push({
             code: `${docCodePrefix}-${docIdx}`,
-            name: `Hoja ${link.number} - ${docIdx}. ${officialText}`,
+            name: officialText,
             description: item.description,
             ...(item.isOptional ? { isOptional: true } : {}),
           });
