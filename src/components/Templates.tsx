@@ -8,7 +8,7 @@ import { showToast } from './Toast';
 import { t } from '../utils/i18n';
 import { SkeletonTemplateCard } from './Skeleton';
 import { useData } from '../context/DataContext';
-import { OFFICIAL_TEMPLATE_PRESETS } from '../data/officialTemplates';
+import { OFFICIAL_HOJA_COUNT, OFFICIAL_TEMPLATE_PRESETS } from '../data/officialTemplates';
 
 export default function Templates() {
   // Use cached templates from context (loaded once at app startup)
@@ -158,39 +158,43 @@ export default function Templates() {
     setDeleteConfirm({ templateId: id, templateName: template?.name || '', isOpen: true });
   };
 
-  const handleImportOfficialTemplate = async (presetId: string) => {
-    const preset = OFFICIAL_TEMPLATE_PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
+  const createOfficialTemplate = async (preset: (typeof OFFICIAL_TEMPLATE_PRESETS)[number]) => {
+    await api.createCaseTemplate({
+      name: preset.name,
+      description: preset.description,
+      requiredDocuments: preset.requiredDocuments.map((doc) => ({
+        code: doc.code,
+        name: doc.name,
+        description: doc.description,
+        isOptional: doc.isOptional,
+      })),
+      reminderIntervalDays: preset.reminderIntervalDays,
+      administrativeSilenceDays: preset.administrativeSilenceDays,
+    });
+  };
 
-    const exists = cachedTemplates.some(
-      (t) =>
-        t.name.toLowerCase() === preset.name.toLowerCase() ||
-        t.name.toLowerCase() === 'estancia por estudios (hoja 1)'
+  const handleImportOfficialTemplates = async () => {
+    const missing = OFFICIAL_TEMPLATE_PRESETS.filter(
+      (preset) => !cachedTemplates.some((t) => t.name.toLowerCase() === preset.name.toLowerCase())
     );
-    if (exists) {
-      showToast(`Template "${preset.name}" already exists`, 'info');
+    if (missing.length === 0) {
+      showToast(`All ${OFFICIAL_HOJA_COUNT} official hoja templates are already imported`, 'info');
       return;
     }
 
     setImportingOfficial(true);
     try {
-      await api.createCaseTemplate({
-        name: preset.name,
-        description: preset.description,
-        requiredDocuments: preset.requiredDocuments.map((doc) => ({
-          code: doc.code,
-          name: doc.name,
-          description: doc.description,
-          isOptional: doc.isOptional,
-        })),
-        reminderIntervalDays: preset.reminderIntervalDays,
-        administrativeSilenceDays: preset.administrativeSilenceDays,
-      });
+      for (const preset of missing) {
+        await createOfficialTemplate(preset);
+      }
       await refreshTemplates();
       hasInitialized.current = false;
-      showToast(`Official template "${preset.name}" imported (${preset.requiredDocuments.length} documents)`, 'success');
+      showToast(
+        `Imported ${missing.length} templates (Hojas ${missing.map((p) => p.label).join(', ')})`,
+        'success'
+      );
     } catch (error: any) {
-      showToast(error.message || 'Failed to import official template', 'error');
+      showToast(error.message || 'Failed to import official templates', 'error');
     } finally {
       setImportingOfficial(false);
     }
@@ -243,19 +247,16 @@ export default function Templates() {
           <p className="text-amber-700/80 text-base sm:text-lg font-medium">{t('templates.subtitle')}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          {OFFICIAL_TEMPLATE_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              disabled={importingOfficial}
-              onClick={() => handleImportOfficialTemplate(preset.id)}
-              className="bg-white/80 border-2 border-amber-300 text-amber-900 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:bg-amber-50 transition-all duration-200 flex items-center justify-center space-x-2 w-full sm:w-auto disabled:opacity-60"
-              title={preset.sourceUrl}
-            >
-              <Download className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm sm:text-base truncate">{preset.label}</span>
-            </button>
-          ))}
+          <button
+            type="button"
+            disabled={importingOfficial}
+            onClick={handleImportOfficialTemplates}
+            className="bg-white/80 border-2 border-amber-300 text-amber-900 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:bg-amber-50 transition-all duration-200 flex items-center justify-center space-x-2 w-full sm:w-auto disabled:opacity-60"
+            title={`Importa ${OFFICIAL_HOJA_COUNT} plantillas separadas (Hojas 1–58 oficiales, inclusion.gob.es)`}
+          >
+            <Download className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm sm:text-base">Hojas informativas 1–58 (oficial)</span>
+          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-600 text-amber-900 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-200 flex items-center justify-center space-x-2 w-full sm:w-auto"

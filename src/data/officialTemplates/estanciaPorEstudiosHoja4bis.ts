@@ -109,3 +109,12 @@ export const ESTANCIA_HOJA_4BIS_DOCUMENTS: RequiredDocument[] = [
     isOptional: true,
   },
 ];
+
+export const ESTANCIA_HOJA_4BIS_TEMPLATE = {
+  name: 'Estancia por estudios — Hoja 4 bis (acceso al empleo)',
+  description:
+    'Acceso al empleo compatible con estancia por estudios: trabajo por cuenta ajena y cuenta propia (máx. 30 h/semana). Fuente: inclusion.gob.es — Hoja 4 bis.',
+  reminderIntervalDays: 10,
+  administrativeSilenceDays: 60,
+  requiredDocuments: ESTANCIA_HOJA_4BIS_DOCUMENTS,
+};

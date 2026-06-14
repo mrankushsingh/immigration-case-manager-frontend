@@ -244,3 +244,12 @@ export const ESTANCIA_HOJA_58_DOCUMENTS: RequiredDocument[] = [
     isOptional: true,
   },
 ];
+
+export const ESTANCIA_HOJA_58_TEMPLATE = {
+  name: 'Estancia por estudios — Hoja 58 (modificaciones)',
+  description:
+    'Modificaciones desde estancia por estudios: residencia y trabajo (cuenta ajena/propia), excepción de trabajo, reagrupación familiar y búsqueda de empleo. Fuente: inclusion.gob.es — Hoja 58.',
+  reminderIntervalDays: 10,
+  administrativeSilenceDays: 60,
+  requiredDocuments: ESTANCIA_HOJA_58_DOCUMENTS,
+};

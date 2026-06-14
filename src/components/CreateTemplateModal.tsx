@@ -71,8 +71,10 @@ const PREDEFINED_DOCUMENT_NAMES = [
   'Hoja 1 — Medios económicos',
   'Hoja 1 — Seguro de enfermedad',
   'Hoja 1 — Admisión y matrícula',
-  'Hoja 2 — Vínculo familiar o de parentesco',
   'Hoja 3 — Matrícula y continuación de estudios',
+  'Estancia por estudios — Hoja 2 (actividades formativas)',
+  'Estancia por estudios — Hoja 3 (movilidad de alumnos)',
+  'Estancia por estudios — Hoja 4 (voluntariado)',
 ];
 
 export default function CreateTemplateModal({ onClose, onSuccess, template }: Props) {
