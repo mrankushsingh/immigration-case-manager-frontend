@@ -125,8 +125,6 @@ function extractListItems(sectionHtml) {
     if (text.length < 10) continue;
     if (/^Nota:?$/i.test(text)) continue;
     if (/^con car[aá]cter general se deber/i.test(text)) continue;
-    if (/^Documentaci[oó]n acreditativa del cumplimiento de todos los requisitos anteriores:?$/i.test(text))
-      continue;
     if (/^Lista de traductores/i.test(text)) continue;
     if (/^Informaci[oó]n sobre traducci/i.test(text)) continue;
     if (/^Por otro lado, todo documento/i.test(text)) continue;
@@ -140,10 +138,7 @@ function extractListItems(sectionHtml) {
       (/\b(menores de edad|mayor de edad penal|en su caso)\b/i.test(text) &&
         !/^Impreso de solicitud/i.test(text));
 
-    const dot = text.indexOf('.');
-    const name = (dot > 15 && dot < 160 ? text.slice(0, dot) : text.slice(0, 120)).trim();
-
-    items.push({ name, description: text, isOptional });
+    items.push({ name: text, description: text, isOptional });
   }
 
   const seen = new Set();
@@ -325,7 +320,7 @@ async function main() {
           const docNum = String(docIdx).padStart(2, '0');
           requiredDocuments.push({
             code: `${docCodePrefix}-D${docNum}`,
-            name: `[Hoja ${link.number} · Doc ${docNum}] ${sectionPrefix}${item.name}`,
+            name: `${sectionPrefix}${item.name}`.trim(),
             description: item.description,
             ...(item.isOptional ? { isOptional: true } : {}),
           });
