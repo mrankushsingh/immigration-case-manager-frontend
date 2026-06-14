@@ -65,6 +65,14 @@ const PREDEFINED_DOCUMENT_NAMES = [
   'Tres últimas nóminas',
   'Memoria descriptiva de la ocupación',
   'Otra documentación del despacho',
+  'Hoja 1 — Impreso EX-00 (solicitud)',
+  'Hoja 1 — Pasaporte o título de viaje',
+  'Hoja 1 — Certificado médico',
+  'Hoja 1 — Medios económicos',
+  'Hoja 1 — Seguro de enfermedad',
+  'Hoja 1 — Admisión y matrícula',
+  'Hoja 2 — Vínculo familiar o de parentesco',
+  'Hoja 3 — Matrícula y continuación de estudios',
 ];
 
 export default function CreateTemplateModal({ onClose, onSuccess, template }: Props) {
