@@ -85,6 +85,28 @@ function parseTitle(label) {
   return label.replace(/^Hoja\s+\d+(?:\s+bis|\s+ter)?\.?\s*-?\s*/i, '').trim();
 }
 
+function hojaDocCodePrefix(number) {
+  return `HOJA-${number.toUpperCase().replace(/\s+/g, '-')}`;
+}
+
+function extractAdministrativeSilenceDays(html) {
+  const procIdx = html.search(/>\s*PROCEDIMIENTO\s*</i);
+  const chunk = procIdx >= 0 ? html.slice(procIdx) : html;
+  const plazoMatch = chunk.match(
+    /Plazo de resoluci[oó]n[\s\S]{0,500}?(quince d[ií]as|un mes|dos meses|tres meses|cuatro meses|seis meses)/i
+  );
+  if (!plazoMatch) return 60;
+
+  const span = plazoMatch[1].toLowerCase();
+  if (span.includes('quince')) return 15;
+  if (span.includes('un mes')) return 30;
+  if (span.includes('dos meses')) return 60;
+  if (span.includes('tres meses')) return 90;
+  if (span.includes('cuatro meses')) return 120;
+  if (span.includes('seis meses')) return 180;
+  return 60;
+}
+
 const SECTION_STOP_RE =
   /<p[^>]*>\s*<strong>\s*(Procedimiento|PROCEDIMIENTO|PRÓRROGA|Prórroga de la|Nota importante:|A AUTORIZACIÓN|AUTORIZACIÓN DE|Actividades exceptuadas|TIPO DE AUTORIZACIÓN|Tipo de autorizaci|Normativa básica|NORMATIVA|Requisitos|REQUISITOS|FAMILIARES)/i;
 
@@ -292,15 +314,18 @@ async function main() {
       }
 
       const id = `hoja-${slugify(link.number)}`;
+      const docCodePrefix = hojaDocCodePrefix(link.number);
+      const administrativeSilenceDays = extractAdministrativeSilenceDays(html);
       const requiredDocuments = [];
       let docIdx = 0;
       sections.forEach((section, sectionIdx) => {
         section.items.forEach((item) => {
           docIdx += 1;
-          const prefix = sections.length > 1 ? `[Sección ${sectionIdx + 1}] ` : '';
+          const sectionPrefix = sections.length > 1 ? `[Sección ${sectionIdx + 1}] ` : '';
+          const docNum = String(docIdx).padStart(2, '0');
           requiredDocuments.push({
-            code: `${id}-d${docIdx}`,
-            name: `${prefix}${item.name}`,
+            code: `${docCodePrefix}-D${docNum}`,
+            name: `[Hoja ${link.number} · Doc ${docNum}] ${sectionPrefix}${item.name}`,
             description: item.description,
             ...(item.isOptional ? { isOptional: true } : {}),
           });
@@ -316,7 +341,7 @@ async function main() {
         name: `Hoja ${link.number} — ${link.title} (documentación exigible)`,
         description: `DOCUMENTACIÓN EXIGIBLE. Fuente: inclusion.gob.es — Hoja ${link.number}.`,
         reminderIntervalDays: 10,
-        administrativeSilenceDays: 60,
+        administrativeSilenceDays,
         requiredDocuments,
       });
     } catch (err) {
