@@ -1,6 +1,5 @@
 import { RequiredDocument } from '../../types';
-import { getDocumentsForHoja } from './hojaDocuments';
-import { HOJAS_CATALOG, OFFICIAL_HOJA_LIST_URL, OFFICIAL_HOJA_COUNT } from './hojasCatalog';
+import hojasData from './hojasExigible.generated.json';
 
 export interface OfficialTemplatePreset {
   id: string;
@@ -13,25 +12,15 @@ export interface OfficialTemplatePreset {
   requiredDocuments: RequiredDocument[];
 }
 
-const DEFAULT_INTERVALS = { reminderIntervalDays: 10, administrativeSilenceDays: 60 };
+/** 69 hojas oficiales (1–69, sin Hoja 56; incluye 4 bis, 28 bis/ter, 35 bis, 55 bis; excluye 59–61 y 65 informativas) */
+export const OFFICIAL_HOJA_CATALOG_COUNT = hojasData.catalogCount ?? 69;
 
-function buildPreset(entry: (typeof HOJAS_CATALOG)[number]): OfficialTemplatePreset {
-  const name = `Hoja ${entry.number} — ${entry.title}`;
-  return {
-    id: `hoja-${entry.id}`,
-    label: `Hoja ${entry.number}`,
-    sourceUrl: entry.sourceUrl ?? OFFICIAL_HOJA_LIST_URL,
-    name,
-    description: `Hoja informativa oficial ${entry.number}. ${entry.title}. Fuente: inclusion.gob.es`,
-    ...DEFAULT_INTERVALS,
-    requiredDocuments: getDocumentsForHoja(entry.id, entry.title),
-  };
-}
+/** Plantillas con DOCUMENTACIÓN EXIGIBLE verificada (una plantilla por hoja) */
+export const OFFICIAL_TEMPLATE_PRESETS: OfficialTemplatePreset[] =
+  hojasData.templates as OfficialTemplatePreset[];
 
-/** Todas las hojas informativas oficiales numeradas 1–58 (incluye 4 bis, 28 bis/ter, 35 bis, 55 bis; no existe Hoja 56) */
-export const OFFICIAL_TEMPLATE_PRESETS: OfficialTemplatePreset[] = HOJAS_CATALOG.map(buildPreset);
-
-export { OFFICIAL_HOJA_COUNT, OFFICIAL_HOJA_LIST_URL };
+/** Plantillas listas para importar */
+export const OFFICIAL_HOJA_COUNT = OFFICIAL_TEMPLATE_PRESETS.length;
 
 export function findOfficialPreset(id: string): OfficialTemplatePreset | undefined {
   return OFFICIAL_TEMPLATE_PRESETS.find((p) => p.id === id);

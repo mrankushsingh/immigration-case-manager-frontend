@@ -65,16 +65,13 @@ const PREDEFINED_DOCUMENT_NAMES = [
   'Tres últimas nóminas',
   'Memoria descriptiva de la ocupación',
   'Otra documentación del despacho',
-  'Hoja 1 — Impreso EX-00 (solicitud)',
-  'Hoja 1 — Pasaporte o título de viaje',
+  'Hoja 1 — Pasaporte o título de viaje en vigor',
   'Hoja 1 — Certificado médico',
-  'Hoja 1 — Medios económicos',
-  'Hoja 1 — Seguro de enfermedad',
-  'Hoja 1 — Admisión y matrícula',
-  'Hoja 3 — Matrícula y continuación de estudios',
-  'Estancia por estudios — Hoja 2 (actividades formativas)',
-  'Estancia por estudios — Hoja 3 (movilidad de alumnos)',
-  'Estancia por estudios — Hoja 4 (voluntariado)',
+  'Hoja 1 — Documentación acreditativa de medios económicos',
+  'Hoja 1 — Documentación acreditativa de seguro de enfermedad',
+  'Hoja 1 — Documentación acreditativa de admisión y matrícula',
+  'Hoja 3 — Impreso de solicitud de visado nacional',
+  'Hoja 4 — Convenio firmado con la entidad encargada del programa de voluntariado',
 ];
 
 export default function CreateTemplateModal({ onClose, onSuccess, template }: Props) {
