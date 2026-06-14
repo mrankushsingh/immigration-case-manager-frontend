@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, User, Eye, Hourglass, ArrowRight, Undo2 } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, ChevronRight, Calendar, User, Eye, Hourglass, ArrowRight, Undo2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
 import { Client, Reminder } from '../types';
@@ -31,6 +31,28 @@ function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
     (client.case_type || '').toLowerCase().includes(q) ||
     (client.parent_name || '').toLowerCase().includes(q)
   );
+}
+
+const CALENDAR_WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function reminderLocalDateKey(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function buildCalendarCells(year: number, month: number): (number | null)[] {
+  const firstDay = new Date(year, month - 1, 1);
+  const startPad = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startPad; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
 }
 
 function paytrackDefaultDateLocal(): string {
@@ -303,6 +325,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [teamTaskFormNotes, setTeamTaskFormNotes] = useState('');
   const [teamTaskView, setTeamTaskView] = useState<{ task: TeamMemberTask; member: TeamMemberName } | null>(null);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarViewMonth, setCalendarViewMonth] = useState(new Date().getMonth() + 1);
+  const [calendarViewYear, setCalendarViewYear] = useState(new Date().getFullYear());
+  const [calendarSelectedDay, setCalendarSelectedDay] = useState<number | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-indexed
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [monthlySummary, setMonthlySummary] = useState<{
@@ -1377,7 +1403,56 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     reminders.filter((reminder) => reminder.reminder_type === 'PAGOS'),
     [reminders]
   );
-  
+
+  const dashboardNow = useMemo(() => new Date(), []);
+  const dashboardCurrentMonth = dashboardNow.getMonth();
+  const dashboardCurrentYear = dashboardNow.getFullYear();
+
+  const remindersByDateKey = useMemo(() => {
+    const map = new Map<string, Reminder[]>();
+    for (const reminder of reminders) {
+      const key = reminderLocalDateKey(reminder.reminder_date);
+      if (!key) continue;
+      const list = map.get(key);
+      if (list) list.push(reminder);
+      else map.set(key, [reminder]);
+    }
+    return map;
+  }, [reminders]);
+
+  const previewCalendarMonth = dashboardCurrentMonth + 1;
+  const previewCalendarYear = dashboardCurrentYear;
+  const previewCalendarCells = useMemo(
+    () => buildCalendarCells(previewCalendarYear, previewCalendarMonth),
+    [previewCalendarYear, previewCalendarMonth]
+  );
+  const calendarModalCells = useMemo(
+    () => buildCalendarCells(calendarViewYear, calendarViewMonth),
+    [calendarViewYear, calendarViewMonth]
+  );
+  const currentMonthReminderCount = useMemo(
+    () =>
+      reminders.filter((reminder) => {
+        const d = new Date(reminder.reminder_date);
+        return d.getMonth() === dashboardCurrentMonth && d.getFullYear() === dashboardCurrentYear;
+      }).length,
+    [reminders, dashboardCurrentMonth, dashboardCurrentYear]
+  );
+
+  const openCalendarModal = useCallback(() => {
+    const today = new Date();
+    setCalendarViewMonth(today.getMonth() + 1);
+    setCalendarViewYear(today.getFullYear());
+    setCalendarSelectedDay(today.getDate());
+    setShowCalendarModal(true);
+  }, []);
+
+  const calendarSelectedReminders = useMemo(() => {
+    if (!calendarSelectedDay) return [];
+    const key = `${calendarViewYear}-${String(calendarViewMonth).padStart(2, '0')}-${String(calendarSelectedDay).padStart(2, '0')}`;
+    return remindersByDateKey.get(key) || [];
+  }, [calendarSelectedDay, calendarViewMonth, calendarViewYear, remindersByDateKey]);
+
   /** After administrative silence: queue here until someone moves the case to Appeals. */
   const recursoAdministrativeFile = useMemo(
     () =>
@@ -2163,6 +2238,64 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           </div>
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mt-2">
             {overviewUnlocked ? 'Monthly statistics and analytics' : 'Enter passcode to view'}
+          </p>
+        </div>
+
+        {/* Calendar Box */}
+        <div
+          onClick={openCalendarModal}
+          className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
+          style={{ animationDelay: '1.05s' }}
+        >
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+            </div>
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Calendar</span>
+          </div>
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-2">
+            {currentMonthReminderCount}
+          </p>
+          <p className="text-[10px] sm:text-xs text-amber-700/80 font-medium mb-2">
+            {dashboardNow.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </p>
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
+            {CALENDAR_WEEKDAYS.map((day) => (
+              <div key={day} className="text-[8px] sm:text-[9px] text-center text-amber-600/80 font-semibold">
+                {day.charAt(0)}
+              </div>
+            ))}
+            {previewCalendarCells.map((day, index) => {
+              if (!day) {
+                return <div key={`empty-${index}`} className="aspect-square" />;
+              }
+              const key = `${previewCalendarYear}-${String(previewCalendarMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const hasReminder = remindersByDateKey.has(key);
+              const isToday =
+                day === dashboardNow.getDate() &&
+                previewCalendarMonth === dashboardCurrentMonth + 1 &&
+                previewCalendarYear === dashboardCurrentYear;
+              return (
+                <div
+                  key={key}
+                  className={`aspect-square flex items-center justify-center rounded-md text-[9px] sm:text-[10px] font-medium relative ${
+                    isToday
+                      ? 'bg-amber-500 text-white'
+                      : hasReminder
+                        ? 'bg-amber-100 text-amber-900'
+                        : 'text-amber-800/70'
+                  }`}
+                >
+                  {day}
+                  {hasReminder && !isToday && (
+                    <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-amber-600" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed">
+            Reminders by date — tap to open calendar
           </p>
         </div>
       </div>
@@ -4870,6 +5003,163 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calendar Modal */}
+      {showCalendarModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCalendarModal(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl sm:rounded-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col m-2 sm:m-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-amber-900">Calendar</h2>
+                  <p className="text-amber-700 mt-1">Reminders and follow-ups by date</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCalendarModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (calendarViewMonth === 1) {
+                      setCalendarViewMonth(12);
+                      setCalendarViewYear(calendarViewYear - 1);
+                    } else {
+                      setCalendarViewMonth(calendarViewMonth - 1);
+                    }
+                    setCalendarSelectedDay(null);
+                  }}
+                  className="p-2 text-amber-700 hover:bg-amber-100 rounded-lg transition-colors"
+                  title="Previous month"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-lg font-semibold text-amber-900 min-w-[180px] text-center">
+                  {new Date(calendarViewYear, calendarViewMonth - 1).toLocaleDateString('en-US', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (calendarViewMonth === 12) {
+                      setCalendarViewMonth(1);
+                      setCalendarViewYear(calendarViewYear + 1);
+                    } else {
+                      setCalendarViewMonth(calendarViewMonth + 1);
+                    }
+                    setCalendarSelectedDay(null);
+                  }}
+                  className="p-2 text-amber-700 hover:bg-amber-100 rounded-lg transition-colors"
+                  title="Next month"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-6">
+                {CALENDAR_WEEKDAYS.map((day) => (
+                  <div
+                    key={day}
+                    className="text-center text-xs font-semibold text-amber-700/80 py-1"
+                  >
+                    {day}
+                  </div>
+                ))}
+                {calendarModalCells.map((day, index) => {
+                  if (!day) {
+                    return <div key={`modal-empty-${index}`} className="aspect-square" />;
+                  }
+                  const key = `${calendarViewYear}-${String(calendarViewMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const dayReminders = remindersByDateKey.get(key) || [];
+                  const isSelected = calendarSelectedDay === day;
+                  const isToday =
+                    day === dashboardNow.getDate() &&
+                    calendarViewMonth === dashboardCurrentMonth + 1 &&
+                    calendarViewYear === dashboardCurrentYear;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setCalendarSelectedDay(day)}
+                      className={`aspect-square rounded-lg text-sm font-medium transition-colors relative ${
+                        isSelected
+                          ? 'bg-amber-600 text-white ring-2 ring-amber-400'
+                          : isToday
+                            ? 'bg-amber-500 text-white'
+                            : dayReminders.length
+                              ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                              : 'text-amber-800 hover:bg-amber-50'
+                      }`}
+                    >
+                      {day}
+                      {dayReminders.length > 0 && !isSelected && !isToday && (
+                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 min-w-[14px] h-[14px] px-0.5 rounded-full bg-amber-600 text-white text-[9px] leading-[14px]">
+                          {dayReminders.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="border-t border-amber-200 pt-4">
+                <h3 className="text-lg font-semibold text-amber-900 mb-3">
+                  {calendarSelectedDay
+                    ? new Date(calendarViewYear, calendarViewMonth - 1, calendarSelectedDay).toLocaleDateString(
+                        'en-US',
+                        { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
+                      )
+                    : 'Select a day'}
+                </h3>
+                {calendarSelectedDay && calendarSelectedReminders.length === 0 && (
+                  <p className="text-sm text-amber-700/70">No reminders on this date.</p>
+                )}
+                {calendarSelectedReminders.length > 0 && (
+                  <ul className="space-y-3">
+                    {calendarSelectedReminders.map((reminder) => (
+                      <li
+                        key={reminder.id}
+                        className="p-4 rounded-xl border border-amber-200 bg-amber-50/50"
+                      >
+                        <p className="font-semibold text-amber-900">
+                          {formatReminderFullName(reminder.client_name, reminder.client_surname)}
+                        </p>
+                        {reminder.reminder_type && (
+                          <p className="text-xs font-medium text-amber-700 uppercase tracking-wide mt-1">
+                            {reminder.reminder_type.replace(/_/g, ' ')}
+                          </p>
+                        )}
+                        {reminder.phone && (
+                          <p className="text-sm text-amber-800/80 mt-1">{reminder.phone}</p>
+                        )}
+                        {reminder.notes && (
+                          <p className="text-sm text-amber-700/90 mt-2 whitespace-pre-wrap">{reminder.notes}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
         </div>
