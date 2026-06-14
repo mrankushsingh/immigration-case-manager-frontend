@@ -61,6 +61,7 @@ function stripHtml(html) {
     .replace(/&ntilde;/g, 'ñ')
     .replace(/&[a-z]+;/gi, ' ')
     .replace(/\r/g, '')
+    .replace(/\s+,/g, ',')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n\s+/g, '\n')
     .trim();
@@ -317,10 +318,10 @@ async function main() {
         section.items.forEach((item) => {
           docIdx += 1;
           const sectionPrefix = sections.length > 1 ? `[Sección ${sectionIdx + 1}] ` : '';
-          const docNum = String(docIdx).padStart(2, '0');
+          const officialText = `${sectionPrefix}${item.name}`.trim();
           requiredDocuments.push({
-            code: `${docCodePrefix}-D${docNum}`,
-            name: `${sectionPrefix}${item.name}`.trim(),
+            code: `${docCodePrefix}-${docIdx}`,
+            name: `Hoja ${link.number} - ${docIdx}. ${officialText}`,
             description: item.description,
             ...(item.isOptional ? { isOptional: true } : {}),
           });
@@ -333,7 +334,7 @@ async function main() {
         label: `Hoja ${link.number}`,
         title: link.title,
         sourceUrl: link.url,
-        name: `Hoja ${link.number} — ${link.title} (documentación exigible)`,
+        name: `Hoja ${link.number} - ${link.title}`,
         description: `DOCUMENTACIÓN EXIGIBLE. Fuente: inclusion.gob.es — Hoja ${link.number}.`,
         reminderIntervalDays: 10,
         administrativeSilenceDays,
