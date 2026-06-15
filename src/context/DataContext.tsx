@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { api } from '../utils/api';
-import { Client, CaseTemplate, Reminder } from '../types';
+import { Client, CaseTemplate, Reminder, Appointment } from '../types';
 import { getCurrentUser, onAuthChange } from '../utils/firebase';
 
 interface DataContextType {
@@ -8,6 +8,7 @@ interface DataContextType {
   clients: Client[];
   templates: CaseTemplate[];
   reminders: Reminder[];
+  appointments: Appointment[];
   
   // Loading states
   loading: boolean;
@@ -17,6 +18,7 @@ interface DataContextType {
   refreshClients: () => Promise<void>;
   refreshTemplates: () => Promise<void>;
   refreshReminders: () => Promise<void>;
+  refreshAppointments: () => Promise<void>;
   refreshAll: () => Promise<void>;
   
   // Cache control
@@ -34,6 +36,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [templates, setTemplates] = useState<CaseTemplate[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -60,10 +63,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(true);
 
       // Load all data in parallel
-      const [templatesData, clientsData, remindersData] = await Promise.all([
+      const [templatesData, clientsData, remindersData, appointmentsData] = await Promise.all([
         api.getCaseTemplates(), // Load all templates
         api.getClients(), // Load all clients (or paginated if needed)
         api.getReminders(),
+        api.getAppointments(),
       ]);
 
       // Handle paginated responses
@@ -73,9 +77,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setTemplates(templates);
       setClients(clients);
       setReminders(remindersData);
+      setAppointments(appointmentsData);
       setLastFetchTime(Date.now());
       
-      console.log(`✅ Data loaded: ${templates.length} templates, ${clients.length} clients, ${remindersData.length} reminders`);
+      console.log(`✅ Data loaded: ${templates.length} templates, ${clients.length} clients, ${remindersData.length} reminders, ${appointmentsData.length} appointments`);
     } catch (error: any) {
       console.error('❌ Failed to load data:', error);
       // Don't clear data on error - keep existing cache
@@ -101,6 +106,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setClients([]);
         setTemplates([]);
         setReminders([]);
+        setAppointments([]);
         setLastFetchTime(null);
         setLoading(false);
         isLoadingRef.current = false;
@@ -152,6 +158,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshAppointments = useCallback(async () => {
+    try {
+      const data = await api.getAppointments();
+      setAppointments(data);
+      setLastFetchTime(Date.now());
+      console.log('✅ Appointments refreshed');
+    } catch (error) {
+      console.error('❌ Failed to refresh appointments:', error);
+    }
+  }, []);
+
   // Refresh all data
   const refreshAll = useCallback(async () => {
     await loadAllData();
@@ -186,11 +203,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     clients,
     templates,
     reminders,
+    appointments,
     loading,
     lastFetchTime,
     refreshClients,
     refreshTemplates,
     refreshReminders,
+    refreshAppointments,
     refreshAll,
     invalidateCache,
     isStale,

@@ -14,6 +14,7 @@ import {
   reminderDisplayName,
   splitReminderFullName,
 } from '../utils/reminderNames';
+import AppointmentsCalendar from './AppointmentsCalendar';
 
 interface DashboardProps {
   onNavigate?: (view: 'templates' | 'clients') => void;
@@ -2298,6 +2299,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             Reminders by date — tap to open calendar
           </p>
         </div>
+
+        <AppointmentsCalendar animationDelay="1.1s" />
       </div>
 
       {/* Recent Clients */}

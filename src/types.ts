@@ -131,3 +131,21 @@ export interface Reminder {
   updated_at: string;
 }
 
+export type AppointmentColor = 'red' | 'blue' | 'green' | 'yellow';
+
+export interface Appointment {
+  id: string;
+  title: string;
+  client_name: string;
+  client_surname?: string;
+  phone?: string;
+  email?: string;
+  appointment_date: string;
+  duration_minutes: number;
+  color: AppointmentColor;
+  notes?: string;
+  source?: 'manual' | 'ai';
+  created_at: string;
+  updated_at: string;
+}
+

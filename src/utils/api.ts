@@ -1270,5 +1270,102 @@ export const api = {
     }
     return response.json();
   },
+
+  // Appointments API
+  async getAppointments(params?: { from?: string; to?: string }) {
+    const headers = await getAuthHeaders(false);
+    const qs = new URLSearchParams();
+    if (params?.from) qs.append('from', params.from);
+    if (params?.to) qs.append('to', params.to);
+    const query = qs.toString();
+    const response = await fetch(`${API_URL}/appointments${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to get appointments' }));
+      throw new Error(error.error || 'Failed to get appointments');
+    }
+    return response.json();
+  },
+
+  async checkAppointmentAvailability(date: string, startTime?: string, durationMinutes = 30) {
+    const headers = await getAuthHeaders(false);
+    const qs = new URLSearchParams({ date, duration_minutes: String(durationMinutes) });
+    if (startTime) qs.append('start_time', startTime);
+    const response = await fetch(`${API_URL}/appointments/availability?${qs}`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to check availability' }));
+      throw new Error(error.error || 'Failed to check availability');
+    }
+    return response.json();
+  },
+
+  async createAppointment(data: {
+    title: string;
+    client_name: string;
+    client_surname?: string;
+    phone?: string;
+    email?: string;
+    appointment_date: string;
+    duration_minutes?: number;
+    color?: string;
+    notes?: string;
+  }) {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/appointments`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to create appointment' }));
+      throw new Error(error.error || 'Failed to create appointment');
+    }
+    return response.json();
+  },
+
+  async updateAppointment(
+    id: string,
+    data: {
+      title?: string;
+      client_name?: string;
+      client_surname?: string;
+      phone?: string;
+      email?: string;
+      appointment_date?: string;
+      duration_minutes?: number;
+      color?: string;
+      notes?: string;
+    }
+  ) {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/appointments/${id}`, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to update appointment' }));
+      throw new Error(error.error || 'Failed to update appointment');
+    }
+    return response.json();
+  },
+
+  async deleteAppointment(id: string) {
+    const headers = await getAuthHeaders(false);
+    const response = await fetch(`${API_URL}/appointments/${id}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to delete appointment' }));
+      throw new Error(error.error || 'Failed to delete appointment');
+    }
+    return response.json();
+  },
 };
 
