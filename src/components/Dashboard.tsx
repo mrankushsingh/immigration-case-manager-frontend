@@ -1421,12 +1421,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return map;
   }, [reminders]);
 
-  const previewCalendarMonth = dashboardCurrentMonth + 1;
-  const previewCalendarYear = dashboardCurrentYear;
-  const previewCalendarCells = useMemo(
-    () => buildCalendarCells(previewCalendarYear, previewCalendarMonth),
-    [previewCalendarYear, previewCalendarMonth]
-  );
   const calendarModalCells = useMemo(
     () => buildCalendarCells(calendarViewYear, calendarViewMonth),
     [calendarViewYear, calendarViewMonth]
@@ -2241,79 +2235,28 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             {overviewUnlocked ? 'Monthly statistics and analytics' : 'Enter passcode to view'}
           </p>
         </div>
-      </div>
 
-      {/* Calendars — Reminders + Appointments */}
-      <div className="animate-slide-up" style={{ animationDelay: '1s' }}>
-        <div className="mb-4 sm:mb-5">
-          <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-amber-800 to-amber-700 bg-clip-text text-transparent">
-            Calendars
-          </h3>
-          <p className="text-xs sm:text-sm text-amber-700/70 mt-1 font-medium">
-            Reminders and client appointments
-          </p>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Calendar Box */}
+        {/* Calendar Box (reminders) */}
         <div
           onClick={openCalendarModal}
           className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
           style={{ animationDelay: '1.05s' }}
         >
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
-              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
+              <Calendar className="w-6 h-6 text-amber-800" />
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">Calendar</span>
           </div>
-          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-2">
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">
             {currentMonthReminderCount}
           </p>
-          <p className="text-[10px] sm:text-xs text-amber-700/80 font-medium mb-2">
-            {dashboardNow.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </p>
-          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
-            {CALENDAR_WEEKDAYS.map((day) => (
-              <div key={day} className="text-[8px] sm:text-[9px] text-center text-amber-600/80 font-semibold">
-                {day.charAt(0)}
-              </div>
-            ))}
-            {previewCalendarCells.map((day, index) => {
-              if (!day) {
-                return <div key={`empty-${index}`} className="aspect-square" />;
-              }
-              const key = `${previewCalendarYear}-${String(previewCalendarMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const hasReminder = remindersByDateKey.has(key);
-              const isToday =
-                day === dashboardNow.getDate() &&
-                previewCalendarMonth === dashboardCurrentMonth + 1 &&
-                previewCalendarYear === dashboardCurrentYear;
-              return (
-                <div
-                  key={key}
-                  className={`aspect-square flex items-center justify-center rounded-md text-[9px] sm:text-[10px] font-medium relative ${
-                    isToday
-                      ? 'bg-amber-500 text-white'
-                      : hasReminder
-                        ? 'bg-amber-100 text-amber-900'
-                        : 'text-amber-800/70'
-                  }`}
-                >
-                  {day}
-                  {hasReminder && !isToday && (
-                    <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-amber-600" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed">
+          <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">
             Reminders by date — tap to open calendar
           </p>
         </div>
 
         <AppointmentsCalendar animationDelay="1.1s" />
-        </div>
       </div>
 
       {/* Recent Clients */}

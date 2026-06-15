@@ -89,10 +89,6 @@ export default function AppointmentsCalendar({ animationDelay = '1.1s' }: Appoin
     return map;
   }, [filteredAppointments]);
 
-  const previewCells = useMemo(
-    () => buildCalendarCells(currentYear, currentMonth),
-    [currentYear, currentMonth]
-  );
   const modalCells = useMemo(
     () => buildCalendarCells(viewYear, viewMonth),
     [viewYear, viewMonth]
@@ -106,6 +102,17 @@ export default function AppointmentsCalendar({ animationDelay = '1.1s' }: Appoin
       }).length,
     [filteredAppointments, currentMonth, currentYear]
   );
+
+  const monthColorCounts = useMemo(() => {
+    const counts: Record<AppointmentColor, number> = { red: 0, blue: 0, green: 0, yellow: 0 };
+    for (const appt of appointments) {
+      const d = new Date(appt.appointment_date);
+      if (d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear) {
+        counts[appt.color] += 1;
+      }
+    }
+    return counts;
+  }, [appointments, currentMonth, currentYear]);
 
   const selectedDayAppointments = useMemo(() => {
     if (!selectedDay) return [];
@@ -236,52 +243,39 @@ export default function AppointmentsCalendar({ animationDelay = '1.1s' }: Appoin
 
   return (
     <>
+      {/* APPOINTMENTS Box — same style as Teams To Do / Pagos */}
       <div
         onClick={openModal}
-        className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95 border-2 border-blue-300/60"
+        className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
         style={{ animationDelay }}
       >
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow-lg">
-            <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-amber-800" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-lg">
+            <CalendarDays className="w-6 h-6 text-amber-800" />
           </div>
           <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">
             Appointments
           </span>
         </div>
-        <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-2">
+        <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">
           {monthAppointmentCount}
         </p>
-        <p className="text-[10px] sm:text-xs text-amber-700/80 font-medium mb-2">
-          {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-        </p>
-        <div className="mb-2">{colorFilters}</div>
-        <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
-          {WEEKDAYS.map((day) => (
-            <div key={day} className="text-[8px] sm:text-[9px] text-center text-amber-600/80 font-semibold">
-              {day.charAt(0)}
-            </div>
-          ))}
-          {previewCells.map((day, index) => {
-            if (!day) return <div key={`appt-empty-${index}`} className="aspect-square" />;
-            const key = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayAppts = appointmentsByDate.get(key) || [];
-            const isToday = day === now.getDate();
-            return (
-              <div
-                key={key}
-                className={`aspect-square flex items-center justify-center rounded-md text-[9px] sm:text-[10px] font-medium relative ${
-                  isToday ? 'bg-amber-500 text-white' : dayAppts.length ? 'bg-amber-50 text-amber-900' : 'text-amber-800/70'
-                }`}
-              >
-                {day}
-                {dayAppts.length > 0 && renderDayDots(dayAppts)}
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed">
-          Client appointments — tap to manage
+        {monthAppointmentCount > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            {APPOINTMENT_COLORS.map((color) =>
+              monthColorCounts[color] > 0 ? (
+                <div key={color} className="flex items-center gap-1.5">
+                  <div className={`w-2.5 h-2.5 rounded-full ${APPOINTMENT_COLOR_DOT[color]}`} />
+                  <span className="text-xs text-amber-800 font-medium">
+                    {monthColorCounts[color]} {APPOINTMENT_COLOR_LABELS[color]}
+                  </span>
+                </div>
+              ) : null
+            )}
+          </div>
+        )}
+        <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">
+          Client appointments and scheduling
         </p>
       </div>
 
