@@ -62,13 +62,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.log('🔄 Loading all data from backend (one-time load)...');
       setLoading(true);
 
-      // Load all data in parallel
-      const [templatesData, clientsData, remindersData, appointmentsData] = await Promise.all([
-        api.getCaseTemplates(), // Load all templates
-        api.getClients(), // Load all clients (or paginated if needed)
+      // Load all data in parallel (appointments optional — backend may not be deployed yet)
+      const [templatesResult, clientsResult, remindersResult, appointmentsResult] = await Promise.allSettled([
+        api.getCaseTemplates(),
+        api.getClients(),
         api.getReminders(),
         api.getAppointments(),
       ]);
+
+      if (templatesResult.status === 'rejected') throw templatesResult.reason;
+      if (clientsResult.status === 'rejected') throw clientsResult.reason;
+      if (remindersResult.status === 'rejected') throw remindersResult.reason;
+
+      const templatesData = templatesResult.value;
+      const clientsData = clientsResult.value;
+      const remindersData = remindersResult.value;
+      const appointmentsData =
+        appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : [];
+
+      if (appointmentsResult.status === 'rejected') {
+        console.warn('⚠️ Appointments API unavailable:', appointmentsResult.reason);
+      }
 
       // Handle paginated responses
       const templates = Array.isArray(templatesData) ? templatesData : (templatesData.templates || []);
@@ -77,7 +91,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setTemplates(templates);
       setClients(clients);
       setReminders(remindersData);
-      setAppointments(appointmentsData);
+      setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
       setLastFetchTime(Date.now());
       
       console.log(`✅ Data loaded: ${templates.length} templates, ${clients.length} clients, ${remindersData.length} reminders, ${appointmentsData.length} appointments`);
@@ -161,7 +175,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const refreshAppointments = useCallback(async () => {
     try {
       const data = await api.getAppointments();
-      setAppointments(data);
+      setAppointments(Array.isArray(data) ? data : []);
       setLastFetchTime(Date.now());
       console.log('✅ Appointments refreshed');
     } catch (error) {

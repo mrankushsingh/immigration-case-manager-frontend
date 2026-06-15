@@ -63,7 +63,7 @@ export default defineConfig({
           }
           
           // Large component chunks - split by feature
-          if (id.includes('Dashboard.tsx')) {
+          if (id.includes('Dashboard.tsx') || id.includes('AppointmentsCalendar')) {
             return 'dashboard';
           }
           // ClientDetailsModal moved to components chunk to avoid initialization issues

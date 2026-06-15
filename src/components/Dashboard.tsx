@@ -2241,7 +2241,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             {overviewUnlocked ? 'Monthly statistics and analytics' : 'Enter passcode to view'}
           </p>
         </div>
+      </div>
 
+      {/* Calendars — Reminders + Appointments */}
+      <div className="animate-slide-up" style={{ animationDelay: '1s' }}>
+        <div className="mb-4 sm:mb-5">
+          <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-amber-800 to-amber-700 bg-clip-text text-transparent">
+            Calendars
+          </h3>
+          <p className="text-xs sm:text-sm text-amber-700/70 mt-1 font-medium">
+            Reminders and client appointments
+          </p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Calendar Box */}
         <div
           onClick={openCalendarModal}
@@ -2301,6 +2313,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         </div>
 
         <AppointmentsCalendar animationDelay="1.1s" />
+        </div>
       </div>
 
       {/* Recent Clients */}

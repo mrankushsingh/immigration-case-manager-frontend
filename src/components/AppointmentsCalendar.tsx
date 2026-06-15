@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Edit2, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { api } from '../utils/api';
@@ -61,6 +61,12 @@ export default function AppointmentsCalendar({ animationDelay = '1.1s' }: Appoin
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    refreshAppointments().catch(() => {
+      /* optional API — ignore if backend not deployed yet */
+    });
+  }, [refreshAppointments]);
 
   const now = useMemo(() => new Date(), []);
   const currentMonth = now.getMonth() + 1;
@@ -232,7 +238,7 @@ export default function AppointmentsCalendar({ animationDelay = '1.1s' }: Appoin
     <>
       <div
         onClick={openModal}
-        className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
+        className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95 border-2 border-blue-300/60"
         style={{ animationDelay }}
       >
         <div className="flex items-center justify-between mb-3 sm:mb-4">
