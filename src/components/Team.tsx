@@ -39,7 +39,7 @@ function TeamClientCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left glass-gold rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-md transition-all active:scale-[0.99] cursor-pointer ${
+      className={`w-full text-left glass-gold rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-md transition-colors cursor-pointer ${
         compact ? 'p-3' : 'p-4 sm:p-5'
       }`}
     >
@@ -250,7 +250,7 @@ export default function Team() {
                     key={name}
                     type="button"
                     onClick={() => openMember(name)}
-                    className="flex flex-col items-stretch text-left p-6 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-lg transition-all active:scale-[0.99] min-h-[180px]"
+                    className="flex flex-col items-stretch text-left p-6 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-lg transition-colors min-h-[180px]"
                   >
                     <div className="flex items-center gap-3 mb-4">
                       <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-sm">
@@ -281,8 +281,8 @@ export default function Team() {
   const memberTemplates = memberTemplateSummary[selectedMember]?.templates || [];
 
   return (
-    <div className="min-h-[calc(100vh-6rem)] flex flex-col animate-fade-in -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8">
-      <div className="sticky top-16 sm:top-20 z-40 border-b border-amber-200/80 bg-gradient-to-r from-amber-50 via-amber-100/95 to-amber-50 backdrop-blur-md shadow-sm px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+    <div className="min-h-[calc(100vh-6rem)] flex flex-col">
+      <div className="border-b border-amber-200/80 bg-gradient-to-r from-amber-50 via-amber-100/95 to-amber-50 px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -313,43 +313,28 @@ export default function Team() {
         </div>
 
         <div className="max-w-7xl mx-auto flex flex-wrap gap-2 mt-4">
-          <button
-            type="button"
-            onClick={() => setActiveTab('tasks')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-              activeTab === 'tasks'
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'bg-white/80 text-amber-800 hover:bg-white border border-amber-200'
-            }`}
-          >
-            {t('dashboard.teamsToDoTabTasks')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('clients')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-              activeTab === 'clients'
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'bg-white/80 text-amber-800 hover:bg-white border border-amber-200'
-            }`}
-          >
-            {t('dashboard.teamsToDoTabClients')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('templates')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-              activeTab === 'templates'
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'bg-white/80 text-amber-800 hover:bg-white border border-amber-200'
-            }`}
-          >
-            {t('dashboard.teamsToDoTabTemplates')}
-          </button>
+          {(['tasks', 'clients', 'templates'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors min-w-[5.5rem] ${
+                activeTab === tab
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                  : 'bg-white/80 text-amber-800 border-amber-200 hover:bg-white'
+              }`}
+            >
+              {tab === 'tasks'
+                ? t('dashboard.teamsToDoTabTasks')
+                : tab === 'clients'
+                  ? t('dashboard.teamsToDoTabClients')
+                  : t('dashboard.teamsToDoTabTemplates')}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gradient-to-b from-amber-50/30 to-white">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 bg-gradient-to-b from-amber-50/30 to-white">
         <div className="max-w-7xl mx-auto">
           {activeTab === 'tasks' ? (
             <>
@@ -551,10 +536,10 @@ export default function Team() {
                     return (
                       <li
                         key={tpl.id}
-                        className={`flex items-center gap-3 p-4 rounded-xl border transition-colors ${
+                        className={`flex items-start gap-3 p-4 rounded-xl border-2 min-h-[4.5rem] ${
                           assignedToMember
                             ? 'border-amber-400 bg-amber-50/80'
-                            : 'border-amber-200 bg-white hover:bg-amber-50/60'
+                            : 'border-amber-200 bg-white'
                         }`}
                       >
                         <input
@@ -562,21 +547,21 @@ export default function Team() {
                           checked={assignedToMember}
                           disabled={loading}
                           onChange={() => void toggleTemplateAssignment(tpl, !assignedToMember)}
-                          className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
+                          className="mt-0.5 w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
                           aria-label={tpl.name}
                         />
-                        <FileText className="w-5 h-5 text-amber-700 shrink-0" />
+                        <FileText className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
-                          {assignedElsewhere ? (
-                            <p className="text-xs text-amber-700/80 mt-0.5">
-                              {t('dashboard.teamsToDoAssignedToOther', {
-                                member: tpl.assigned_team_member || '',
-                              })}
-                            </p>
-                          ) : null}
+                          <p className="font-semibold text-amber-950 line-clamp-2 leading-snug">{tpl.name}</p>
+                          <p className="text-xs text-amber-700/80 mt-1 min-h-[1rem]">
+                            {assignedElsewhere
+                              ? t('dashboard.teamsToDoAssignedToOther', {
+                                  member: tpl.assigned_team_member || '',
+                                })
+                              : '\u00A0'}
+                          </p>
                         </div>
-                        <span className="text-xs font-semibold text-amber-700 shrink-0 text-right">
+                        <span className="text-xs font-semibold text-amber-700 shrink-0 text-right pt-0.5">
                           {t('dashboard.teamsToDoClientCount', { count: clientCount })}
                         </span>
                       </li>
