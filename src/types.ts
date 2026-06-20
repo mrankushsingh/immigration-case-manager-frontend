@@ -5,6 +5,8 @@ export interface CaseTemplate {
   required_documents: RequiredDocument[];
   reminder_interval_days: number;
   administrative_silence_days: number;
+  /** YONA, LEDJANA, CAROLINA, MILAGROS, YUSTI */
+  assigned_team_member?: string;
   created_at: string;
   updated_at: string;
 }

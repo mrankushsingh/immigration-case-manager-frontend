@@ -4,6 +4,7 @@ import { api } from '../utils/api';
 import { RequiredDocument, CaseTemplate } from '../types';
 import { showToast } from './Toast';
 import { useData } from '../context/DataContext';
+import { TEAM_MEMBERS } from '../utils/teamMembers';
 
 interface Props {
   onClose: () => void;
@@ -82,6 +83,7 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
     description: '',
     reminderIntervalDays: '10',
     administrativeSilenceDays: '60',
+    assignedTeamMember: '',
   });
   const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocument[]>([]);
   const [loading, setLoading] = useState(false);
@@ -97,6 +99,7 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
         description: template.description || '',
         reminderIntervalDays: template.reminder_interval_days.toString(),
         administrativeSilenceDays: template.administrative_silence_days.toString(),
+        assignedTeamMember: template.assigned_team_member || '',
       });
       setRequiredDocuments(template.required_documents || []);
     }
@@ -181,6 +184,7 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
     }
 
     const validDocuments = requiredDocuments.filter((doc) => doc.name.trim() !== '');
+    const assignedTeamMember = formData.assignedTeamMember.trim() || null;
 
     setLoading(true);
     try {
@@ -192,6 +196,7 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
           requiredDocuments: validDocuments,
           reminderIntervalDays: parseInt(formData.reminderIntervalDays) || 10,
           administrativeSilenceDays: parseInt(formData.administrativeSilenceDays) || 60,
+          assignedTeamMember,
         });
         showToast(`Template "${formData.name.trim()}" updated successfully`, 'success');
       } else {
@@ -202,6 +207,7 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
           requiredDocuments: validDocuments,
           reminderIntervalDays: parseInt(formData.reminderIntervalDays) || 10,
           administrativeSilenceDays: parseInt(formData.administrativeSilenceDays) || 60,
+          assignedTeamMember,
         });
         showToast(`Template "${formData.name.trim()}" created successfully`, 'success');
       }
@@ -267,6 +273,22 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-y"
               placeholder="Optional description"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Assigned team member</label>
+            <select
+              value={formData.assignedTeamMember}
+              onChange={(e) => setFormData({ ...formData, assignedTeamMember: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white"
+            >
+              <option value="">None</option>
+              {TEAM_MEMBERS.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

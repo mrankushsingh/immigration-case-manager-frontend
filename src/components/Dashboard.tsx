@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, ChevronRight, Calendar, User, Eye, Hourglass, ArrowRight, Undo2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
-import { Client, Reminder } from '../types';
+import { Client, Reminder, CaseTemplate } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
@@ -15,6 +15,7 @@ import {
   splitReminderFullName,
 } from '../utils/reminderNames';
 import AppointmentsCalendar from './AppointmentsCalendar';
+import { TEAM_MEMBERS, TeamMemberName, normalizeTeamMemberName } from '../utils/teamMembers';
 
 interface DashboardProps {
   onNavigate?: (view: 'templates' | 'clients') => void;
@@ -166,8 +167,7 @@ function recursoAdministrativeSilenceEnded(client: Client): boolean {
   return new Date() > silenceEndDate;
 }
 
-const TEAM_MEMBERS = ['YONA', 'LEDJANA', 'CAROLINA', 'MILAGROS', 'YUSTI'] as const;
-type TeamMemberName = (typeof TEAM_MEMBERS)[number];
+const TEAM_MEMBERS_LIST = TEAM_MEMBERS;
 
 interface TeamMemberTask {
   id: string;
@@ -200,7 +200,7 @@ function groupTeamTasksFromApi(
   const empty = emptyTeamTasksMap();
   for (const row of rows) {
     const m = String(row.teamMember || '').toUpperCase();
-    if (!TEAM_MEMBERS.includes(m as TeamMemberName)) continue;
+    if (!TEAM_MEMBERS_LIST.includes(m as TeamMemberName)) continue;
     const name = m as TeamMemberName;
     empty[name].push({
       id: row.id,
@@ -301,7 +301,7 @@ function DashboardModalSearchInput({
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
   // Use shared data from context (loaded once at app startup)
-  const { clients, templates, reminders, loading, refreshAll, refreshReminders, refreshClients } = useData();
+  const { clients, templates, reminders, loading, refreshAll, refreshReminders, refreshClients, refreshTemplates } = useData();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [returnToRequerimiento, setReturnToRequerimiento] = useState(false);
   const [showReadyToSubmitModal, setShowReadyToSubmitModal] = useState(false);
@@ -325,6 +325,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [teamTaskFormTitle, setTeamTaskFormTitle] = useState('');
   const [teamTaskFormNotes, setTeamTaskFormNotes] = useState('');
   const [teamTaskView, setTeamTaskView] = useState<{ task: TeamMemberTask; member: TeamMemberName } | null>(null);
+  const [teamsToDoTab, setTeamsToDoTab] = useState<'tasks' | 'templates'>('tasks');
+  const [showAssignTemplates, setShowAssignTemplates] = useState(false);
+  const [expandedMemberTemplateId, setExpandedMemberTemplateId] = useState<string | null>(null);
+  const [templateAssignLoadingId, setTemplateAssignLoadingId] = useState<string | null>(null);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarViewMonth, setCalendarViewMonth] = useState(new Date().getMonth() + 1);
@@ -1288,11 +1292,41 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const teamsToDoCount = useMemo(
     () =>
-      TEAM_MEMBERS.reduce((sum, m) => {
+      TEAM_MEMBERS_LIST.reduce((sum, m) => {
         return sum + (teamTasksByMember[m] || []).filter((task) => !task.done).length;
       }, 0),
     [teamTasksByMember]
   );
+
+  const clientsByTemplateId = useMemo(() => {
+    const map: Record<string, Client[]> = {};
+    for (const client of clients) {
+      if (!client.case_template_id) continue;
+      if (!map[client.case_template_id]) map[client.case_template_id] = [];
+      map[client.case_template_id].push(client);
+    }
+    for (const id of Object.keys(map)) {
+      map[id].sort((a, b) =>
+        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+      );
+    }
+    return map;
+  }, [clients]);
+
+  const memberTemplateSummary = useMemo(() => {
+    const summary = {} as Record<TeamMemberName, { templates: CaseTemplate[]; clientCount: number }>;
+    for (const member of TEAM_MEMBERS_LIST) {
+      const memberTemplates = templates.filter(
+        (tpl) => normalizeTeamMemberName(tpl.assigned_team_member) === member
+      );
+      const clientCount = memberTemplates.reduce(
+        (sum, tpl) => sum + (clientsByTemplateId[tpl.id]?.length || 0),
+        0
+      );
+      summary[member] = { templates: memberTemplates, clientCount };
+    }
+    return summary;
+  }, [templates, clientsByTemplateId]);
 
   const closeTeamsToDoModal = useCallback(() => {
     setShowTeamsToDoModal(false);
@@ -1301,7 +1335,35 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     setTeamTaskFormTitle('');
     setTeamTaskFormNotes('');
     setTeamTaskView(null);
+    setTeamsToDoTab('tasks');
+    setShowAssignTemplates(false);
+    setExpandedMemberTemplateId(null);
+    setTemplateAssignLoadingId(null);
   }, []);
+
+  const toggleTemplateAssignment = useCallback(
+    async (template: CaseTemplate, assign: boolean) => {
+      if (!teamsToDoSelectedMember) return;
+      setTemplateAssignLoadingId(template.id);
+      try {
+        await api.updateCaseTemplate(template.id, {
+          assignedTeamMember: assign ? teamsToDoSelectedMember : null,
+        });
+        await refreshTemplates();
+        showToast(
+          assign
+            ? t('dashboard.teamsToDoTemplateAssigned', { name: template.name })
+            : t('dashboard.teamsToDoTemplateUnassigned', { name: template.name }),
+          'success'
+        );
+      } catch (error: any) {
+        showToast(error.message || 'Failed to update template', 'error');
+      } finally {
+        setTemplateAssignLoadingId(null);
+      }
+    },
+    [teamsToDoSelectedMember, refreshTemplates, t]
+  );
 
   const submitTeamTask = useCallback(async () => {
     if (!teamsToDoSelectedMember) return;
@@ -3841,6 +3903,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         setTeamTaskFormTitle('');
                         setTeamTaskFormNotes('');
                         setTeamTaskView(null);
+                        setTeamsToDoTab('tasks');
+                        setShowAssignTemplates(false);
+                        setExpandedMemberTemplateId(null);
                       }}
                       className="p-2 text-amber-800 hover:bg-amber-200/80 rounded-lg transition-colors shrink-0"
                       aria-label={t('dashboard.teamsToDoBack')}
@@ -3881,14 +3946,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
                 ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {TEAM_MEMBERS.map((name) => {
+                  {TEAM_MEMBERS_LIST.map((name) => {
                     const tasks = teamTasksByMember[name] || [];
                     const openCount = tasks.filter((task) => !task.done).length;
+                    const { templates: memberTemplates, clientCount } = memberTemplateSummary[name];
                     return (
                       <button
                         key={name}
                         type="button"
-                        onClick={() => setTeamsToDoSelectedMember(name)}
+                        onClick={() => {
+                          setTeamsToDoSelectedMember(name);
+                          setTeamsToDoTab('tasks');
+                          setShowAssignTemplates(false);
+                          setExpandedMemberTemplateId(null);
+                        }}
                         className="flex flex-col items-stretch text-left p-5 rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-md transition-all active:scale-[0.99]"
                       >
                         <div className="flex items-center gap-3 mb-2">
@@ -3900,6 +3971,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         <span className="text-sm text-amber-700/80 font-medium">
                           {t('dashboard.teamsToDoOpenTasks', { count: openCount })}
                         </span>
+                        <span className="text-sm text-amber-700/80 font-medium mt-1">
+                          {t('dashboard.teamsToDoTemplatesClients', {
+                            templates: memberTemplates.length,
+                            clients: clientCount,
+                          })}
+                        </span>
                       </button>
                     );
                   })}
@@ -3907,6 +3984,36 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 )
               ) : (
                 <div>
+                  <div className="flex flex-wrap gap-2 mb-5 border-b border-amber-200 pb-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTeamsToDoTab('tasks');
+                        setShowAssignTemplates(false);
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        teamsToDoTab === 'tasks'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                      }`}
+                    >
+                      {t('dashboard.teamsToDoTabTasks')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTeamsToDoTab('templates')}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        teamsToDoTab === 'templates'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                      }`}
+                    >
+                      {t('dashboard.teamsToDoTabTemplates')}
+                    </button>
+                  </div>
+
+                  {teamsToDoTab === 'tasks' ? (
+                <>
                   <div className="flex flex-wrap gap-3 mb-5">
                     <button
                       type="button"
@@ -4084,6 +4191,138 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           </li>
                         ))}
                     </ul>
+                  )}
+                </>
+                  ) : (
+                    <div>
+                      <div className="flex flex-wrap gap-3 mb-5">
+                        <button
+                          type="button"
+                          onClick={() => setShowAssignTemplates((open) => !open)}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-amber-300 bg-white text-amber-900 font-semibold text-sm hover:bg-amber-50 transition-all"
+                        >
+                          <FileText className="w-5 h-5" />
+                          {showAssignTemplates
+                            ? t('dashboard.teamsToDoHideAssignTemplates')
+                            : t('dashboard.teamsToDoManageTemplates')}
+                        </button>
+                      </div>
+
+                      {showAssignTemplates ? (
+                        <div className="border-2 border-amber-200 rounded-xl p-4 sm:p-5 mb-6 bg-amber-50/40">
+                          <p className="text-sm text-amber-800 mb-4 font-medium">
+                            {t('dashboard.teamsToDoAssignTemplatesHint')}
+                          </p>
+                          <ul className="space-y-2 max-h-64 overflow-y-auto">
+                            {[...templates]
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((tpl) => {
+                                const assignedToMember =
+                                  normalizeTeamMemberName(tpl.assigned_team_member) ===
+                                  teamsToDoSelectedMember;
+                                const assignedElsewhere =
+                                  !!tpl.assigned_team_member && !assignedToMember;
+                                const loading = templateAssignLoadingId === tpl.id;
+                                return (
+                                  <li
+                                    key={tpl.id}
+                                    className="flex items-center gap-3 p-3 rounded-lg bg-white border border-amber-100"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={assignedToMember}
+                                      disabled={loading}
+                                      onChange={() => void toggleTemplateAssignment(tpl, !assignedToMember)}
+                                      className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
+                                      {assignedElsewhere ? (
+                                        <p className="text-xs text-amber-700/80">
+                                          {t('dashboard.teamsToDoAssignedToOther', {
+                                            member: tpl.assigned_team_member || '',
+                                          })}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                    <span className="text-xs font-semibold text-amber-700 shrink-0">
+                                      {t('dashboard.teamsToDoClientCount', {
+                                        count: clientsByTemplateId[tpl.id]?.length || 0,
+                                      })}
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {(memberTemplateSummary[teamsToDoSelectedMember]?.templates || []).length === 0 ? (
+                        <div className="text-center py-10 border-2 border-dashed border-amber-200 rounded-xl bg-amber-50/30">
+                          <FileText className="w-14 h-14 mx-auto text-amber-300 mb-3" />
+                          <p className="text-gray-600 font-medium">{t('dashboard.teamsToDoNoTemplates')}</p>
+                        </div>
+                      ) : (
+                        <ul className="space-y-3">
+                          {memberTemplateSummary[teamsToDoSelectedMember].templates
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((tpl) => {
+                              const templateClients = clientsByTemplateId[tpl.id] || [];
+                              const expanded = expandedMemberTemplateId === tpl.id;
+                              return (
+                                <li
+                                  key={tpl.id}
+                                  className="rounded-xl border-2 border-amber-200 bg-white overflow-hidden"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedMemberTemplateId(expanded ? null : tpl.id)
+                                    }
+                                    className="w-full flex items-center gap-3 p-4 text-left hover:bg-amber-50/50 transition-colors"
+                                  >
+                                    <FileText className="w-5 h-5 text-amber-700 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
+                                      <p className="text-sm text-amber-700/80">
+                                        {t('dashboard.teamsToDoClientCount', { count: templateClients.length })}
+                                      </p>
+                                    </div>
+                                    <ChevronDown
+                                      className={`w-5 h-5 text-amber-600 shrink-0 transition-transform ${
+                                        expanded ? 'rotate-180' : ''
+                                      }`}
+                                    />
+                                  </button>
+                                  {expanded ? (
+                                    <div className="border-t border-amber-100 bg-amber-50/30 px-4 py-3">
+                                      {templateClients.length === 0 ? (
+                                        <p className="text-sm text-gray-600">{t('dashboard.teamsToDoNoClientsInTemplate')}</p>
+                                      ) : (
+                                        <ul className="space-y-1 max-h-48 overflow-y-auto">
+                                          {templateClients.map((client) => (
+                                            <li
+                                              key={client.id}
+                                              className="text-sm text-amber-950 py-1 px-2 rounded hover:bg-amber-100/60"
+                                            >
+                                              {client.first_name} {client.last_name}
+                                              {client.submitted_to_immigration ? (
+                                                <span className="ml-2 text-xs text-green-700 font-medium">
+                                                  ({t('dashboard.teamsToDoSubmitted')})
+                                                </span>
+                                              ) : null}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  ) : null}
+                                </li>
+                              );
+                            })}
+                        </ul>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
