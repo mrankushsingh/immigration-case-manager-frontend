@@ -76,7 +76,7 @@ export default function Team() {
   const [teamTasksByMember, setTeamTasksByMember] = useState(emptyTeamTasksMap);
   const [teamTasksLoading, setTeamTasksLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMemberName | null>(null);
-  const [activeTab, setActiveTab] = useState<'tasks' | 'templates'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'clients' | 'templates'>('tasks');
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskFormTitle, setTaskFormTitle] = useState('');
   const [taskFormNotes, setTaskFormNotes] = useState('');
@@ -326,6 +326,17 @@ export default function Team() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('clients')}
+            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+              activeTab === 'clients'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'bg-white/80 text-amber-800 hover:bg-white border border-amber-200'
+            }`}
+          >
+            {t('dashboard.teamsToDoTabClients')}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('templates')}
             className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
               activeTab === 'templates'
@@ -505,88 +516,73 @@ export default function Team() {
                 </ul>
               )}
             </>
+          ) : activeTab === 'clients' ? (
+            <div>
+              <p className="text-sm text-amber-700/80 mb-4">{t('dashboard.teamsToDoClickClient')}</p>
+              {memberClients.length === 0 ? (
+                <div className="text-center py-16 border-2 border-dashed border-amber-200 rounded-2xl bg-white/80">
+                  <Users className="w-16 h-16 mx-auto text-amber-300 mb-4" />
+                  <p className="text-gray-600 font-medium text-lg">{t('dashboard.teamsToDoNoClientsForMember')}</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                  {memberClients.map((client) => (
+                    <TeamClientCard
+                      key={client.id}
+                      client={client}
+                      onClick={() => setSelectedClient(client)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-8 items-start">
-              {/* Clients */}
-              <section className="rounded-2xl border-2 border-amber-200 bg-white/90 shadow-sm overflow-hidden min-h-[320px] flex flex-col">
-                <div className="px-5 py-4 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-amber-100/80">
-                  <h2 className="text-lg font-bold text-amber-900">{t('common.clients')}</h2>
-                  <p className="text-sm text-amber-700/80 mt-1">{t('dashboard.teamsToDoClickClient')}</p>
-                </div>
-                <div className="flex-1 p-4 sm:p-5 overflow-y-auto max-h-[calc(100vh-16rem)]">
-                  {memberClients.length === 0 ? (
-                    <div className="text-center py-12 text-gray-600">
-                      <Users className="w-12 h-12 mx-auto text-amber-300 mb-3" />
-                      <p className="font-medium">{t('dashboard.teamsToDoNoClientsForMember')}</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3">
-                      {memberClients.map((client) => (
-                        <TeamClientCard
-                          key={client.id}
-                          client={client}
-                          compact
-                          onClick={() => setSelectedClient(client)}
+            <div>
+              <p className="text-sm text-amber-700/80 mb-4">{t('dashboard.teamsToDoAssignTemplatesHint')}</p>
+              <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {[...templates]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((tpl) => {
+                    const assignedToMember =
+                      normalizeTeamMemberName(tpl.assigned_team_member) === selectedMember;
+                    const assignedElsewhere = !!tpl.assigned_team_member && !assignedToMember;
+                    const loading = templateAssignLoadingId === tpl.id;
+                    const clientCount = clientsByTemplateId[tpl.id]?.length || 0;
+                    return (
+                      <li
+                        key={tpl.id}
+                        className={`flex items-center gap-3 p-4 rounded-xl border transition-colors ${
+                          assignedToMember
+                            ? 'border-amber-400 bg-amber-50/80'
+                            : 'border-amber-200 bg-white hover:bg-amber-50/60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={assignedToMember}
+                          disabled={loading}
+                          onChange={() => void toggleTemplateAssignment(tpl, !assignedToMember)}
+                          className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
+                          aria-label={tpl.name}
                         />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* Templates */}
-              <section className="rounded-2xl border-2 border-amber-200 bg-white/90 shadow-sm overflow-hidden min-h-[320px] flex flex-col">
-                <div className="px-5 py-4 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-amber-100/80">
-                  <h2 className="text-lg font-bold text-amber-900">{t('common.templates')}</h2>
-                  <p className="text-sm text-amber-700/80 mt-1">{t('dashboard.teamsToDoAssignTemplatesHint')}</p>
-                </div>
-                <div className="flex-1 p-4 sm:p-5 overflow-y-auto max-h-[calc(100vh-16rem)]">
-                  <ul className="space-y-2">
-                    {[...templates]
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((tpl) => {
-                        const assignedToMember =
-                          normalizeTeamMemberName(tpl.assigned_team_member) === selectedMember;
-                        const assignedElsewhere = !!tpl.assigned_team_member && !assignedToMember;
-                        const loading = templateAssignLoadingId === tpl.id;
-                        const clientCount = clientsByTemplateId[tpl.id]?.length || 0;
-                        return (
-                          <li
-                            key={tpl.id}
-                            className={`flex items-center gap-3 p-4 rounded-xl border transition-colors ${
-                              assignedToMember
-                                ? 'border-amber-400 bg-amber-50/80'
-                                : 'border-amber-100 bg-amber-50/30 hover:bg-amber-50/60'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={assignedToMember}
-                              disabled={loading}
-                              onChange={() => void toggleTemplateAssignment(tpl, !assignedToMember)}
-                              className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
-                              aria-label={tpl.name}
-                            />
-                            <FileText className="w-5 h-5 text-amber-700 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
-                              {assignedElsewhere ? (
-                                <p className="text-xs text-amber-700/80 mt-0.5">
-                                  {t('dashboard.teamsToDoAssignedToOther', {
-                                    member: tpl.assigned_team_member || '',
-                                  })}
-                                </p>
-                              ) : null}
-                            </div>
-                            <span className="text-xs font-semibold text-amber-700 shrink-0 text-right">
-                              {t('dashboard.teamsToDoClientCount', { count: clientCount })}
-                            </span>
-                          </li>
-                        );
-                      })}
-                  </ul>
-                </div>
-              </section>
+                        <FileText className="w-5 h-5 text-amber-700 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
+                          {assignedElsewhere ? (
+                            <p className="text-xs text-amber-700/80 mt-0.5">
+                              {t('dashboard.teamsToDoAssignedToOther', {
+                                member: tpl.assigned_team_member || '',
+                              })}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="text-xs font-semibold text-amber-700 shrink-0 text-right">
+                          {t('dashboard.teamsToDoClientCount', { count: clientCount })}
+                        </span>
+                      </li>
+                    );
+                  })}
+              </ul>
             </div>
           )}
         </div>
