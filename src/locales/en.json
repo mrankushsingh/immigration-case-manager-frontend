@@ -136,6 +136,8 @@
     "teamsToDoTemplateAssigned": "Template \"{name}\" assigned.",
     "teamsToDoTemplateUnassigned": "Template \"{name}\" unassigned.",
     "teamsToDoSubmitted": "submitted",
+    "teamsToDoAllClients": "All clients",
+    "teamsToDoClickClient": "Tap a client card to open their case",
     "pagos": "PAYMENTS",
     "pagosDesc": "Pending payments",
     "paytrack": "PAYTRACK",

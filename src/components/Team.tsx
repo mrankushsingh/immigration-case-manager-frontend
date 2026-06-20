@@ -8,12 +8,14 @@ import {
   Plus,
   Trash2,
   User,
+  Users,
   X,
 } from 'lucide-react';
 import { api } from '../utils/api';
 import { CaseTemplate, Client } from '../types';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
+import ClientDetailsModal from './ClientDetailsModal';
 import { useData } from '../context/DataContext';
 import { TEAM_MEMBERS, TeamMemberName, normalizeTeamMemberName } from '../utils/teamMembers';
 import {
@@ -22,8 +24,56 @@ import {
   groupTeamTasksFromApi,
 } from '../utils/teamTasks';
 
+function TeamClientCard({
+  client,
+  onClick,
+  compact = false,
+}: {
+  client: Client;
+  onClick: () => void;
+  compact?: boolean;
+}) {
+  const submittedCount = client.required_documents?.filter((d) => d.submitted).length || 0;
+  const totalDocs = client.required_documents?.length || 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left glass-gold rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-md transition-all active:scale-[0.99] cursor-pointer ${
+        compact ? 'p-3' : 'p-4 sm:p-5'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0 flex-1">
+          <h3 className={`font-bold text-amber-900 truncate ${compact ? 'text-sm' : 'text-base sm:text-lg'}`}>
+            {client.first_name} {client.last_name}
+          </h3>
+          <p className={`text-amber-700/70 font-medium truncate ${compact ? 'text-xs mt-0.5' : 'text-sm mt-1'}`}>
+            {client.case_type || t('clients.noTemplate')}
+          </p>
+        </div>
+        <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2 rounded-lg shadow-sm shrink-0">
+          <Users className={`text-amber-800 ${compact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+        </div>
+      </div>
+      <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${compact ? 'text-xs' : 'text-sm'} pt-2 border-t border-amber-200/50`}>
+        <span className="text-amber-700/80">
+          {t('clients.documents')}:{' '}
+          <span className="font-bold text-amber-900">
+            {submittedCount}/{totalDocs}
+          </span>
+        </span>
+        {client.submitted_to_immigration ? (
+          <span className="text-green-700 font-semibold">{t('dashboard.teamsToDoSubmitted')}</span>
+        ) : null}
+      </div>
+    </button>
+  );
+}
+
 export default function Team() {
-  const { clients, templates, refreshTemplates } = useData();
+  const { clients, templates, refreshTemplates, refreshClients } = useData();
   const [teamTasksByMember, setTeamTasksByMember] = useState(emptyTeamTasksMap);
   const [teamTasksLoading, setTeamTasksLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMemberName | null>(null);
@@ -35,6 +85,7 @@ export default function Team() {
   const [showAssignTemplates, setShowAssignTemplates] = useState(false);
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
   const [templateAssignLoadingId, setTemplateAssignLoadingId] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   const fetchTeamTasks = useCallback(async () => {
     try {
@@ -81,6 +132,23 @@ export default function Team() {
     }
     return summary;
   }, [templates, clientsByTemplateId]);
+
+  const memberClients = useMemo(() => {
+    if (!selectedMember) return [];
+    const memberTemplates = memberTemplateSummary[selectedMember]?.templates || [];
+    const seen = new Set<string>();
+    const list: Client[] = [];
+    for (const tpl of memberTemplates) {
+      for (const client of clientsByTemplateId[tpl.id] || []) {
+        if (seen.has(client.id)) continue;
+        seen.add(client.id);
+        list.push(client);
+      }
+    }
+    return list.sort((a, b) =>
+      `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+    );
+  }, [selectedMember, memberTemplateSummary, clientsByTemplateId]);
 
   const resetMemberDetail = useCallback(() => {
     setSelectedMember(null);
@@ -449,6 +517,24 @@ export default function Team() {
             </>
           ) : (
             <>
+              {memberClients.length > 0 ? (
+                <div className="mb-8">
+                  <h2 className="text-lg sm:text-xl font-bold text-amber-900 mb-1">
+                    {t('dashboard.teamsToDoAllClients')}
+                  </h2>
+                  <p className="text-sm text-amber-700/80 mb-4">{t('dashboard.teamsToDoClickClient')}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                    {memberClients.map((client) => (
+                      <TeamClientCard
+                        key={client.id}
+                        client={client}
+                        onClick={() => setSelectedClient(client)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap gap-3 mb-6">
                 <button
                   type="button"
@@ -549,21 +635,16 @@ export default function Team() {
                               {templateClients.length === 0 ? (
                                 <p className="text-sm text-gray-600">{t('dashboard.teamsToDoNoClientsInTemplate')}</p>
                               ) : (
-                                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-96 overflow-y-auto">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[28rem] overflow-y-auto pr-1">
                                   {templateClients.map((client) => (
-                                    <li
+                                    <TeamClientCard
                                       key={client.id}
-                                      className="text-sm text-amber-950 py-2 px-3 rounded-lg hover:bg-amber-100/60"
-                                    >
-                                      {client.first_name} {client.last_name}
-                                      {client.submitted_to_immigration ? (
-                                        <span className="ml-2 text-xs text-green-700 font-medium">
-                                          ({t('dashboard.teamsToDoSubmitted')})
-                                        </span>
-                                      ) : null}
-                                    </li>
+                                      client={client}
+                                      compact
+                                      onClick={() => setSelectedClient(client)}
+                                    />
                                   ))}
-                                </ul>
+                                </div>
                               )}
                             </div>
                           ) : null}
@@ -661,6 +742,17 @@ export default function Team() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {selectedClient ? (
+        <ClientDetailsModal
+          client={selectedClient}
+          onClose={() => setSelectedClient(null)}
+          onSuccess={async () => {
+            setSelectedClient(null);
+            await refreshClients();
+          }}
+        />
       ) : null}
     </div>
   );

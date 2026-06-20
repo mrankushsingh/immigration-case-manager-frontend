@@ -137,6 +137,8 @@
     "teamsToDoTemplateAssigned": "Plantilla \"{name}\" asignada.",
     "teamsToDoTemplateUnassigned": "Plantilla \"{name}\" desasignada.",
     "teamsToDoSubmitted": "presentado",
+    "teamsToDoAllClients": "Todos los clientes",
+    "teamsToDoClickClient": "Pulse una tarjeta de cliente para abrir su expediente",
     "pagos": "PAGOS",
     "pagosDesc": "Pagos pendientes",
     "paytrack": "PAYTRACK",
