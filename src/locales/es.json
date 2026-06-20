@@ -139,6 +139,7 @@
     "teamsToDoSubmitted": "presentado",
     "teamsToDoAllClients": "Todos los clientes",
     "teamsToDoClickClient": "Pulse una tarjeta de cliente para abrir su expediente",
+    "teamsToDoNoClientsForMember": "Aún no hay clientes en las plantillas asignadas.",
     "pagos": "PAGOS",
     "pagosDesc": "Pagos pendientes",
     "paytrack": "PAYTRACK",

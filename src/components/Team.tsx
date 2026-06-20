@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ChevronDown,
   ChevronLeft,
   Eye,
-  FileText,
   ListTodo,
   Plus,
   Trash2,
@@ -73,7 +71,7 @@ function TeamClientCard({
 }
 
 export default function Team() {
-  const { clients, templates, refreshTemplates, refreshClients } = useData();
+  const { clients, templates, refreshClients } = useData();
   const [teamTasksByMember, setTeamTasksByMember] = useState(emptyTeamTasksMap);
   const [teamTasksLoading, setTeamTasksLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMemberName | null>(null);
@@ -82,9 +80,6 @@ export default function Team() {
   const [taskFormTitle, setTaskFormTitle] = useState('');
   const [taskFormNotes, setTaskFormNotes] = useState('');
   const [taskView, setTaskView] = useState<TeamMemberTask | null>(null);
-  const [showAssignTemplates, setShowAssignTemplates] = useState(false);
-  const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
-  const [templateAssignLoadingId, setTemplateAssignLoadingId] = useState<string | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   const fetchTeamTasks = useCallback(async () => {
@@ -157,44 +152,16 @@ export default function Team() {
     setTaskFormNotes('');
     setTaskView(null);
     setActiveTab('tasks');
-    setShowAssignTemplates(false);
-    setExpandedTemplateId(null);
   }, []);
 
   const openMember = useCallback((name: TeamMemberName) => {
     setSelectedMember(name);
     setActiveTab('tasks');
-    setShowAssignTemplates(false);
-    setExpandedTemplateId(null);
     setShowTaskForm(false);
     setTaskFormTitle('');
     setTaskFormNotes('');
     setTaskView(null);
   }, []);
-
-  const toggleTemplateAssignment = useCallback(
-    async (template: CaseTemplate, assign: boolean) => {
-      if (!selectedMember) return;
-      setTemplateAssignLoadingId(template.id);
-      try {
-        await api.updateCaseTemplate(template.id, {
-          assignedTeamMember: assign ? selectedMember : null,
-        });
-        await refreshTemplates();
-        showToast(
-          assign
-            ? t('dashboard.teamsToDoTemplateAssigned', { name: template.name })
-            : t('dashboard.teamsToDoTemplateUnassigned', { name: template.name }),
-          'success'
-        );
-      } catch (error: any) {
-        showToast(error.message || 'Failed to update template', 'error');
-      } finally {
-        setTemplateAssignLoadingId(null);
-      }
-    },
-    [selectedMember, refreshTemplates]
-  );
 
   const submitTeamTask = useCallback(async () => {
     if (!selectedMember) return;
@@ -322,10 +289,7 @@ export default function Team() {
         <div className="max-w-7xl mx-auto flex flex-wrap gap-2 mt-4">
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('tasks');
-              setShowAssignTemplates(false);
-            }}
+            onClick={() => setActiveTab('tasks')}
             className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
               activeTab === 'tasks'
                 ? 'bg-amber-600 text-white shadow-md'
@@ -515,145 +479,27 @@ export default function Team() {
                 </ul>
               )}
             </>
-          ) : (
-            <>
-              {memberClients.length > 0 ? (
-                <div className="mb-8">
-                  <h2 className="text-lg sm:text-xl font-bold text-amber-900 mb-1">
-                    {t('dashboard.teamsToDoAllClients')}
-                  </h2>
-                  <p className="text-sm text-amber-700/80 mb-4">{t('dashboard.teamsToDoClickClient')}</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                    {memberClients.map((client) => (
-                      <TeamClientCard
-                        key={client.id}
-                        client={client}
-                        onClick={() => setSelectedClient(client)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap gap-3 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAssignTemplates((open) => !open)}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border-2 border-amber-300 bg-white text-amber-900 font-semibold text-sm hover:bg-amber-50 transition-all shadow-sm"
-                >
-                  <FileText className="w-5 h-5" />
-                  {showAssignTemplates
-                    ? t('dashboard.teamsToDoHideAssignTemplates')
-                    : t('dashboard.teamsToDoManageTemplates')}
-                </button>
+          ) : memberClients.length > 0 ? (
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-amber-900 mb-1">
+                {t('dashboard.teamsToDoAllClients')}
+              </h2>
+              <p className="text-sm text-amber-700/80 mb-4">{t('dashboard.teamsToDoClickClient')}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                {memberClients.map((client) => (
+                  <TeamClientCard
+                    key={client.id}
+                    client={client}
+                    onClick={() => setSelectedClient(client)}
+                  />
+                ))}
               </div>
-
-              {showAssignTemplates ? (
-                <div className="border-2 border-amber-200 rounded-2xl p-5 sm:p-6 mb-8 bg-white shadow-sm">
-                  <p className="text-sm text-amber-800 mb-4 font-medium">
-                    {t('dashboard.teamsToDoAssignTemplatesHint')}
-                  </p>
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[...templates]
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((tpl) => {
-                        const assignedToMember =
-                          normalizeTeamMemberName(tpl.assigned_team_member) === selectedMember;
-                        const assignedElsewhere = !!tpl.assigned_team_member && !assignedToMember;
-                        const loading = templateAssignLoadingId === tpl.id;
-                        return (
-                          <li
-                            key={tpl.id}
-                            className="flex items-center gap-3 p-4 rounded-xl bg-amber-50/50 border border-amber-100"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={assignedToMember}
-                              disabled={loading}
-                              onChange={() => void toggleTemplateAssignment(tpl, !assignedToMember)}
-                              className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
-                              {assignedElsewhere ? (
-                                <p className="text-xs text-amber-700/80">
-                                  {t('dashboard.teamsToDoAssignedToOther', {
-                                    member: tpl.assigned_team_member || '',
-                                  })}
-                                </p>
-                              ) : null}
-                            </div>
-                            <span className="text-xs font-semibold text-amber-700 shrink-0">
-                              {t('dashboard.teamsToDoClientCount', {
-                                count: clientsByTemplateId[tpl.id]?.length || 0,
-                              })}
-                            </span>
-                          </li>
-                        );
-                      })}
-                  </ul>
-                </div>
-              ) : null}
-
-              {memberTemplates.length === 0 ? (
-                <div className="text-center py-16 border-2 border-dashed border-amber-200 rounded-2xl bg-white/80">
-                  <FileText className="w-16 h-16 mx-auto text-amber-300 mb-4" />
-                  <p className="text-gray-600 font-medium text-lg">{t('dashboard.teamsToDoNoTemplates')}</p>
-                </div>
-              ) : (
-                <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {memberTemplates
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((tpl) => {
-                      const templateClients = clientsByTemplateId[tpl.id] || [];
-                      const expanded = expandedTemplateId === tpl.id;
-                      return (
-                        <li
-                          key={tpl.id}
-                          className="rounded-2xl border-2 border-amber-200 bg-white overflow-hidden shadow-sm"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setExpandedTemplateId(expanded ? null : tpl.id)}
-                            className="w-full flex items-center gap-3 p-5 text-left hover:bg-amber-50/50 transition-colors"
-                          >
-                            <FileText className="w-6 h-6 text-amber-700 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-lg text-amber-950 truncate">{tpl.name}</p>
-                              <p className="text-sm text-amber-700/80 mt-1">
-                                {t('dashboard.teamsToDoClientCount', { count: templateClients.length })}
-                              </p>
-                            </div>
-                            <ChevronDown
-                              className={`w-5 h-5 text-amber-600 shrink-0 transition-transform ${
-                                expanded ? 'rotate-180' : ''
-                              }`}
-                            />
-                          </button>
-                          {expanded ? (
-                            <div className="border-t border-amber-100 bg-amber-50/30 px-5 py-4">
-                              {templateClients.length === 0 ? (
-                                <p className="text-sm text-gray-600">{t('dashboard.teamsToDoNoClientsInTemplate')}</p>
-                              ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[28rem] overflow-y-auto pr-1">
-                                  {templateClients.map((client) => (
-                                    <TeamClientCard
-                                      key={client.id}
-                                      client={client}
-                                      compact
-                                      onClick={() => setSelectedClient(client)}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                </ul>
-              )}
-            </>
+            </div>
+          ) : (
+            <div className="text-center py-16 border-2 border-dashed border-amber-200 rounded-2xl bg-white/80">
+              <Users className="w-16 h-16 mx-auto text-amber-300 mb-4" />
+              <p className="text-gray-600 font-medium text-lg">{t('dashboard.teamsToDoNoClientsForMember')}</p>
+            </div>
           )}
         </div>
       </div>

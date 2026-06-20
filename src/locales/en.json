@@ -138,6 +138,7 @@
     "teamsToDoSubmitted": "submitted",
     "teamsToDoAllClients": "All clients",
     "teamsToDoClickClient": "Tap a client card to open their case",
+    "teamsToDoNoClientsForMember": "No clients on assigned templates yet.",
     "pagos": "PAYMENTS",
     "pagosDesc": "Pending payments",
     "paytrack": "PAYTRACK",
