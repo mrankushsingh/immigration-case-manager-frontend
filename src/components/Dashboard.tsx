@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, ChevronRight, Calendar, User, Eye, Hourglass, ArrowRight, Undo2 } from 'lucide-react';
+import { FileText, Users, CheckCircle, Clock, Send, X, AlertCircle, AlertTriangle, Gavel, DollarSign, FilePlus, Lock, Unlock, Bell, Plus, Trash2, Edit2, Search, ChevronDown, BarChart3, TrendingUp, ListTodo, ChevronLeft, ChevronRight, Calendar, Hourglass, ArrowRight, Undo2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { api } from '../utils/api';
-import { Client, Reminder, CaseTemplate } from '../types';
+import { Client, Reminder } from '../types';
 import ClientDetailsModal from './ClientDetailsModal';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
@@ -15,10 +15,11 @@ import {
   splitReminderFullName,
 } from '../utils/reminderNames';
 import AppointmentsCalendar from './AppointmentsCalendar';
-import { TEAM_MEMBERS, TeamMemberName, normalizeTeamMemberName } from '../utils/teamMembers';
+import { TEAM_MEMBERS } from '../utils/teamMembers';
+import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
 
 interface DashboardProps {
-  onNavigate?: (view: 'templates' | 'clients') => void;
+  onNavigate?: (view: 'templates' | 'clients' | 'team') => void;
 }
 
 /** Align with Clients list / API: searchable client fields */
@@ -169,50 +170,6 @@ function recursoAdministrativeSilenceEnded(client: Client): boolean {
 
 const TEAM_MEMBERS_LIST = TEAM_MEMBERS;
 
-interface TeamMemberTask {
-  id: string;
-  title: string;
-  notes: string;
-  done: boolean;
-  createdAt: string;
-}
-
-function emptyTeamTasksMap(): Record<TeamMemberName, TeamMemberTask[]> {
-  return {
-    YONA: [],
-    LEDJANA: [],
-    CAROLINA: [],
-    MILAGROS: [],
-    YUSTI: [],
-  };
-}
-
-function groupTeamTasksFromApi(
-  rows: Array<{
-    id: string;
-    teamMember: string;
-    title: string;
-    notes?: string;
-    done: boolean;
-    createdAt: string;
-  }>
-): Record<TeamMemberName, TeamMemberTask[]> {
-  const empty = emptyTeamTasksMap();
-  for (const row of rows) {
-    const m = String(row.teamMember || '').toUpperCase();
-    if (!TEAM_MEMBERS_LIST.includes(m as TeamMemberName)) continue;
-    const name = m as TeamMemberName;
-    empty[name].push({
-      id: row.id,
-      title: row.title,
-      notes: typeof row.notes === 'string' ? row.notes : '',
-      done: !!row.done,
-      createdAt: row.createdAt,
-    });
-  }
-  return empty;
-}
-
 function reminderMatchesDashboardSearch(reminder: Reminder, raw: string): boolean {
   const q = raw.trim().toLowerCase();
   if (!q) return true;
@@ -301,7 +258,7 @@ function DashboardModalSearchInput({
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
   // Use shared data from context (loaded once at app startup)
-  const { clients, templates, reminders, loading, refreshAll, refreshReminders, refreshClients, refreshTemplates } = useData();
+  const { clients, templates, reminders, loading, refreshAll, refreshReminders, refreshClients } = useData();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [returnToRequerimiento, setReturnToRequerimiento] = useState(false);
   const [showReadyToSubmitModal, setShowReadyToSubmitModal] = useState(false);
@@ -317,18 +274,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showPagosModal, setShowPagosModal] = useState(false);
   const [showPayTrackModal, setShowPayTrackModal] = useState(false);
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
-  const [showTeamsToDoModal, setShowTeamsToDoModal] = useState(false);
-  const [teamTasksByMember, setTeamTasksByMember] = useState<Record<TeamMemberName, TeamMemberTask[]>>(emptyTeamTasksMap);
-  const [teamTasksLoading, setTeamTasksLoading] = useState(false);
-  const [teamsToDoSelectedMember, setTeamsToDoSelectedMember] = useState<TeamMemberName | null>(null);
-  const [showTeamTaskForm, setShowTeamTaskForm] = useState(false);
-  const [teamTaskFormTitle, setTeamTaskFormTitle] = useState('');
-  const [teamTaskFormNotes, setTeamTaskFormNotes] = useState('');
-  const [teamTaskView, setTeamTaskView] = useState<{ task: TeamMemberTask; member: TeamMemberName } | null>(null);
-  const [teamsToDoTab, setTeamsToDoTab] = useState<'tasks' | 'templates'>('tasks');
-  const [showAssignTemplates, setShowAssignTemplates] = useState(false);
-  const [expandedMemberTemplateId, setExpandedMemberTemplateId] = useState<string | null>(null);
-  const [templateAssignLoadingId, setTemplateAssignLoadingId] = useState<string | null>(null);
+  const [teamTasksByMember, setTeamTasksByMember] = useState(emptyTeamTasksMap);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarViewMonth, setCalendarViewMonth] = useState(new Date().getMonth() + 1);
@@ -1221,25 +1167,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const fetchTeamTasks = useCallback(async () => {
     try {
-      setTeamTasksLoading(true);
       const rows = await api.getTeamTasks();
       setTeamTasksByMember(groupTeamTasksFromApi(rows));
     } catch (error: any) {
-      showToast(error.message || 'Failed to load team tasks', 'error');
-    } finally {
-      setTeamTasksLoading(false);
+      console.error('Failed to load team tasks:', error);
     }
   }, []);
 
   useEffect(() => {
     void fetchTeamTasks();
   }, [fetchTeamTasks]);
-
-  useEffect(() => {
-    if (showTeamsToDoModal) {
-      void fetchTeamTasks();
-    }
-  }, [showTeamsToDoModal, fetchTeamTasks]);
 
   useEffect(() => {
     if (!showRecursoModal) {
@@ -1297,106 +1234,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       }, 0),
     [teamTasksByMember]
   );
-
-  const clientsByTemplateId = useMemo(() => {
-    const map: Record<string, Client[]> = {};
-    for (const client of clients) {
-      if (!client.case_template_id) continue;
-      if (!map[client.case_template_id]) map[client.case_template_id] = [];
-      map[client.case_template_id].push(client);
-    }
-    for (const id of Object.keys(map)) {
-      map[id].sort((a, b) =>
-        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
-      );
-    }
-    return map;
-  }, [clients]);
-
-  const memberTemplateSummary = useMemo(() => {
-    const summary = {} as Record<TeamMemberName, { templates: CaseTemplate[]; clientCount: number }>;
-    for (const member of TEAM_MEMBERS_LIST) {
-      const memberTemplates = templates.filter(
-        (tpl) => normalizeTeamMemberName(tpl.assigned_team_member) === member
-      );
-      const clientCount = memberTemplates.reduce(
-        (sum, tpl) => sum + (clientsByTemplateId[tpl.id]?.length || 0),
-        0
-      );
-      summary[member] = { templates: memberTemplates, clientCount };
-    }
-    return summary;
-  }, [templates, clientsByTemplateId]);
-
-  const closeTeamsToDoModal = useCallback(() => {
-    setShowTeamsToDoModal(false);
-    setTeamsToDoSelectedMember(null);
-    setShowTeamTaskForm(false);
-    setTeamTaskFormTitle('');
-    setTeamTaskFormNotes('');
-    setTeamTaskView(null);
-    setTeamsToDoTab('tasks');
-    setShowAssignTemplates(false);
-    setExpandedMemberTemplateId(null);
-    setTemplateAssignLoadingId(null);
-  }, []);
-
-  const toggleTemplateAssignment = useCallback(
-    async (template: CaseTemplate, assign: boolean) => {
-      if (!teamsToDoSelectedMember) return;
-      setTemplateAssignLoadingId(template.id);
-      try {
-        await api.updateCaseTemplate(template.id, {
-          assignedTeamMember: assign ? teamsToDoSelectedMember : null,
-        });
-        await refreshTemplates();
-        showToast(
-          assign
-            ? t('dashboard.teamsToDoTemplateAssigned', { name: template.name })
-            : t('dashboard.teamsToDoTemplateUnassigned', { name: template.name }),
-          'success'
-        );
-      } catch (error: any) {
-        showToast(error.message || 'Failed to update template', 'error');
-      } finally {
-        setTemplateAssignLoadingId(null);
-      }
-    },
-    [teamsToDoSelectedMember, refreshTemplates, t]
-  );
-
-  const submitTeamTask = useCallback(async () => {
-    if (!teamsToDoSelectedMember) return;
-    const title = teamTaskFormTitle.trim();
-    if (!title) {
-      showToast(t('dashboard.teamsToDoTitleRequired'), 'error');
-      return;
-    }
-    try {
-      const created = await api.createTeamTask({
-        teamMember: teamsToDoSelectedMember,
-        title,
-        notes: teamTaskFormNotes.trim() || undefined,
-      });
-      const task: TeamMemberTask = {
-        id: created.id,
-        title: created.title,
-        notes: typeof created.notes === 'string' ? created.notes : '',
-        done: !!created.done,
-        createdAt: created.createdAt,
-      };
-      setTeamTasksByMember((prev) => ({
-        ...prev,
-        [teamsToDoSelectedMember]: [task, ...(prev[teamsToDoSelectedMember] || [])],
-      }));
-      setTeamTaskFormTitle('');
-      setTeamTaskFormNotes('');
-      setShowTeamTaskForm(false);
-      showToast(t('dashboard.teamsToDoTaskAdded'), 'success');
-    } catch (error: any) {
-      showToast(error.message || 'Failed to save task', 'error');
-    }
-  }, [teamsToDoSelectedMember, teamTaskFormTitle, teamTaskFormNotes, t]);
 
   // Clients ready to submit (all documents complete, not yet submitted)
   const readyToSubmit = useMemo(() => 
@@ -2128,14 +1965,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         {/* TEAMS TO DO Box */}
         <div
-          onClick={() => {
-            setTeamsToDoSelectedMember(null);
-            setShowTeamTaskForm(false);
-            setTeamTaskFormTitle('');
-            setTeamTaskFormNotes('');
-            setTeamTaskView(null);
-            setShowTeamsToDoModal(true);
-          }}
+          onClick={() => onNavigate?.('team')}
           className="glass-gold rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 glass-hover animate-slide-up cursor-pointer transition-all duration-200 hover:shadow-xl active:scale-95"
           style={{ animationDelay: '0.95s' }}
         >
@@ -3875,552 +3705,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* TEAMS TO DO Modal */}
-      {showTeamsToDoModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeTeamsToDoModal();
-          }}
-        >
-          <div
-            className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col m-2 sm:m-0 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-amber-100">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0">
-                  {teamsToDoSelectedMember ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTeamsToDoSelectedMember(null);
-                        setShowTeamTaskForm(false);
-                        setTeamTaskFormTitle('');
-                        setTeamTaskFormNotes('');
-                        setTeamTaskView(null);
-                        setTeamsToDoTab('tasks');
-                        setShowAssignTemplates(false);
-                        setExpandedMemberTemplateId(null);
-                      }}
-                      className="p-2 text-amber-800 hover:bg-amber-200/80 rounded-lg transition-colors shrink-0"
-                      aria-label={t('dashboard.teamsToDoBack')}
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                  ) : null}
-                  <div className="min-w-0">
-                    <h2 className="text-2xl font-bold text-amber-900">
-                      {teamsToDoSelectedMember || t('dashboard.teamsToDo')}
-                    </h2>
-                    <p className="text-amber-700 mt-1">
-                      {teamsToDoSelectedMember
-                        ? t('dashboard.teamsToDoMemberSubtitle')
-                        : t('dashboard.teamsToDoSelectMember')}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeTeamsToDoModal}
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors shrink-0"
-                  aria-label="Close"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {!teamsToDoSelectedMember ? (
-                teamTasksLoading ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-amber-800/80">
-                    <div
-                      className="w-10 h-10 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin mb-3"
-                      aria-hidden
-                    />
-                    <p className="text-sm font-medium">{t('dashboard.teamsToDoLoading')}</p>
-                  </div>
-                ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {TEAM_MEMBERS_LIST.map((name) => {
-                    const tasks = teamTasksByMember[name] || [];
-                    const openCount = tasks.filter((task) => !task.done).length;
-                    const { templates: memberTemplates, clientCount } = memberTemplateSummary[name];
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => {
-                          setTeamsToDoSelectedMember(name);
-                          setTeamsToDoTab('tasks');
-                          setShowAssignTemplates(false);
-                          setExpandedMemberTemplateId(null);
-                        }}
-                        className="flex flex-col items-stretch text-left p-5 rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-md transition-all active:scale-[0.99]"
-                      >
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-2.5 rounded-lg shadow-sm">
-                            <User className="w-5 h-5 text-amber-900" />
-                          </div>
-                          <span className="text-lg font-bold text-amber-900 tracking-wide">{name}</span>
-                        </div>
-                        <span className="text-sm text-amber-700/80 font-medium">
-                          {t('dashboard.teamsToDoOpenTasks', { count: openCount })}
-                        </span>
-                        <span className="text-sm text-amber-700/80 font-medium mt-1">
-                          {t('dashboard.teamsToDoTemplatesClients', {
-                            templates: memberTemplates.length,
-                            clients: clientCount,
-                          })}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                )
-              ) : (
-                <div>
-                  <div className="flex flex-wrap gap-2 mb-5 border-b border-amber-200 pb-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTeamsToDoTab('tasks');
-                        setShowAssignTemplates(false);
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                        teamsToDoTab === 'tasks'
-                          ? 'bg-amber-600 text-white shadow-sm'
-                          : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
-                      }`}
-                    >
-                      {t('dashboard.teamsToDoTabTasks')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTeamsToDoTab('templates')}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                        teamsToDoTab === 'templates'
-                          ? 'bg-amber-600 text-white shadow-sm'
-                          : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
-                      }`}
-                    >
-                      {t('dashboard.teamsToDoTabTemplates')}
-                    </button>
-                  </div>
-
-                  {teamsToDoTab === 'tasks' ? (
-                <>
-                  <div className="flex flex-wrap gap-3 mb-5">
-                    <button
-                      type="button"
-                      onClick={() => setShowTeamTaskForm((open) => !open)}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Plus className="w-5 h-5" />
-                      {t('dashboard.teamsToDoCreateTask')}
-                    </button>
-                  </div>
-
-                  {showTeamTaskForm ? (
-                    <div className="border-2 border-amber-200 rounded-xl p-4 sm:p-5 mb-6 bg-amber-50/40">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-amber-900 mb-1.5">
-                            {t('dashboard.teamsToDoTaskTitle')} <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={teamTaskFormTitle}
-                            onChange={(e) => setTeamTaskFormTitle(e.target.value)}
-                            className="w-full px-4 py-2.5 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-950"
-                            placeholder={t('dashboard.teamsToDoTaskTitle')}
-                            autoComplete="off"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-amber-900 mb-1.5">
-                            {t('dashboard.teamsToDoTaskNotes')}
-                          </label>
-                          <textarea
-                            value={teamTaskFormNotes}
-                            onChange={(e) => setTeamTaskFormNotes(e.target.value)}
-                            rows={3}
-                            className="w-full px-4 py-2.5 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-amber-950 resize-y min-h-[80px]"
-                            placeholder={t('dashboard.teamsToDoTaskNotes')}
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2 justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowTeamTaskForm(false);
-                              setTeamTaskFormTitle('');
-                              setTeamTaskFormNotes('');
-                            }}
-                            className="px-5 py-2 rounded-xl bg-gray-100 text-gray-800 font-semibold text-sm hover:bg-gray-200 transition-colors"
-                          >
-                            {t('dashboard.teamsToDoCancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={submitTeamTask}
-                            className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold text-sm hover:shadow-md transition-all"
-                          >
-                            {t('dashboard.teamsToDoSaveTask')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {(teamTasksByMember[teamsToDoSelectedMember] || []).length === 0 ? (
-                    <div className="text-center py-10 border-2 border-dashed border-amber-200 rounded-xl bg-amber-50/30">
-                      <ListTodo className="w-14 h-14 mx-auto text-amber-300 mb-3" />
-                      <p className="text-gray-600 font-medium">{t('dashboard.teamsToDoNoTasks')}</p>
-                    </div>
-                  ) : (
-                    <ul className="space-y-3">
-                      {[...(teamTasksByMember[teamsToDoSelectedMember] || [])]
-                        .sort(
-                          (a, b) =>
-                            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                        )
-                        .map((task) => (
-                          <li
-                            key={task.id}
-                            className={`flex gap-3 p-4 rounded-xl border-2 transition-colors ${
-                              task.done
-                                ? 'border-amber-100 bg-amber-50/40 opacity-75'
-                                : 'border-amber-200 bg-white hover:border-amber-300'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={task.done}
-                              onChange={async () => {
-                                if (!teamsToDoSelectedMember) return;
-                                const next = !task.done;
-                                setTeamTasksByMember((prev) => ({
-                                  ...prev,
-                                  [teamsToDoSelectedMember]: (prev[teamsToDoSelectedMember] || []).map((x) =>
-                                    x.id === task.id ? { ...x, done: next } : x
-                                  ),
-                                }));
-                                try {
-                                  await api.updateTeamTask(task.id, { done: next });
-                                } catch (error: any) {
-                                  setTeamTasksByMember((prev) => ({
-                                    ...prev,
-                                    [teamsToDoSelectedMember]: (prev[teamsToDoSelectedMember] || []).map((x) =>
-                                      x.id === task.id ? { ...x, done: task.done } : x
-                                    ),
-                                  }));
-                                  showToast(error.message || 'Failed to update task', 'error');
-                                }
-                              }}
-                              className="mt-1 w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-                              aria-label={t('dashboard.teamsToDoMarkDone')}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!teamsToDoSelectedMember) return;
-                                  setTeamTaskView({ task, member: teamsToDoSelectedMember });
-                                }}
-                                className="text-left w-full group/title"
-                              >
-                                <p
-                                  className={`font-semibold text-amber-950 group-hover/title:text-amber-700 group-hover/title:underline underline-offset-2 ${
-                                    task.done ? 'line-through text-amber-700' : ''
-                                  }`}
-                                >
-                                  {task.title}
-                                </p>
-                              </button>
-                              {task.notes ? (
-                                <p className="text-sm text-gray-600 mt-1 line-clamp-2 break-words">
-                                  {task.notes}
-                                </p>
-                              ) : null}
-                            </div>
-                            <div className="flex items-start gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!teamsToDoSelectedMember) return;
-                                setTeamTaskView({ task, member: teamsToDoSelectedMember });
-                              }}
-                              className="p-2 text-gray-400 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors"
-                              title={t('dashboard.teamsToDoViewTask')}
-                              aria-label={t('dashboard.teamsToDoViewTask')}
-                            >
-                              <Eye className="w-5 h-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (!teamsToDoSelectedMember) return;
-                                const prevTasks = teamTasksByMember[teamsToDoSelectedMember] || [];
-                                setTeamTasksByMember((prev) => ({
-                                  ...prev,
-                                  [teamsToDoSelectedMember]: (prev[teamsToDoSelectedMember] || []).filter(
-                                    (x) => x.id !== task.id
-                                  ),
-                                }));
-                                try {
-                                  await api.deleteTeamTask(task.id);
-                                } catch (error: any) {
-                                  setTeamTasksByMember((prev) => ({
-                                    ...prev,
-                                    [teamsToDoSelectedMember]: prevTasks,
-                                  }));
-                                  showToast(error.message || 'Failed to delete task', 'error');
-                                }
-                              }}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors self-start"
-                              aria-label="Delete task"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                            </div>
-                          </li>
-                        ))}
-                    </ul>
-                  )}
-                </>
-                  ) : (
-                    <div>
-                      <div className="flex flex-wrap gap-3 mb-5">
-                        <button
-                          type="button"
-                          onClick={() => setShowAssignTemplates((open) => !open)}
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-amber-300 bg-white text-amber-900 font-semibold text-sm hover:bg-amber-50 transition-all"
-                        >
-                          <FileText className="w-5 h-5" />
-                          {showAssignTemplates
-                            ? t('dashboard.teamsToDoHideAssignTemplates')
-                            : t('dashboard.teamsToDoManageTemplates')}
-                        </button>
-                      </div>
-
-                      {showAssignTemplates ? (
-                        <div className="border-2 border-amber-200 rounded-xl p-4 sm:p-5 mb-6 bg-amber-50/40">
-                          <p className="text-sm text-amber-800 mb-4 font-medium">
-                            {t('dashboard.teamsToDoAssignTemplatesHint')}
-                          </p>
-                          <ul className="space-y-2 max-h-64 overflow-y-auto">
-                            {[...templates]
-                              .sort((a, b) => a.name.localeCompare(b.name))
-                              .map((tpl) => {
-                                const assignedToMember =
-                                  normalizeTeamMemberName(tpl.assigned_team_member) ===
-                                  teamsToDoSelectedMember;
-                                const assignedElsewhere =
-                                  !!tpl.assigned_team_member && !assignedToMember;
-                                const loading = templateAssignLoadingId === tpl.id;
-                                return (
-                                  <li
-                                    key={tpl.id}
-                                    className="flex items-center gap-3 p-3 rounded-lg bg-white border border-amber-100"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={assignedToMember}
-                                      disabled={loading}
-                                      onChange={() => void toggleTemplateAssignment(tpl, !assignedToMember)}
-                                      className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
-                                      {assignedElsewhere ? (
-                                        <p className="text-xs text-amber-700/80">
-                                          {t('dashboard.teamsToDoAssignedToOther', {
-                                            member: tpl.assigned_team_member || '',
-                                          })}
-                                        </p>
-                                      ) : null}
-                                    </div>
-                                    <span className="text-xs font-semibold text-amber-700 shrink-0">
-                                      {t('dashboard.teamsToDoClientCount', {
-                                        count: clientsByTemplateId[tpl.id]?.length || 0,
-                                      })}
-                                    </span>
-                                  </li>
-                                );
-                              })}
-                          </ul>
-                        </div>
-                      ) : null}
-
-                      {(memberTemplateSummary[teamsToDoSelectedMember]?.templates || []).length === 0 ? (
-                        <div className="text-center py-10 border-2 border-dashed border-amber-200 rounded-xl bg-amber-50/30">
-                          <FileText className="w-14 h-14 mx-auto text-amber-300 mb-3" />
-                          <p className="text-gray-600 font-medium">{t('dashboard.teamsToDoNoTemplates')}</p>
-                        </div>
-                      ) : (
-                        <ul className="space-y-3">
-                          {memberTemplateSummary[teamsToDoSelectedMember].templates
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((tpl) => {
-                              const templateClients = clientsByTemplateId[tpl.id] || [];
-                              const expanded = expandedMemberTemplateId === tpl.id;
-                              return (
-                                <li
-                                  key={tpl.id}
-                                  className="rounded-xl border-2 border-amber-200 bg-white overflow-hidden"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setExpandedMemberTemplateId(expanded ? null : tpl.id)
-                                    }
-                                    className="w-full flex items-center gap-3 p-4 text-left hover:bg-amber-50/50 transition-colors"
-                                  >
-                                    <FileText className="w-5 h-5 text-amber-700 shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-semibold text-amber-950 truncate">{tpl.name}</p>
-                                      <p className="text-sm text-amber-700/80">
-                                        {t('dashboard.teamsToDoClientCount', { count: templateClients.length })}
-                                      </p>
-                                    </div>
-                                    <ChevronDown
-                                      className={`w-5 h-5 text-amber-600 shrink-0 transition-transform ${
-                                        expanded ? 'rotate-180' : ''
-                                      }`}
-                                    />
-                                  </button>
-                                  {expanded ? (
-                                    <div className="border-t border-amber-100 bg-amber-50/30 px-4 py-3">
-                                      {templateClients.length === 0 ? (
-                                        <p className="text-sm text-gray-600">{t('dashboard.teamsToDoNoClientsInTemplate')}</p>
-                                      ) : (
-                                        <ul className="space-y-1 max-h-48 overflow-y-auto">
-                                          {templateClients.map((client) => (
-                                            <li
-                                              key={client.id}
-                                              className="text-sm text-amber-950 py-1 px-2 rounded hover:bg-amber-100/60"
-                                            >
-                                              {client.first_name} {client.last_name}
-                                              {client.submitted_to_immigration ? (
-                                                <span className="ml-2 text-xs text-green-700 font-medium">
-                                                  ({t('dashboard.teamsToDoSubmitted')})
-                                                </span>
-                                              ) : null}
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      )}
-                                    </div>
-                                  ) : null}
-                                </li>
-                              );
-                            })}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TEAMS TO DO — view task detail */}
-      {teamTaskView && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setTeamTaskView(null);
-          }}
-        >
-          <div
-            className="bg-white rounded-xl sm:rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-xl m-2 sm:m-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-5 sm:p-6 border-b border-amber-200/80 bg-gradient-to-r from-amber-50 to-amber-100 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-xl font-bold text-amber-900">{t('dashboard.teamsToDoViewTaskTitle')}</h2>
-                <p className="text-sm text-amber-800/80 mt-1 font-medium">{teamTaskView.member}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTeamTaskView(null)}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors shrink-0"
-                aria-label={t('dashboard.teamsToDoCloseView')}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-4">
-              <div>
-                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
-                  {t('dashboard.teamsToDoTaskTitle')}
-                </p>
-                <p
-                  className={`text-lg font-semibold text-amber-950 ${
-                    teamTaskView.task.done ? 'line-through text-amber-700' : ''
-                  }`}
-                >
-                  {teamTaskView.task.title}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
-                  {t('dashboard.teamsToDoStatusLabel')}
-                </p>
-                <span
-                  className={`inline-flex px-2.5 py-1 rounded-lg text-sm font-semibold ${
-                    teamTaskView.task.done
-                      ? 'bg-green-100 text-green-900'
-                      : 'bg-amber-100 text-amber-900'
-                  }`}
-                >
-                  {teamTaskView.task.done
-                    ? t('dashboard.teamsToDoStatusDone')
-                    : t('dashboard.teamsToDoStatusOpen')}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
-                  {t('dashboard.teamsToDoCreatedAt')}
-                </p>
-                <p className="text-sm text-gray-800">
-                  {(() => {
-                    try {
-                      return new Date(teamTaskView.task.createdAt).toLocaleString(undefined, {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      });
-                    } catch {
-                      return teamTaskView.task.createdAt;
-                    }
-                  })()}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-amber-700/80 uppercase tracking-wider mb-1">
-                  {t('dashboard.teamsToDoTaskNotes')}
-                </p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap rounded-lg border border-amber-100 bg-amber-50/40 p-3 min-h-[3rem]">
-                  {teamTaskView.task.notes?.trim()
-                    ? teamTaskView.task.notes
-                    : t('dashboard.teamsToDoNoNotesInView')}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTeamTaskView(null)}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold text-sm hover:shadow-md transition-all"
-              >
-                {t('dashboard.teamsToDoCloseView')}
-              </button>
-            </div>
           </div>
         </div>
       )}
