@@ -324,7 +324,7 @@ export default function Team() {
               <p className="text-sm font-medium">{t('dashboard.teamsToDoLoading')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               {teamMembers.map((name) => {
                 const tasks = teamTasksByMember[name] || [];
                 const openCount = tasks.filter((task) => !task.done).length;
@@ -342,11 +342,13 @@ export default function Team() {
                       onClick={() => openMember(name)}
                       className="flex flex-col items-stretch text-left flex-1 min-w-0"
                     >
-                      <div className="flex items-center gap-3 mb-4 pr-8">
-                        <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-sm">
+                      <div className="flex items-start gap-3 mb-4 pr-8">
+                        <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-sm shrink-0">
                           <User className="w-6 h-6 text-amber-900" />
                         </div>
-                        <span className="text-xl font-bold text-amber-900 tracking-wide truncate">{name}</span>
+                        <span className="text-xl font-bold text-amber-900 tracking-wide break-words leading-snug min-w-0 flex-1">
+                          {name}
+                        </span>
                       </div>
                       <span className="text-sm text-amber-700/80 font-medium">
                         {t('dashboard.teamsToDoOpenTasks', { count: openCount })}
@@ -428,7 +430,7 @@ export default function Team() {
               <ChevronLeft className="w-6 h-6" />
             </button>
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold text-amber-900 truncate">{selectedMember}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-amber-900 break-words">{selectedMember}</h1>
               <p className="text-amber-700 text-sm sm:text-base mt-0.5">
                 {t('dashboard.teamsToDoMemberSubtitle')}
               </p>
