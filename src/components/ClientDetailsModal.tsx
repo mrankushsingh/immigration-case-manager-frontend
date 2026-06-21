@@ -12,6 +12,7 @@ import { Client, RequiredDocument, AdditionalDocument, RequestedDocument } from 
 import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { useData } from '../context/DataContext';
+import { formatClientFullName } from '../utils/clientNames';
 
 interface Props {
   client: Client;
@@ -1863,8 +1864,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         {/* Fixed Header */}
         <div className="flex-shrink-0 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <div className="flex-1">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-              {clientData.first_name} {clientData.last_name}
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight break-words">
+              {formatClientFullName(clientData)}
             </h2>
             <div className="mt-1.5 relative" ref={templateDropdownRef}>
               <div className="flex items-center gap-2">

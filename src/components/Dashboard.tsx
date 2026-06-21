@@ -14,6 +14,7 @@ import {
   reminderDisplayName,
   splitReminderFullName,
 } from '../utils/reminderNames';
+import { formatClientFullName } from '../utils/clientNames';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
 
@@ -25,7 +26,7 @@ interface DashboardProps {
 function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
   const q = raw.trim().toLowerCase();
   if (!q) return true;
-  const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
+  const fullName = formatClientFullName(client).toLowerCase();
   return (
     fullName.includes(q) ||
     (client.email || '').toLowerCase().includes(q) ||
@@ -139,18 +140,19 @@ function getPaytrackWhatsAppLocaleFromPhone(phone?: string): 'sq' | 'es' {
 }
 
 function buildPaytrackWhatsAppBalanceMessage(
-  firstName: string,
+  clientName: string,
   pending: number,
   phone?: string
 ): string {
   const amount = formatPaytrackWhatsAppAmount(pending);
   const locale = getPaytrackWhatsAppLocaleFromPhone(phone);
+  const name = clientName.trim() || 'cliente';
 
   if (locale === 'sq') {
-    return `Përshëndetje ${firstName},\nPagesa e mbetur :${amount}€\n\nShumë Faleminderit\nAnisa Berliku Law Firm`;
+    return `Përshëndetje ${name},\nPagesa e mbetur :${amount}€\n\nShumë Faleminderit\nAnisa Berliku Law Firm`;
   }
 
-  return `Hola ${firstName}, honorarios pendientes: ${amount}€\nGracias\nAnisa Berliku Law Firm`;
+  return `Hola ${name}, honorarios pendientes: ${amount}€\n\nGracias\n*Anisa Berliku Law Firm*`;
 }
 
 function recursoSubmittedWithDate(client: Client): boolean {
@@ -4454,8 +4456,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 py-3 border-b border-slate-800/80 last:border-b-0 hover:bg-white/[0.04] transition-colors text-left"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-white truncate">
-                              {client.first_name} {client.last_name}
+                            <p className="font-semibold text-white break-words">
+                              {formatClientFullName(client)}
                             </p>
                             {client.phone ? (
                               <p className="text-xs text-slate-400 mt-0.5 truncate">{client.phone}</p>
@@ -5116,8 +5118,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </button>
             </div>
 
-            <h2 className="text-3xl font-semibold text-slate-900">
-              {paytrackClientView.first_name} {paytrackClientView.last_name}
+            <h2 className="text-3xl font-semibold text-slate-900 break-words">
+              {formatClientFullName(paytrackClientView)}
             </h2>
             {paytrackClientView.phone && (
               <p className="text-lg text-slate-600 mt-1">{paytrackClientView.phone}</p>
@@ -5195,7 +5197,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 onClick={() => {
                   const totals = getPaytrackClientTotals(paytrackClientView);
                   const text = buildPaytrackWhatsAppBalanceMessage(
-                    paytrackClientView.first_name,
+                    formatClientFullName(paytrackClientView),
                     totals.pending,
                     paytrackClientView.phone
                   );

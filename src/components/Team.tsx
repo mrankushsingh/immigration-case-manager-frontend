@@ -17,6 +17,7 @@ import { t } from '../utils/i18n';
 import { showToast } from './Toast';
 import ClientDetailsModal from './ClientDetailsModal';
 import { useData } from '../context/DataContext';
+import { formatClientFullName } from '../utils/clientNames';
 import { TeamMemberName, normalizeTeamMemberName, validateMemberNameInput } from '../utils/teamMembers';
 import {
   TeamMemberTask,
@@ -46,8 +47,8 @@ function TeamClientCard({
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0 flex-1">
-          <h3 className={`font-bold text-amber-900 truncate ${compact ? 'text-sm' : 'text-base sm:text-lg'}`}>
-            {client.first_name} {client.last_name}
+          <h3 className={`font-bold text-amber-900 break-words ${compact ? 'text-sm' : 'text-base sm:text-lg'}`}>
+            {formatClientFullName(client)}
           </h3>
           <p className={`text-amber-700/70 font-medium truncate ${compact ? 'text-xs mt-0.5' : 'text-sm mt-1'}`}>
             {client.case_type || t('clients.noTemplate')}
@@ -115,7 +116,7 @@ export default function Team() {
     }
     for (const id of Object.keys(map)) {
       map[id].sort((a, b) =>
-        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+        `${formatClientFullName(a)}`.localeCompare(formatClientFullName(b))
       );
     }
     return map;
@@ -149,7 +150,7 @@ export default function Team() {
       }
     }
     return list.sort((a, b) =>
-      `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+      `${formatClientFullName(a)}`.localeCompare(formatClientFullName(b))
     );
   }, [selectedMember, memberTemplateSummary, clientsByTemplateId]);
 

@@ -7,6 +7,7 @@ import ClientDetailsModal from './ClientDetailsModal';
 import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { t } from '../utils/i18n';
+import { formatClientFullName } from '../utils/clientNames';
 import { SkeletonClientCard } from './Skeleton';
 import { useData } from '../context/DataContext';
 
@@ -108,7 +109,7 @@ export default function Clients() {
       // Match from the start of the name (starts with)
       const searchTerm = searchQuery.trim().toLowerCase();
       const filtered = cachedClients.filter(client => {
-        const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
+        const fullName = formatClientFullName(client).toLowerCase();
         return fullName.startsWith(searchTerm);
       });
 
@@ -134,7 +135,7 @@ export default function Clients() {
       // If searching, load more from filtered results
       const searchTerm = searchQuery.trim().toLowerCase();
       const filtered = cachedClients.filter(client => {
-        const fullName = `${client.first_name || ''} ${client.last_name || ''}`.toLowerCase();
+        const fullName = formatClientFullName(client).toLowerCase();
         return fullName.startsWith(searchTerm);
       });
       const nextClients = filtered.slice(offset, offset + LIMIT);
@@ -167,7 +168,7 @@ export default function Clients() {
       await refreshClients(); // Refresh context - will trigger useEffect to update from cache
       // Reset pagination - useEffect will handle updating from refreshed cache
       hasInitialized.current = false;
-      showToast(`Client ${deleteConfirm.client.first_name} ${deleteConfirm.client.last_name} deleted successfully`, 'success');
+      showToast(`Client ${formatClientFullName(deleteConfirm.client)} deleted successfully`, 'success');
       setDeleteConfirm({ client: null, isOpen: false });
     } catch (error: any) {
       showToast(error.message || 'Failed to delete client', 'error');
@@ -304,8 +305,8 @@ export default function Clients() {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-amber-900 mb-1">
-                    {client.first_name} {client.last_name}
+                  <h3 className="text-xl font-bold text-amber-900 mb-1 break-words">
+                    {formatClientFullName(client)}
                   </h3>
                   <p className="text-sm text-amber-700/70 font-medium">{client.case_type || t('clients.noTemplate')}</p>
                 </div>
