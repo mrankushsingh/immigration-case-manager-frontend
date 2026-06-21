@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { api } from '../utils/api';
 import { Client, CaseTemplate, Reminder, Appointment } from '../types';
+import { DEFAULT_TEAM_MEMBERS } from '../utils/teamMembers';
 import { getCurrentUser, onAuthChange } from '../utils/firebase';
 
 interface DataContextType {
@@ -9,6 +10,7 @@ interface DataContextType {
   templates: CaseTemplate[];
   reminders: Reminder[];
   appointments: Appointment[];
+  teamMembers: string[];
   
   // Loading states
   loading: boolean;
@@ -19,6 +21,7 @@ interface DataContextType {
   refreshTemplates: () => Promise<void>;
   refreshReminders: () => Promise<void>;
   refreshAppointments: () => Promise<void>;
+  refreshTeamMembers: () => Promise<void>;
   refreshAll: () => Promise<void>;
   
   // Cache control
@@ -37,6 +40,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [templates, setTemplates] = useState<CaseTemplate[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [teamMembers, setTeamMembers] = useState<string[]>([...DEFAULT_TEAM_MEMBERS]);
   const [loading, setLoading] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -63,11 +67,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(true);
 
       // Load all data in parallel (appointments optional — backend may not be deployed yet)
-      const [templatesResult, clientsResult, remindersResult, appointmentsResult] = await Promise.allSettled([
+      const [templatesResult, clientsResult, remindersResult, appointmentsResult, teamMembersResult] = await Promise.allSettled([
         api.getCaseTemplates(),
         api.getClients(),
         api.getReminders(),
         api.getAppointments(),
+        api.getTeamMembers(),
       ]);
 
       if (templatesResult.status === 'rejected') throw templatesResult.reason;
@@ -79,9 +84,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const remindersData = remindersResult.value;
       const appointmentsData =
         appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : [];
+      const teamMembersData =
+        teamMembersResult.status === 'fulfilled' && teamMembersResult.value.length > 0
+          ? teamMembersResult.value
+          : [...DEFAULT_TEAM_MEMBERS];
 
       if (appointmentsResult.status === 'rejected') {
         console.warn('⚠️ Appointments API unavailable:', appointmentsResult.reason);
+      }
+      if (teamMembersResult.status === 'rejected') {
+        console.warn('⚠️ Team members API unavailable:', teamMembersResult.reason);
       }
 
       // Handle paginated responses
@@ -92,9 +104,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setClients(clients);
       setReminders(remindersData);
       setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
+      setTeamMembers(teamMembersData);
       setLastFetchTime(Date.now());
       
-      console.log(`✅ Data loaded: ${templates.length} templates, ${clients.length} clients, ${remindersData.length} reminders, ${appointmentsData.length} appointments`);
+      console.log(`✅ Data loaded: ${templates.length} templates, ${clients.length} clients, ${remindersData.length} reminders, ${appointmentsData.length} appointments, ${teamMembersData.length} team members`);
     } catch (error: any) {
       console.error('❌ Failed to load data:', error);
       // Don't clear data on error - keep existing cache
@@ -121,6 +134,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTemplates([]);
         setReminders([]);
         setAppointments([]);
+        setTeamMembers([...DEFAULT_TEAM_MEMBERS]);
         setLastFetchTime(null);
         setLoading(false);
         isLoadingRef.current = false;
@@ -183,6 +197,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshTeamMembers = useCallback(async () => {
+    try {
+      const members = await api.getTeamMembers();
+      setTeamMembers(members.length > 0 ? members : [...DEFAULT_TEAM_MEMBERS]);
+      setLastFetchTime(Date.now());
+      console.log('✅ Team members refreshed');
+    } catch (error) {
+      console.error('❌ Failed to refresh team members:', error);
+    }
+  }, []);
+
   // Refresh all data
   const refreshAll = useCallback(async () => {
     await loadAllData();
@@ -218,12 +243,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     templates,
     reminders,
     appointments,
+    teamMembers,
     loading,
     lastFetchTime,
     refreshClients,
     refreshTemplates,
     refreshReminders,
     refreshAppointments,
+    refreshTeamMembers,
     refreshAll,
     invalidateCache,
     isStale,

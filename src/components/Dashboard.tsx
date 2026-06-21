@@ -15,7 +15,6 @@ import {
   splitReminderFullName,
 } from '../utils/reminderNames';
 import AppointmentsCalendar from './AppointmentsCalendar';
-import { TEAM_MEMBERS } from '../utils/teamMembers';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
 
 interface DashboardProps {
@@ -168,7 +167,6 @@ function recursoAdministrativeSilenceEnded(client: Client): boolean {
   return new Date() > silenceEndDate;
 }
 
-const TEAM_MEMBERS_LIST = TEAM_MEMBERS;
 
 function reminderMatchesDashboardSearch(reminder: Reminder, raw: string): boolean {
   const q = raw.trim().toLowerCase();
@@ -258,7 +256,7 @@ function DashboardModalSearchInput({
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
   // Use shared data from context (loaded once at app startup)
-  const { clients, templates, reminders, loading, refreshAll, refreshReminders, refreshClients } = useData();
+  const { clients, templates, reminders, teamMembers, loading, refreshAll, refreshReminders, refreshClients } = useData();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [returnToRequerimiento, setReturnToRequerimiento] = useState(false);
   const [showReadyToSubmitModal, setShowReadyToSubmitModal] = useState(false);
@@ -1168,11 +1166,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const fetchTeamTasks = useCallback(async () => {
     try {
       const rows = await api.getTeamTasks();
-      setTeamTasksByMember(groupTeamTasksFromApi(rows));
+      setTeamTasksByMember(groupTeamTasksFromApi(rows, teamMembers));
     } catch (error: any) {
       console.error('Failed to load team tasks:', error);
     }
-  }, []);
+  }, [teamMembers]);
 
   useEffect(() => {
     void fetchTeamTasks();
@@ -1229,10 +1227,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const teamsToDoCount = useMemo(
     () =>
-      TEAM_MEMBERS_LIST.reduce((sum, m) => {
+      teamMembers.reduce((sum, m) => {
         return sum + (teamTasksByMember[m] || []).filter((task) => !task.done).length;
       }, 0),
-    [teamTasksByMember]
+    [teamTasksByMember, teamMembers]
   );
 
   // Clients ready to submit (all documents complete, not yet submitted)

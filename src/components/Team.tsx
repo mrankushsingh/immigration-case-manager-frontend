@@ -7,6 +7,7 @@ import {
   Plus,
   Trash2,
   User,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -16,7 +17,7 @@ import { t } from '../utils/i18n';
 import { showToast } from './Toast';
 import ClientDetailsModal from './ClientDetailsModal';
 import { useData } from '../context/DataContext';
-import { TEAM_MEMBERS, TeamMemberName, normalizeTeamMemberName } from '../utils/teamMembers';
+import { TeamMemberName, normalizeTeamMemberName, validateMemberNameInput } from '../utils/teamMembers';
 import {
   TeamMemberTask,
   emptyTeamTasksMap,
@@ -72,8 +73,10 @@ function TeamClientCard({
 }
 
 export default function Team() {
-  const { clients, templates, refreshClients, refreshTemplates } = useData();
-  const [teamTasksByMember, setTeamTasksByMember] = useState(emptyTeamTasksMap);
+  const { clients, templates, teamMembers, refreshClients, refreshTemplates, refreshTeamMembers } = useData();
+  const [teamTasksByMember, setTeamTasksByMember] = useState<Record<string, TeamMemberTask[]>>(() =>
+    emptyTeamTasksMap(teamMembers)
+  );
   const [teamTasksLoading, setTeamTasksLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMemberName | null>(null);
   const [activeTab, setActiveTab] = useState<'tasks' | 'clients' | 'templates'>('tasks');
@@ -83,18 +86,21 @@ export default function Team() {
   const [taskView, setTaskView] = useState<TeamMemberTask | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [templateAssignLoadingId, setTemplateAssignLoadingId] = useState<string | null>(null);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [memberActionLoading, setMemberActionLoading] = useState(false);
+  const [removeConfirmMember, setRemoveConfirmMember] = useState<TeamMemberName | null>(null);
 
   const fetchTeamTasks = useCallback(async () => {
     try {
       setTeamTasksLoading(true);
       const rows = await api.getTeamTasks();
-      setTeamTasksByMember(groupTeamTasksFromApi(rows));
+      setTeamTasksByMember(groupTeamTasksFromApi(rows, teamMembers));
     } catch (error: any) {
       showToast(error.message || 'Failed to load team tasks', 'error');
     } finally {
       setTeamTasksLoading(false);
     }
-  }, []);
+  }, [teamMembers]);
 
   useEffect(() => {
     void fetchTeamTasks();
@@ -116,10 +122,10 @@ export default function Team() {
   }, [clients]);
 
   const memberTemplateSummary = useMemo(() => {
-    const summary = {} as Record<TeamMemberName, { templates: CaseTemplate[]; clientCount: number }>;
-    for (const member of TEAM_MEMBERS) {
+    const summary = {} as Record<string, { templates: CaseTemplate[]; clientCount: number }>;
+    for (const member of teamMembers) {
       const memberTemplates = templates.filter(
-        (tpl) => normalizeTeamMemberName(tpl.assigned_team_member) === member
+        (tpl) => normalizeTeamMemberName(tpl.assigned_team_member, teamMembers) === member
       );
       const clientCount = memberTemplates.reduce(
         (sum, tpl) => sum + (clientsByTemplateId[tpl.id]?.length || 0),
@@ -128,7 +134,7 @@ export default function Team() {
       summary[member] = { templates: memberTemplates, clientCount };
     }
     return summary;
-  }, [templates, clientsByTemplateId]);
+  }, [templates, clientsByTemplateId, teamMembers]);
 
   const memberClients = useMemo(() => {
     if (!selectedMember) return [];
@@ -155,6 +161,12 @@ export default function Team() {
     setTaskView(null);
     setActiveTab('tasks');
   }, []);
+
+  useEffect(() => {
+    if (selectedMember && !teamMembers.includes(selectedMember)) {
+      resetMemberDetail();
+    }
+  }, [selectedMember, teamMembers, resetMemberDetail]);
 
   const openMember = useCallback((name: TeamMemberName) => {
     setSelectedMember(name);
@@ -222,6 +234,48 @@ export default function Team() {
     }
   }, [selectedMember, taskFormTitle, taskFormNotes]);
 
+  const addTeamMember = useCallback(async () => {
+    const name = validateMemberNameInput(newMemberName);
+    if (!name) {
+      showToast(t('dashboard.teamsToDoMemberNameInvalid'), 'error');
+      return;
+    }
+    if (teamMembers.includes(name)) {
+      showToast(t('dashboard.teamsToDoMemberExists'), 'error');
+      return;
+    }
+    setMemberActionLoading(true);
+    try {
+      await api.addTeamMember(name);
+      await refreshTeamMembers();
+      setNewMemberName('');
+      showToast(t('dashboard.teamsToDoMemberAdded', { name }), 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to add team member', 'error');
+    } finally {
+      setMemberActionLoading(false);
+    }
+  }, [newMemberName, teamMembers, refreshTeamMembers]);
+
+  const removeTeamMember = useCallback(async () => {
+    if (!removeConfirmMember) return;
+    setMemberActionLoading(true);
+    try {
+      await api.removeTeamMember(removeConfirmMember);
+      await refreshTeamMembers();
+      await refreshTemplates();
+      if (selectedMember === removeConfirmMember) {
+        resetMemberDetail();
+      }
+      setRemoveConfirmMember(null);
+      showToast(t('dashboard.teamsToDoMemberRemoved', { name: removeConfirmMember }), 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to remove team member', 'error');
+    } finally {
+      setMemberActionLoading(false);
+    }
+  }, [removeConfirmMember, refreshTeamMembers, refreshTemplates, selectedMember, resetMemberDetail]);
+
   if (!selectedMember) {
     return (
       <div className="min-h-[calc(100vh-6rem)] animate-fade-in">
@@ -229,6 +283,35 @@ export default function Team() {
           <div className="mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-amber-900">{t('dashboard.teamsToDo')}</h1>
             <p className="text-amber-700 mt-2">{t('dashboard.teamsToDoSelectMember')}</p>
+          </div>
+
+          <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div className="flex-1 min-w-0">
+              <label htmlFor="new-team-member" className="block text-sm font-semibold text-amber-800 mb-1.5">
+                {t('dashboard.teamsToDoAddMember')}
+              </label>
+              <input
+                id="new-team-member"
+                type="text"
+                value={newMemberName}
+                onChange={(e) => setNewMemberName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void addTeamMember();
+                }}
+                placeholder={t('dashboard.teamsToDoAddMemberPlaceholder')}
+                className="w-full px-4 py-2.5 rounded-xl border border-amber-200 bg-white text-amber-900 placeholder:text-amber-400 focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none"
+                disabled={memberActionLoading}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => void addTeamMember()}
+              disabled={memberActionLoading || !newMemberName.trim()}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold hover:from-amber-700 hover:to-amber-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+            >
+              <UserPlus className="w-5 h-5" />
+              {t('dashboard.teamsToDoAddMemberButton')}
+            </button>
           </div>
 
           {teamTasksLoading ? (
@@ -241,37 +324,87 @@ export default function Team() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-5">
-              {TEAM_MEMBERS.map((name) => {
+              {teamMembers.map((name) => {
                 const tasks = teamTasksByMember[name] || [];
                 const openCount = tasks.filter((task) => !task.done).length;
-                const { templates: memberTemplates, clientCount } = memberTemplateSummary[name];
+                const { templates: memberTemplates, clientCount } = memberTemplateSummary[name] || {
+                  templates: [],
+                  clientCount: 0,
+                };
                 return (
-                  <button
+                  <div
                     key={name}
-                    type="button"
-                    onClick={() => openMember(name)}
-                    className="flex flex-col items-stretch text-left p-6 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-lg transition-colors min-h-[180px]"
+                    className="relative flex flex-col items-stretch text-left p-6 rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/90 to-white hover:border-amber-400 hover:shadow-lg transition-colors min-h-[180px]"
                   >
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-sm">
-                        <User className="w-6 h-6 text-amber-900" />
+                    <button
+                      type="button"
+                      onClick={() => openMember(name)}
+                      className="flex flex-col items-stretch text-left flex-1 min-w-0"
+                    >
+                      <div className="flex items-center gap-3 mb-4 pr-8">
+                        <div className="bg-gradient-to-br from-amber-100 to-amber-200 p-3 rounded-xl shadow-sm">
+                          <User className="w-6 h-6 text-amber-900" />
+                        </div>
+                        <span className="text-xl font-bold text-amber-900 tracking-wide truncate">{name}</span>
                       </div>
-                      <span className="text-xl font-bold text-amber-900 tracking-wide">{name}</span>
-                    </div>
-                    <span className="text-sm text-amber-700/80 font-medium">
-                      {t('dashboard.teamsToDoOpenTasks', { count: openCount })}
-                    </span>
-                    <span className="text-sm text-amber-700/80 font-medium mt-1">
-                      {t('dashboard.teamsToDoTemplatesClients', {
-                        templates: memberTemplates.length,
-                        clients: clientCount,
-                      })}
-                    </span>
-                  </button>
+                      <span className="text-sm text-amber-700/80 font-medium">
+                        {t('dashboard.teamsToDoOpenTasks', { count: openCount })}
+                      </span>
+                      <span className="text-sm text-amber-700/80 font-medium mt-1">
+                        {t('dashboard.teamsToDoTemplatesClients', {
+                          templates: memberTemplates.length,
+                          clients: clientCount,
+                        })}
+                      </span>
+                    </button>
+                    {teamMembers.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => setRemoveConfirmMember(name)}
+                        disabled={memberActionLoading}
+                        className="absolute top-3 right-3 p-2 text-amber-700/70 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        aria-label={t('dashboard.teamsToDoRemoveMember', { name })}
+                        title={t('dashboard.teamsToDoRemoveMember', { name })}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
           )}
+
+          {removeConfirmMember ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+              <div className="glass-gold rounded-2xl p-6 max-w-md w-full border border-amber-200 shadow-xl">
+                <h2 className="text-lg font-bold text-amber-900 mb-2">
+                  {t('dashboard.teamsToDoRemoveMemberTitle')}
+                </h2>
+                <p className="text-amber-800 text-sm mb-6">
+                  {t('dashboard.teamsToDoRemoveMemberConfirm', { name: removeConfirmMember })}
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRemoveConfirmMember(null)}
+                    disabled={memberActionLoading}
+                    className="px-4 py-2 rounded-lg border border-amber-200 text-amber-800 font-medium hover:bg-amber-50 disabled:opacity-50"
+                  >
+                    {t('dashboard.teamsToDoCancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removeTeamMember()}
+                    disabled={memberActionLoading}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {t('dashboard.teamsToDoRemoveMemberButton')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -529,7 +662,7 @@ export default function Team() {
                   .sort((a, b) => a.name.localeCompare(b.name))
                   .map((tpl) => {
                     const assignedToMember =
-                      normalizeTeamMemberName(tpl.assigned_team_member) === selectedMember;
+                      normalizeTeamMemberName(tpl.assigned_team_member, teamMembers) === selectedMember;
                     const assignedElsewhere = !!tpl.assigned_team_member && !assignedToMember;
                     const loading = templateAssignLoadingId === tpl.id;
                     const clientCount = clientsByTemplateId[tpl.id]?.length || 0;

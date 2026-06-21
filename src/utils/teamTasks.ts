@@ -1,5 +1,3 @@
-import { TEAM_MEMBERS, TeamMemberName } from './teamMembers';
-
 export interface TeamMemberTask {
   id: string;
   title: string;
@@ -8,14 +6,12 @@ export interface TeamMemberTask {
   createdAt: string;
 }
 
-export function emptyTeamTasksMap(): Record<TeamMemberName, TeamMemberTask[]> {
-  return {
-    YONA: [],
-    LEDJANA: [],
-    CAROLINA: [],
-    MILAGROS: [],
-    YUSTI: [],
-  };
+export function emptyTeamTasksMap(members: readonly string[] = []): Record<string, TeamMemberTask[]> {
+  const map: Record<string, TeamMemberTask[]> = {};
+  for (const member of members) {
+    map[member] = [];
+  }
+  return map;
 }
 
 export function groupTeamTasksFromApi(
@@ -26,14 +22,15 @@ export function groupTeamTasksFromApi(
     notes?: string;
     done: boolean;
     createdAt: string;
-  }>
-): Record<TeamMemberName, TeamMemberTask[]> {
-  const empty = emptyTeamTasksMap();
+  }>,
+  members: readonly string[]
+): Record<string, TeamMemberTask[]> {
+  const empty = emptyTeamTasksMap(members);
+  const allowed = new Set(members);
   for (const row of rows) {
     const m = String(row.teamMember || '').toUpperCase();
-    if (!(TEAM_MEMBERS as readonly string[]).includes(m)) continue;
-    const name = m as TeamMemberName;
-    empty[name].push({
+    if (!allowed.has(m)) continue;
+    empty[m].push({
       id: row.id,
       title: row.title,
       notes: typeof row.notes === 'string' ? row.notes : '',

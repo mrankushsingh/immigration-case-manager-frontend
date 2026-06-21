@@ -1219,6 +1219,49 @@ export const api = {
     return response.json();
   },
 
+  async getTeamMembers(): Promise<string[]> {
+    const headers = await getAuthHeaders(false);
+    const response = await fetch(`${API_URL}/team-members`, {
+      method: 'GET',
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to get team members' }));
+      throw new Error(error.error || 'Failed to get team members');
+    }
+    const data = await response.json();
+    return Array.isArray(data.members) ? data.members : [];
+  },
+
+  async addTeamMember(name: string): Promise<string[]> {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/team-members`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to add team member' }));
+      throw new Error(error.error || 'Failed to add team member');
+    }
+    const data = await response.json();
+    return Array.isArray(data.members) ? data.members : [];
+  },
+
+  async removeTeamMember(name: string): Promise<string[]> {
+    const headers = await getAuthHeaders(false);
+    const response = await fetch(`${API_URL}/team-members/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to remove team member' }));
+      throw new Error(error.error || 'Failed to remove team member');
+    }
+    const data = await response.json();
+    return Array.isArray(data.members) ? data.members : [];
+  },
+
   async getPaymentsSummary(month?: number, year?: number) {
     const headers = await getAuthHeaders(false);
     const params = new URLSearchParams();

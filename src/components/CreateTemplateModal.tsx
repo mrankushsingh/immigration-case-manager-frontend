@@ -4,7 +4,6 @@ import { api } from '../utils/api';
 import { RequiredDocument, CaseTemplate } from '../types';
 import { showToast } from './Toast';
 import { useData } from '../context/DataContext';
-import { TEAM_MEMBERS } from '../utils/teamMembers';
 
 interface Props {
   onClose: () => void;
@@ -77,7 +76,7 @@ const PREDEFINED_DOCUMENT_NAMES = [
 
 export default function CreateTemplateModal({ onClose, onSuccess, template }: Props) {
   // Use cached templates from DataContext (no API call needed)
-  const { templates: cachedTemplates } = useData();
+  const { templates: cachedTemplates, teamMembers } = useData();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -283,7 +282,7 @@ export default function CreateTemplateModal({ onClose, onSuccess, template }: Pr
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white"
             >
               <option value="">None</option>
-              {TEAM_MEMBERS.map((member) => (
+              {teamMembers.map((member) => (
                 <option key={member} value={member}>
                   {member}
                 </option>
