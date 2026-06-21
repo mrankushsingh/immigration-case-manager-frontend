@@ -2178,20 +2178,21 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                         {doc.submitted && doc.fileUrl ? (
                           <>
                             <button
-                              onClick={() => window.open(getFileUrl(doc.fileUrl!), '_blank')}
+                              type="button"
+                              onClick={() => handleViewDocument(doc.fileUrl!, doc.fileName || 'document')}
                               className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                               title="View document"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <a
-                              href={getFileUrl(doc.fileUrl!)}
-                              download={doc.fileName}
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(doc.fileUrl!, doc.fileName || 'document')}
                               className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                               title="Download document"
                             >
                               <Download className="w-4 h-4" />
-                            </a>
+                            </button>
                           </>
                         ) : (
                           <label className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer">
