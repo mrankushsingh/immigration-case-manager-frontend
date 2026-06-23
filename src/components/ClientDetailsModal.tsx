@@ -54,6 +54,54 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 
     return fileUrl;
   };
+
+  /** Fetch an uploaded file with auth (same as single-file download / preview). */
+  const fetchAuthenticatedFileBlob = async (
+    fileUrl: string
+  ): Promise<{ blob: Blob; contentType: string | null }> => {
+    const url = getFileUrl(fileUrl);
+    const { getIdToken } = await import('../utils/firebase');
+    const token = await getIdToken();
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file (${response.status} ${response.statusText})`);
+    }
+    const contentType = response.headers.get('content-type');
+    if (
+      contentType &&
+      (contentType.includes('text/html') || contentType.includes('application/json'))
+    ) {
+      throw new Error('Server returned an error page instead of the file');
+    }
+    const blob = await response.blob();
+    if (blob.size === 0) {
+      throw new Error('Downloaded file is empty');
+    }
+    return { blob, contentType };
+  };
+
+  const zipEntryFileName = (
+    doc: { fileName?: string; name?: string; code?: string },
+    fileUrl: string,
+    contentType: string | null
+  ): string => {
+    if (doc.fileName?.trim()) return doc.fileName.trim();
+    const fromUrl = decodeURIComponent(fileUrl.split('/').pop()?.split('?')[0] || '');
+    if (fromUrl && fromUrl.includes('.')) return fromUrl;
+    const base = (doc.name || doc.code || 'document').replace(/[/\\?%*:|"<>]/g, '_').trim();
+    if (base.includes('.')) return base;
+    const extFromType =
+      contentType?.includes('pdf') ? '.pdf'
+      : contentType?.includes('png') ? '.png'
+      : contentType?.includes('jpeg') || contentType?.includes('jpg') ? '.jpg'
+      : contentType?.includes('word') || contentType?.includes('msword') ? '.docx'
+      : contentType?.includes('sheet') || contentType?.includes('excel') ? '.xlsx'
+      : '';
+    return `${base}${extFromType}`;
+  };
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showEditPaymentSummary, setShowEditPaymentSummary] = useState(false);
   const [paymentSummaryForm, setPaymentSummaryForm] = useState({ totalFee: '', paidAmount: '' });
@@ -1602,26 +1650,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 
   const handleDownload = async (fileUrl: string, fileName: string) => {
     try {
-      // Convert relative URLs to absolute backend URLs
-      const url = getFileUrl(fileUrl);
-      
-      // Get auth token for authenticated requests
-      const { getIdToken } = await import('../utils/firebase');
-      const token = await getIdToken();
-      
-      // Fetch the file as a blob to ensure download works cross-origin
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: token ? {
-          'Authorization': `Bearer ${token}`,
-        } : {},
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to download file: ${response.statusText}`);
-      }
-      
-      const blob = await response.blob();
+      const { blob } = await fetchAuthenticatedFileBlob(fileUrl);
       const blobUrl = URL.createObjectURL(blob);
       
       // Create download link
@@ -1642,40 +1671,24 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 
   const handleViewDocument = async (fileUrl: string, fileName: string) => {
     try {
-      const url = getFileUrl(fileUrl);
-
-      // Fetch as blob and preview via blob URL.
-      // This avoids iframe embedding failures like “<host> refused to connect” caused by X-Frame-Options/CSP on the API domain.
-      const { getIdToken } = await import('../utils/firebase');
-      const token = await getIdToken();
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to load file (${response.status} ${response.statusText})`);
-      }
-
-      const mimeType = response.headers.get('content-type') || undefined;
+      const { blob, contentType: mimeType } = await fetchAuthenticatedFileBlob(fileUrl);
       const isPdfByName = fileName.toLowerCase().endsWith('.pdf');
 
-      // Read bytes to avoid “blank white iframe” when server returns HTML/JSON.
-      const buf = await response.arrayBuffer();
+      const buf = await blob.arrayBuffer();
       const first5 = new TextDecoder('utf-8').decode(buf.slice(0, 5));
       if (isPdfByName && first5 !== '%PDF-') {
         const shortType = mimeType ? mimeType.split(';')[0] : 'unknown';
         throw new Error(`Preview failed: server did not return a PDF (content-type: ${shortType})`);
       }
 
-      const blob = new Blob([buf], {
+      const previewBlob = new Blob([buf], {
         type: isPdfByName ? 'application/pdf' : mimeType || 'application/octet-stream',
       });
-      const blobUrl = URL.createObjectURL(blob);
+      const blobUrl = URL.createObjectURL(previewBlob);
       setViewingDocument({
         url: blobUrl,
         fileName,
-        mimeType,
+        mimeType: mimeType ?? undefined,
         revokeUrl: () => URL.revokeObjectURL(blobUrl),
       });
     } catch (err: any) {
@@ -1696,8 +1709,10 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         (doc: RequiredDocument) => doc.submitted && doc.fileUrl
       ) || [];
 
-      // Collect all additional documents (includes "All Documents" uploads)
-      const additionalDocs = clientData.additional_documents || [];
+      // Collect all additional documents with files (includes "All Documents" uploads)
+      const additionalDocs = (clientData.additional_documents || []).filter(
+        (doc: AdditionalDocument) => !!doc.fileUrl
+      );
 
       if (submittedRequiredDocs.length === 0 && additionalDocs.length === 0) {
         setError('No documents available to download');
@@ -1705,32 +1720,42 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         return;
       }
 
+      let addedCount = 0;
+      const failedNames: string[] = [];
+
       // Fetch and add required documents
       for (const doc of submittedRequiredDocs) {
         try {
-          const fileUrl = getFileUrl(doc.fileUrl!);
-          const response = await fetch(fileUrl);
-          const blob = await response.blob();
-          const fileName = doc.fileName || `${doc.code || doc.name}.pdf`;
+          const { blob, contentType } = await fetchAuthenticatedFileBlob(doc.fileUrl!);
+          const fileName = zipEntryFileName(doc, doc.fileUrl!, contentType);
           zip.file(`Required_Documents/${fileName}`, blob);
+          addedCount += 1;
         } catch (err) {
           console.error(`Failed to fetch ${doc.name}:`, err);
+          failedNames.push(doc.name || doc.code || 'document');
         }
       }
 
       // Fetch and add additional documents (split by section for clarity)
       for (const doc of additionalDocs) {
         try {
-          if (!doc.fileUrl) continue;
-          const fileUrl = getFileUrl(doc.fileUrl);
-          const response = await fetch(fileUrl);
-          const blob = await response.blob();
+          const { blob, contentType } = await fetchAuthenticatedFileBlob(doc.fileUrl!);
           const folder = doc.allDocumentsSection ? 'All_Documents' : 'Additional_Documents';
-          const safeName = doc.fileName || doc.name || 'file';
+          const safeName = zipEntryFileName(doc, doc.fileUrl!, contentType);
           zip.file(`${folder}/${safeName}`, blob);
+          addedCount += 1;
         } catch (err) {
           console.error(`Failed to fetch ${doc.name}:`, err);
+          failedNames.push(doc.name || 'document');
         }
+      }
+
+      if (addedCount === 0) {
+        throw new Error(
+          failedNames.length
+            ? `Could not download any files (${failedNames.slice(0, 3).join(', ')}${failedNames.length > 3 ? '…' : ''})`
+            : 'No files could be added to the ZIP'
+        );
       }
 
       // Generate ZIP file
@@ -1745,8 +1770,18 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
 
+      if (failedNames.length > 0) {
+        showToast(
+          `ZIP created with ${addedCount} file(s). ${failedNames.length} file(s) could not be included.`,
+          'warning'
+        );
+      } else {
+        showToast(`Downloaded ${addedCount} file(s) as ZIP`, 'success');
+      }
+
     } catch (error: any) {
       setError(error.message || 'Failed to create ZIP file');
+      showToast(error.message || 'Failed to create ZIP file', 'error');
       console.error('Error creating ZIP:', error);
     } finally {
       setDownloadingZip(false);
@@ -1804,8 +1839,9 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
   
   // Count total submitted documents (including optional)
-  const totalSubmittedDocs = (clientData.required_documents?.filter((d: any) => d.submitted).length || 0) + 
-                              (clientData.additional_documents?.length || 0);
+  const totalSubmittedDocs =
+    (clientData.required_documents?.filter((d: any) => d.submitted && d.fileUrl).length || 0) +
+    (clientData.additional_documents?.filter((d: AdditionalDocument) => d.fileUrl).length || 0);
 
   // Calculate administrative silence countdown
   const calculateSilenceCountdown = () => {
