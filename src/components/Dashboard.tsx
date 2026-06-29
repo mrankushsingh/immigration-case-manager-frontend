@@ -15,6 +15,7 @@ import {
   splitReminderFullName,
 } from '../utils/reminderNames';
 import { formatClientFullName } from '../utils/clientNames';
+import { getNoteFollowUpDeadline, buildNoteSchedulingPatch } from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
 
@@ -32,7 +33,9 @@ function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
     (client.email || '').toLowerCase().includes(q) ||
     (client.phone || '').toLowerCase().includes(q) ||
     (client.case_type || '').toLowerCase().includes(q) ||
-    (client.parent_name || '').toLowerCase().includes(q)
+    (client.parent_name || '').toLowerCase().includes(q) ||
+    (client.notes || '').toLowerCase().includes(q) ||
+    (client.details || '').toLowerCase().includes(q)
   );
 }
 
@@ -929,6 +932,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           paytrackAddClientForm.notes.trim() || undefined
         );
       }
+      const clientNote = paytrackAddClientForm.notes.trim();
+      if (clientNote) {
+        const patch = buildNoteSchedulingPatch(clientNote, '', created, 'details');
+        await api.updateClient(created.id, {
+          notes: patch.notes,
+          ...(patch.custom_reminder_date ? { custom_reminder_date: patch.custom_reminder_date } : {}),
+        });
+        if (patch.urgentReminder) {
+          await api.createReminder(patch.urgentReminder);
+          await refreshReminders();
+        }
+      }
       await refreshClients();
       closePaytrackAddClient();
       const pending = Math.max(0, (totalFee ?? 0) - (amountPaid ?? 0));
@@ -1039,6 +1054,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             },
           });
         }
+
+        const clientNote = paymentForm.notes?.trim();
+        if (clientNote) {
+          const patch = buildNoteSchedulingPatch(clientNote, existingClient.notes || '', existingClient, 'details');
+          await api.updateClient(existingClient.id, {
+            notes: patch.notes,
+            ...(patch.custom_reminder_date ? { custom_reminder_date: patch.custom_reminder_date } : {}),
+          });
+          if (patch.urgentReminder) {
+            await api.createReminder(patch.urgentReminder);
+          }
+        }
         
         showToast('Payment added successfully', 'success');
       } else {
@@ -1063,11 +1090,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           );
         }
         
-        // Update notes if provided
-        if (paymentForm.notes) {
+        // Save client note to Important Notes
+        if (paymentForm.notes?.trim()) {
+          const clientNote = paymentForm.notes.trim();
+          const patch = buildNoteSchedulingPatch(clientNote, '', createdClient, 'details');
           await api.updateClient(createdClient.id, {
-            notes: paymentForm.notes,
+            notes: patch.notes,
+            ...(patch.custom_reminder_date ? { custom_reminder_date: patch.custom_reminder_date } : {}),
           });
+          if (patch.urgentReminder) {
+            await api.createReminder(patch.urgentReminder);
+          }
         }
         
         showToast('Client and payment created successfully', 'success');
@@ -1378,10 +1411,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const now = new Date();
     const days3 = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
     
-    // Check custom reminder date
-    if (client.custom_reminder_date) {
-      const reminderDate = new Date(client.custom_reminder_date);
-      const timeDiff = reminderDate.getTime() - now.getTime();
+    // Follow-up from important notes or payment reminder date
+    const noteFollowUp = getNoteFollowUpDeadline(client);
+    if (noteFollowUp) {
+      const timeDiff = noteFollowUp.getTime() - now.getTime();
       if (timeDiff > 0 && timeDiff <= days3) return true;
     }
     
@@ -3386,7 +3419,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     );
                   })}
                   {/* Urgent Clients */}
-                  {urgentesFiltered.map((client) => (
+                  {urgentesFiltered.map((client) => {
+                    const followUp = getNoteFollowUpDeadline(client);
+                    const notePreview = client.notes?.trim()
+                      ? client.notes.trim().split('\n')[0].slice(0, 120)
+                      : '';
+                    return (
                     <div
                       key={client.id}
                       onClick={() => {
@@ -3400,12 +3438,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         <div className="flex-1">
                           <h3 className="font-bold text-red-900 text-lg">{client.first_name} {client.last_name}</h3>
                           <p className="text-sm text-red-700 mt-1">{client.case_type || 'No template'}</p>
-                          <p className="text-xs text-red-600 mt-2 font-semibold">⚠️ Acción requerida en menos de 72 horas</p>
+                          {notePreview ? (
+                            <p className="text-xs text-red-800 mt-2 line-clamp-2">{notePreview}</p>
+                          ) : null}
+                          {followUp ? (
+                            <p className="text-xs text-red-600 mt-1 font-semibold">
+                              Follow-up: {followUp.toLocaleDateString()}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-red-600 mt-2 font-semibold">⚠️ Acción requerida en menos de 72 horas</p>
+                          )}
                         </div>
-                        <AlertTriangle className="w-6 h-6 text-red-600 ml-4" />
+                        <AlertTriangle className="w-6 h-6 text-red-600 ml-4 flex-shrink-0" />
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

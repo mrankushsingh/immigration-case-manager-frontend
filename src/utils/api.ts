@@ -1101,6 +1101,7 @@ export const api = {
     phone?: string;
     reminder_date: string;
     notes?: string;
+    reminder_type?: string;
   }) {
     const headers = await getAuthHeaders();
     const response = await fetch(`${API_URL}/reminders`, {

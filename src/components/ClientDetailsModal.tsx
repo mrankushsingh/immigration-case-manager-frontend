@@ -13,6 +13,7 @@ import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { useData } from '../context/DataContext';
 import { formatClientFullName } from '../utils/clientNames';
+import { buildNoteSchedulingPatch } from '../utils/clientNoteScheduling';
 
 interface Props {
   client: Client;
@@ -160,7 +161,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   // Use templates from context (loaded once at app startup)
-  const { templates } = useData();
+  const { templates, refreshReminders } = useData();
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [templateSearchQuery, setTemplateSearchQuery] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -1455,14 +1456,62 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     return 'border-amber-200 bg-amber-50/40 hover:border-amber-400 hover:bg-amber-50/60 cursor-pointer';
   };
 
+  const applyNoteSchedulingUpdates = async (
+    incomingText: string,
+    mode: 'notes' | 'details'
+  ) => {
+    const patch = buildNoteSchedulingPatch(
+      incomingText,
+      clientData.notes || '',
+      clientData,
+      mode
+    );
+
+    const updates: Partial<Client> = {};
+    if (mode === 'notes') {
+      updates.notes = incomingText;
+    } else if (patch.notes !== (clientData.notes || '')) {
+      updates.notes = patch.notes;
+      setNotes(patch.notes);
+    }
+
+    if (patch.custom_reminder_date) {
+      updates.custom_reminder_date = patch.custom_reminder_date;
+      setCustomReminderDate(patch.custom_reminder_date);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await api.updateClient(client.id, updates);
+    } else if (mode === 'notes') {
+      await api.updateNotes(client.id, incomingText);
+    }
+
+    if (patch.urgentReminder) {
+      await api.createReminder(patch.urgentReminder);
+      await refreshReminders();
+    }
+
+    return patch;
+  };
+
   const handleSaveNotes = async () => {
     setSavingNotes(true);
     setError('');
     try {
-      await api.updateNotes(client.id, notes);
+      const patch = await applyNoteSchedulingUpdates(notes, 'notes');
       await loadClient();
       onSuccess();
-      showToast('Notes saved successfully', 'success');
+
+      if (patch.followUpDate) {
+        const dateLabel = patch.followUpDate.toLocaleDateString();
+        if (patch.urgentReminder) {
+          showToast(`Notes saved. Follow-up ${dateLabel} — added to URGENT.`, 'success');
+        } else {
+          showToast(`Notes saved. Follow-up date set for ${dateLabel}.`, 'success');
+        }
+      } else {
+        showToast('Notes saved successfully', 'success');
+      }
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to save notes';
       setError(errorMessage);
@@ -1477,9 +1526,31 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     setError('');
     try {
       await api.updateClient(client.id, { details });
+      const patch = await applyNoteSchedulingUpdates(details, 'details');
       await loadClient();
       onSuccess();
-      showToast('Details saved successfully', 'success');
+
+      if (patch.notes !== (clientData.notes || '') && patch.followUpDate) {
+        const dateLabel = patch.followUpDate.toLocaleDateString();
+        showToast(
+          patch.urgentReminder
+            ? `Saved to Important Notes. Follow-up ${dateLabel} — added to URGENT.`
+            : `Saved to Important Notes. Follow-up date set for ${dateLabel}.`,
+          'success'
+        );
+      } else if (patch.notes !== (clientData.notes || '')) {
+        showToast('Saved to Important Notes', 'success');
+      } else if (patch.followUpDate) {
+        const dateLabel = patch.followUpDate.toLocaleDateString();
+        showToast(
+          patch.urgentReminder
+            ? `Follow-up ${dateLabel} — added to URGENT.`
+            : `Follow-up date set for ${dateLabel}.`,
+          'success'
+        );
+      } else {
+        showToast('Details saved successfully', 'success');
+      }
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to save details';
       setError(errorMessage);
@@ -2429,7 +2500,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         <div className="mb-6 p-5 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 shadow-sm">
           <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="text-sm font-semibold text-gray-700">Client Details</h4>
+              <h4 className="text-sm font-semibold text-gray-700">What the client said</h4>
+              <span className="text-xs text-gray-500">Saved to Important Notes</span>
               <button
                 onClick={handleSaveDetails}
                 disabled={savingDetails}
@@ -2445,7 +2517,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
               onChange={(e) => setDetails(e.target.value)}
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-sm"
-              placeholder="Enter additional details about the client..."
+              placeholder="Any note from the client (saved to Important Notes below)…"
             />
           </div>
         </div>
@@ -4474,7 +4546,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
             onChange={(e) => setNotes(e.target.value)}
             rows={4}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
-            placeholder="Add important notes about this client..."
+            placeholder="Important notes (client said…, wait for file…). Add a date or tomorrow for URGENT follow-up."
           />
         </div>
           </div>
