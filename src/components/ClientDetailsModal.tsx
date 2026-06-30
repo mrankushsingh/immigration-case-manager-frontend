@@ -116,7 +116,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [editPaymentLineForm, setEditPaymentLineForm] = useState({
     amount: '',
     method: 'Cash',
-    note: '',
     date: '',
   });
   const [savingPaymentLine, setSavingPaymentLine] = useState(false);
@@ -126,7 +125,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const smartUploadDragDepth = useRef(0);
   const allDocumentsFileInputRef = useRef<HTMLInputElement>(null);
   const [showAdditionalDocForm, setShowAdditionalDocForm] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash', note: '' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'Cash' });
   const [additionalDocForm, setAdditionalDocForm] = useState({ name: '', description: '', file: null as File | null, reminder_days: 10 });
   const [editingAdditionalDoc, setEditingAdditionalDoc] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
@@ -1173,8 +1172,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
 
     try {
-      await api.addPayment(client.id, amount, paymentForm.method, paymentForm.note);
-      setPaymentForm({ amount: '', method: 'Cash', note: '' });
+      await api.addPayment(client.id, amount, paymentForm.method);
+      setPaymentForm({ amount: '', method: 'Cash' });
       setShowPaymentForm(false);
       await loadClient();
       
@@ -1250,7 +1249,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     setEditPaymentLineForm({
       amount: String(p.amount),
       method: p.method || 'Cash',
-      note: p.note || '',
       date: local.toISOString().slice(0, 16),
     });
     setEditingPaymentIndex(index);
@@ -1273,7 +1271,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       payments[editingPaymentIndex] = {
         amount,
         method: editPaymentLineForm.method,
-        note: editPaymentLineForm.note.trim() || undefined,
         date: new Date(editPaymentLineForm.date).toISOString(),
       };
       const paidAmount = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -2501,7 +2498,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 
           {importantNoteEntries.length === 0 ? (
             <p className="text-sm text-gray-500 mb-4 py-3 text-center bg-white/60 rounded-lg border border-dashed border-gray-200">
-              No notes yet. Add what the client said below.
+              No notes yet. Add client notes here — not in Payments.
             </p>
           ) : (
             <ol className="space-y-3 mb-4 list-none">
@@ -2702,25 +2699,13 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                     <option value="Other">Other</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Note (optional)</label>
-                  <input
-                    type="text"
-                    id="client-payment-note"
-                    name="note"
-                    value={paymentForm.note}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                    placeholder="Payment note"
-                  />
-                </div>
               </div>
               <div className="flex justify-end space-x-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowPaymentForm(false);
-                    setPaymentForm({ amount: '', method: 'Cash', note: '' });
+                    setPaymentForm({ amount: '', method: 'Cash' });
                   }}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                 >
@@ -2753,11 +2738,14 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 </span>
               </div>
             </div>
-            {clientData.payment?.payments && clientData.payment.payments.length > 0 && (
+            {clientData.payment?.payments && clientData.payment.payments.filter((p: { amount?: number }) => (p.amount || 0) > 0).length > 0 && (
               <div className="mt-4 pt-4 border-t">
                 <h4 className="text-sm font-semibold text-gray-900 mb-2">Payment History</h4>
                 <div className="space-y-2">
-                  {clientData.payment.payments.map((payment: any, index: number) => (
+                  {clientData.payment.payments
+                    .map((payment: any, index: number) => ({ payment, index }))
+                    .filter(({ payment }) => (payment.amount || 0) > 0)
+                    .map(({ payment, index }) => (
                     <div key={index} className="text-sm bg-gray-50 p-2 sm:p-3 rounded border border-transparent hover:border-green-200">
                       {editingPaymentIndex === index ? (
                         <form onSubmit={handleSavePaymentLine} className="space-y-3">
@@ -2798,15 +2786,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                                 className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
                               />
                             </div>
-                            <div className="sm:col-span-2">
-                              <label className="block text-xs font-medium text-gray-600 mb-1">Note (optional)</label>
-                              <input
-                                type="text"
-                                value={editPaymentLineForm.note}
-                                onChange={(e) => setEditPaymentLineForm({ ...editPaymentLineForm, note: e.target.value })}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
-                              />
-                            </div>
                           </div>
                           <div className="flex justify-end gap-2">
                             <button
@@ -2830,7 +2809,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                           <div>
                             <span className="font-medium">€{payment.amount}</span>
                             <span className="text-gray-600 ml-2">via {payment.method}</span>
-                            {payment.note && <span className="text-gray-500 ml-2">- {payment.note}</span>}
                             <div className="text-gray-500 text-xs mt-1">{new Date(payment.date).toLocaleString()}</div>
                           </div>
                           <button
