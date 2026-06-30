@@ -185,6 +185,54 @@ export function normalizeClientNoteText(text: string | undefined | null): string
   return decodeHtmlEntities(text || '');
 }
 
+export interface ImportantNoteEntry {
+  id: string;
+  dateLabel?: string;
+  text: string;
+}
+
+/** Split stored notes into numbered list items. */
+export function parseImportantNotes(notes: string): ImportantNoteEntry[] {
+  const norm = normalizeClientNoteText(notes).trim();
+  if (!norm) return [];
+
+  return norm
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block, index) => {
+      const match = block.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
+      if (match) {
+        const text = match[2].trim();
+        return {
+          id: `important-note-${index}`,
+          dateLabel: match[1].trim(),
+          text: text || block,
+        };
+      }
+      return { id: `important-note-${index}`, text: block };
+    });
+}
+
+export function serializeImportantNotes(entries: ImportantNoteEntry[]): string {
+  return entries
+    .map((entry) => {
+      const text = entry.text.trim();
+      if (!text) return '';
+      if (entry.dateLabel) return `[${entry.dateLabel}] ${text}`;
+      return text;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+export function removeImportantNoteAtIndex(notes: string, index: number): string {
+  const entries = parseImportantNotes(notes);
+  if (index < 0 || index >= entries.length) return normalizeClientNoteText(notes);
+  entries.splice(index, 1);
+  return serializeImportantNotes(entries);
+}
+
 /** Append a line into Important Notes (deduped, timestamped). */
 export function appendImportantNote(existing: string, line: string): string {
   const trimmed = line.trim();
