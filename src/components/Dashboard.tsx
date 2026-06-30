@@ -503,7 +503,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [paytrackClientView, setPaytrackClientView] = useState<Client | null>(null);
   const [paytrackClientEntry, setPaytrackClientEntry] = useState<{
     amount: string;
-    type: 'payment' | 'honorario' | 'pending';
+    type: 'payment' | 'honorario';
     note: string;
     date: string;
   }>({
@@ -1052,8 +1052,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         showToast(`Payment €${amount.toFixed(2)} recorded · Pending €${pending.toFixed(2)}`, 'success');
       } else {
         const newTotalFee = (current.totalFee || 0) + amount;
-        const feeLabel =
-          paytrackClientEntry.type === 'honorario' ? 'Honorario' : 'Additional fee';
+        const feeLabel = 'Additional fee';
         const feeEntry = {
           amount,
           date: paytrackDateToIso(paytrackClientEntry.date),
@@ -5336,14 +5335,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   onChange={(e) =>
                     setPaytrackClientEntry((s) => ({
                       ...s,
-                      type: e.target.value as 'payment' | 'honorario' | 'pending',
+                      type: e.target.value as 'payment' | 'honorario',
                     }))
                   }
                   className="bg-white border border-amber-200 rounded-2xl px-3 py-3 min-w-[130px] outline-none focus:ring-2 focus:ring-amber-400"
                 >
                   <option value="payment">PAYMENT</option>
                   <option value="honorario">ADD FEE</option>
-                  <option value="pending">ADD FEE (PENDING)</option>
                 </select>
               </div>
               <input
