@@ -134,8 +134,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [newNoteDraft, setNewNoteDraft] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [deletingNoteIndex, setDeletingNoteIndex] = useState<number | null>(null);
-  const [details, setDetails] = useState(() => normalizeClientNoteText(client.details));
-  const [savingDetails, setSavingDetails] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<{
@@ -231,7 +229,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 
   useEffect(() => {
     setNotes(normalizeClientNoteText(clientData.notes));
-    setDetails(normalizeClientNoteText(clientData.details));
     setCustomReminderDate(clientData.custom_reminder_date || '');
     setClientInfoForm({
       first_name: clientData.first_name || '',
@@ -240,7 +237,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       phone: clientData.phone || '',
       parent_name: clientData.parent_name || '',
     });
-  }, [clientData.notes, clientData.details, clientData.custom_reminder_date, clientData.first_name, clientData.last_name, clientData.email, clientData.phone, clientData.parent_name]);
+  }, [clientData.notes, clientData.custom_reminder_date, clientData.first_name, clientData.last_name, clientData.email, clientData.phone, clientData.parent_name]);
 
   const importantNoteEntries = useMemo(() => parseImportantNotes(notes), [notes]);
 
@@ -1556,46 +1553,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     }
   };
 
-  const handleSaveDetails = async () => {
-    setSavingDetails(true);
-    setError('');
-    try {
-      await api.updateClient(client.id, { details });
-      const patch = await applyNoteSchedulingUpdates(details, 'details');
-      await loadClient();
-      onSuccess();
-
-      if (patch.notes !== (clientData.notes || '') && patch.followUpDate) {
-        const dateLabel = patch.followUpDate.toLocaleDateString();
-        showToast(
-          patch.urgentReminder
-            ? `Saved to Important Notes. Follow-up ${dateLabel} — added to URGENT.`
-            : `Saved to Important Notes. Follow-up date set for ${dateLabel}.`,
-          'success'
-        );
-      } else if (patch.notes !== (clientData.notes || '')) {
-        showToast('Saved to Important Notes', 'success');
-      } else if (patch.followUpDate) {
-        const dateLabel = patch.followUpDate.toLocaleDateString();
-        showToast(
-          patch.urgentReminder
-            ? `Follow-up ${dateLabel} — added to URGENT.`
-            : `Follow-up date set for ${dateLabel}.`,
-          'success'
-        );
-      } else {
-        showToast('Details saved successfully', 'success');
-      }
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to save details';
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
-    } finally {
-      setSavingDetails(false);
-    }
-  };
-
-
   const handleOpenReminderCalendar = () => {
     setTempReminderDate(customReminderDate || '');
     setShowReminderCalendar(true);
@@ -2531,29 +2488,73 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           )}
         </div>
         
-        {/* Client Details Section */}
-        <div className="mb-6 p-5 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="text-sm font-semibold text-gray-700">What the client said</h4>
-              <span className="text-xs text-gray-500">Saved to Important Notes</span>
-              <button
-                onClick={handleSaveDetails}
-                disabled={savingDetails}
-                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {savingDetails ? 'Saving...' : 'Save Details'}
-              </button>
-            </div>
+        {/* Important Notes */}
+        <div className="mb-6 p-5 bg-gradient-to-br from-blue-50/50 to-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <StickyNote className="w-5 h-5 text-blue-700" />
+              </div>
+              <span>Important Notes</span>
+            </h3>
+          </div>
+
+          {importantNoteEntries.length === 0 ? (
+            <p className="text-sm text-gray-500 mb-4 py-3 text-center bg-white/60 rounded-lg border border-dashed border-gray-200">
+              No notes yet. Add what the client said below.
+            </p>
+          ) : (
+            <ol className="space-y-3 mb-4 list-none">
+              {importantNoteEntries.map((entry, index) => (
+                <li
+                  key={entry.id}
+                  className="flex items-start gap-3 p-3 bg-white rounded-lg border border-blue-100 shadow-sm"
+                >
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">
+                    {index + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {entry.dateLabel ? (
+                      <p className="text-xs font-medium text-blue-700 mb-1">{entry.dateLabel}</p>
+                    ) : null}
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{entry.text}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteImportantNote(index)}
+                    disabled={deletingNoteIndex === index}
+                    className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200 hover:border-red-300 disabled:opacity-50"
+                    title="Delete note"
+                  >
+                    {deletingNoteIndex === index ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          <div className="pt-4 border-t border-blue-100">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Add note</label>
             <textarea
-              id="client-details"
-              name="details"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-sm"
-              placeholder="Any note from the client (saved to Important Notes below)…"
+              value={newNoteDraft}
+              onChange={(e) => setNewNoteDraft(e.target.value)}
+              rows={3}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+              placeholder="What the client said… (tomorrow, 30-06-2026 for URGENT follow-up)"
             />
+            <button
+              type="button"
+              onClick={handleAddImportantNote}
+              disabled={savingNotes || !newNoteDraft.trim()}
+              className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              {savingNotes ? 'Adding...' : 'Add note'}
+            </button>
           </div>
         </div>
 
@@ -4559,75 +4560,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           )}
         </div>
 
-        {/* Notes Section - Moved to end after all documents */}
-        <div className="mb-6 p-5 bg-gradient-to-br from-blue-50/50 to-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <StickyNote className="w-5 h-5 text-blue-700" />
-              </div>
-              <span>Important Notes</span>
-            </h3>
-          </div>
-
-          {importantNoteEntries.length === 0 ? (
-            <p className="text-sm text-gray-500 mb-4 py-3 text-center bg-white/60 rounded-lg border border-dashed border-gray-200">
-              No notes yet. Add what the client said below.
-            </p>
-          ) : (
-            <ol className="space-y-3 mb-4 list-none">
-              {importantNoteEntries.map((entry, index) => (
-                <li
-                  key={entry.id}
-                  className="flex items-start gap-3 p-3 bg-white rounded-lg border border-blue-100 shadow-sm"
-                >
-                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">
-                    {index + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    {entry.dateLabel ? (
-                      <p className="text-xs font-medium text-blue-700 mb-1">{entry.dateLabel}</p>
-                    ) : null}
-                    <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{entry.text}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteImportantNote(index)}
-                    disabled={deletingNoteIndex === index}
-                    className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200 hover:border-red-300 disabled:opacity-50"
-                    title="Delete note"
-                  >
-                    {deletingNoteIndex === index ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
-
-          <div className="pt-4 border-t border-blue-100">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Add note</label>
-            <textarea
-              value={newNoteDraft}
-              onChange={(e) => setNewNoteDraft(e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
-              placeholder="What the client said… (tomorrow, 30-06-2026 for URGENT follow-up)"
-            />
-            <button
-              type="button"
-              onClick={handleAddImportantNote}
-              disabled={savingNotes || !newNoteDraft.trim()}
-              className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              {savingNotes ? 'Adding...' : 'Add note'}
-            </button>
-          </div>
-        </div>
           </div>
         </div>
         
