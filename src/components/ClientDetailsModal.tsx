@@ -19,6 +19,7 @@ import {
   parseImportantNotes,
   removeImportantNoteAtIndex,
 } from '../utils/clientNoteScheduling';
+import { sumPaidPaymentAmount } from '../utils/paymentTotals';
 
 interface Props {
   client: Client;
@@ -1276,7 +1277,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
         note: editPaymentLineForm.note.trim() || undefined,
         date: new Date(editPaymentLineForm.date).toISOString(),
       };
-      const paidAmount = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const paidAmount = sumPaidPaymentAmount(payments);
       await api.updateClient(client.id, {
         payment: {
           ...clientData.payment,

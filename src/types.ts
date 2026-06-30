@@ -83,6 +83,8 @@ export interface Payment {
   date: string;
   method: string;
   note?: string;
+  /** `fee` = additional honorarios/service (not money received). */
+  entryType?: 'payment' | 'fee';
 }
 
 export interface Notification {

@@ -1,4 +1,5 @@
 import type { Client } from '../types';
+import { sumPaidPaymentAmount } from './paymentTotals';
 
 // Use environment variable in production, relative path in development
 // Remove trailing slash to prevent double slashes in URLs
@@ -301,10 +302,11 @@ export const api = {
       date: date ? new Date(date).toISOString() : new Date().toISOString(),
       method,
       note: note || undefined,
+      entryType: 'payment' as const,
     };
     
     const updatedPayments = [...(client.payment.payments || []), newPayment];
-    const newPaidAmount = (client.payment.paidAmount || 0) + amount;
+    const newPaidAmount = sumPaidPaymentAmount(updatedPayments);
 
     return this.updateClient(clientId, {
       payment: {

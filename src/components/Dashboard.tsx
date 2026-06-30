@@ -18,6 +18,7 @@ import { formatClientFullName } from '../utils/clientNames';
 import { getNoteFollowUpDeadline, buildNoteSchedulingPatch } from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
+import { calcPendingBalance, isFeePaymentEntry, sumPaidPaymentAmount } from '../utils/paymentTotals';
 
 interface DashboardProps {
   onNavigate?: (view: 'templates' | 'clients' | 'team') => void;
@@ -754,10 +755,23 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         await api.addPayment(client.id, amount, 'Quick Note', note);
       } else {
         const current = client.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+        const paidAmount = sumPaidPaymentAmount(current.payments);
+        const newTotalFee = (current.totalFee || 0) + amount;
         await api.updateClient(client.id, {
           payment: {
             ...current,
-            totalFee: (current.totalFee || 0) + amount,
+            totalFee: newTotalFee,
+            paidAmount,
+            payments: [
+              ...(current.payments || []),
+              {
+                amount,
+                date: new Date().toISOString(),
+                method: entryType === 'honorario' ? 'Honorario' : 'Additional fee',
+                note,
+                entryType: 'fee' as const,
+              },
+            ],
           },
         });
       }
@@ -778,8 +792,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const getPaytrackClientTotals = (client: Client | null) => {
     const totalFee = client?.payment?.totalFee || 0;
-    const paidAmount = client?.payment?.paidAmount || 0;
-    const pending = Math.max(0, totalFee - paidAmount);
+    const paidAmount = client?.payment?.payments?.length
+      ? sumPaidPaymentAmount(client.payment.payments)
+      : client?.payment?.paidAmount || 0;
+    const pending = calcPendingBalance(totalFee, paidAmount);
     return { totalFee, paidAmount, pending };
   };
 
@@ -801,7 +817,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     payments: Client['payment']['payments'],
     totalFee?: number
   ) => {
-    const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const paidAmount = sumPaidPaymentAmount(payments);
     const latest = await api.getClient(clientId);
     const current = latest.payment || { totalFee: 0, paidAmount: 0, payments: [] };
     return api.updateClientPayment(
@@ -832,22 +848,27 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     if (!paytrackClientView || paytrackEditingPaymentIdx === null) return;
     const payments = [...(paytrackClientView.payment?.payments || [])];
     const amount = parseFloat(paytrackPaymentDraft.amount.replace(',', '.'));
-    const isNoteEntry = (payments[paytrackEditingPaymentIdx]?.amount || 0) === 0;
-    if (!Number.isFinite(amount) || amount < 0 || (!isNoteEntry && amount <= 0)) {
+    const isFeeEntry = isFeePaymentEntry(payments[paytrackEditingPaymentIdx]);
+    const isNoteEntry = !isFeeEntry && (payments[paytrackEditingPaymentIdx]?.amount || 0) === 0;
+    if (!Number.isFinite(amount) || amount < 0 || (!isNoteEntry && !isFeeEntry && amount <= 0)) {
       showToast('Please enter a valid amount', 'error');
       return;
     }
     if (!payments[paytrackEditingPaymentIdx]) return;
+    const existingEntry = payments[paytrackEditingPaymentIdx];
     payments[paytrackEditingPaymentIdx] = {
-      ...payments[paytrackEditingPaymentIdx],
+      ...existingEntry,
       amount,
       date: paytrackDateToIso(paytrackPaymentDraft.date),
-      method: paytrackPaymentDraft.method.trim() || 'Payment',
+      method: paytrackPaymentDraft.method.trim() || (isFeeEntry ? 'Honorario' : 'Payment'),
       note: paytrackPaymentDraft.note.trim() || undefined,
     };
+    const totalFeeAdjust = isFeeEntry
+      ? (paytrackClientView.payment?.totalFee || 0) + (amount - (Number(existingEntry.amount) || 0))
+      : undefined;
     try {
       setPaytrackClientSaving(true);
-      await savePaytrackPayments(paytrackClientView.id, payments);
+      await savePaytrackPayments(paytrackClientView.id, payments, totalFeeAdjust);
       if (paytrackPaymentDraft.note.trim()) {
         await syncClientNoteToImportant(paytrackClientView, paytrackPaymentDraft.note);
       }
@@ -863,10 +884,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const handlePaytrackPaymentDelete = async (index: number) => {
     if (!paytrackClientView) return;
+    const entry = paytrackClientView.payment?.payments?.[index];
     const payments = (paytrackClientView.payment?.payments || []).filter((_, i) => i !== index);
+    const current = paytrackClientView.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+    let totalFee = current.totalFee || 0;
+    if (entry && isFeePaymentEntry(entry)) {
+      totalFee = Math.max(0, totalFee - (Number(entry.amount) || 0));
+    }
     try {
       setPaytrackClientSaving(true);
-      await savePaytrackPayments(paytrackClientView.id, payments);
+      await savePaytrackPayments(paytrackClientView.id, payments, totalFee);
       await refreshPaytrackClient(paytrackClientView.id);
       if (paytrackEditingPaymentIdx === index) setPaytrackEditingPaymentIdx(null);
       showToast('Payment removed', 'success');
@@ -1005,6 +1032,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
     try {
       setPaytrackClientSaving(true);
+      const latest = await api.getClient(paytrackClientView.id);
+      const current = latest.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+      const paidAmount = sumPaidPaymentAmount(current.payments);
+
       if (paytrackClientEntry.type === 'payment') {
         await api.addPayment(
           paytrackClientView.id,
@@ -1013,23 +1044,43 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           paytrackClientEntry.note || undefined,
           paytrackDateToIso(paytrackClientEntry.date)
         );
+        if (paytrackClientEntry.note?.trim()) {
+          await syncClientNoteToImportant(latest, paytrackClientEntry.note);
+        }
+        const refreshed = await api.getClient(paytrackClientView.id);
+        const pending = calcPendingBalance(refreshed.payment?.totalFee || 0, sumPaidPaymentAmount(refreshed.payment?.payments));
+        showToast(`Payment €${amount.toFixed(2)} recorded · Pending €${pending.toFixed(2)}`, 'success');
       } else {
-        const current = paytrackClientView.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+        const newTotalFee = (current.totalFee || 0) + amount;
+        const feeLabel =
+          paytrackClientEntry.type === 'honorario' ? 'Honorario' : 'Additional fee';
+        const feeEntry = {
+          amount,
+          date: paytrackDateToIso(paytrackClientEntry.date),
+          method: feeLabel,
+          note: paytrackClientEntry.note?.trim() || undefined,
+          entryType: 'fee' as const,
+        };
         await api.updateClient(paytrackClientView.id, {
           payment: {
             ...current,
-            totalFee: (current.totalFee || 0) + amount,
+            totalFee: newTotalFee,
+            paidAmount,
+            payments: [...(current.payments || []), feeEntry],
           },
         });
-      }
-
-      if (paytrackClientEntry.note?.trim()) {
-        await syncClientNoteToImportant(paytrackClientView, paytrackClientEntry.note);
+        if (paytrackClientEntry.note?.trim()) {
+          await syncClientNoteToImportant(latest, paytrackClientEntry.note);
+        }
+        const pending = calcPendingBalance(newTotalFee, paidAmount);
+        showToast(
+          `Additional fee €${amount.toFixed(2)} added · Pending now €${pending.toFixed(2)}`,
+          'success'
+        );
       }
 
       await refreshPaytrackClient(paytrackClientView.id);
       setPaytrackClientEntry({ amount: '', type: 'payment', note: '', date: paytrackDefaultDateLocal() });
-      showToast('Payment details updated', 'success');
     } catch (error: any) {
       showToast(error.message || 'Failed to add entry', 'error');
     } finally {
@@ -5268,7 +5319,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             )}
 
             <form onSubmit={handlePaytrackClientAddEntry} className="mt-5 glass-gold border border-amber-200 rounded-3xl p-5">
-              <p className="text-xl font-semibold text-slate-900 mb-4">Add payment</p>
+              <p className="text-xl font-semibold text-slate-900 mb-1">Add payment or fee</p>
+              <p className="text-xs text-amber-800/80 mb-4">
+                Payment = money received. Additional fee = extra service (adds to honorarios and pending).
+              </p>
               <div className="flex gap-2">
                 <input
                   value={paytrackClientEntry.amount}
@@ -5288,29 +5342,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   className="bg-white border border-amber-200 rounded-2xl px-3 py-3 min-w-[130px] outline-none focus:ring-2 focus:ring-amber-400"
                 >
                   <option value="payment">PAYMENT</option>
-                  <option value="honorario">HONORARIO</option>
-                  <option value="pending">PENDING</option>
+                  <option value="honorario">ADD FEE</option>
+                  <option value="pending">ADD FEE (PENDING)</option>
                 </select>
               </div>
               <input
                 value={paytrackClientEntry.note}
                 onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, note: e.target.value }))}
-                placeholder="Notes (optional) — also saved to Important Notes"
+                placeholder={
+                  paytrackClientEntry.type === 'payment'
+                    ? 'Notes (optional)'
+                    : 'Service description (optional) — e.g. extra document review'
+                }
                 className="mt-3 w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
               />
-              {paytrackClientEntry.type === 'payment' && (
-                <div className="mt-3">
-                  <label className="block text-xs font-medium text-amber-800 mb-1">
-                    {t('dashboard.paytrackPaymentDate')}
-                  </label>
-                  <input
-                    type="date"
-                    value={paytrackClientEntry.date}
-                    onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, date: e.target.value }))}
-                    className="w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
-                  />
-                </div>
-              )}
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-amber-800 mb-1">
+                  {paytrackClientEntry.type === 'payment'
+                    ? t('dashboard.paytrackPaymentDate')
+                    : 'Fee date'}
+                </label>
+                <input
+                  type="date"
+                  value={paytrackClientEntry.date}
+                  onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, date: e.target.value }))}
+                  className="w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={paytrackClientSaving}
@@ -5337,7 +5395,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       (a, b) =>
                         new Date(b.entry.date).getTime() - new Date(a.entry.date).getTime()
                     )
-                    .map(({ entry, index }) => (
+                    .map(({ entry, index }) => {
+                      const isFee = isFeePaymentEntry(entry);
+                      return (
                       <div
                         key={`${entry.date}-${entry.amount}-${index}`}
                         className="bg-white border border-amber-100 rounded-xl px-3 py-2.5"
@@ -5408,7 +5468,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               ) : null}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {(entry.amount || 0) > 0 ? (
+                              {isFee ? (
+                                <span className="text-sm font-semibold text-amber-700">
+                                  +€{(entry.amount || 0).toFixed(2)}
+                                </span>
+                              ) : (entry.amount || 0) > 0 ? (
                                 <span className="text-sm font-semibold text-green-700">
                                   €{(entry.amount || 0).toFixed(2)}
                                 </span>
@@ -5438,7 +5502,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           </div>
                         )}
                       </div>
-                    ))}
+                    );
+                    })}
                 </div>
               )}
             </div>
