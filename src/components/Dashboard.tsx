@@ -18,7 +18,13 @@ import { formatClientFullName } from '../utils/clientNames';
 import { getNoteFollowUpDeadline, buildNoteSchedulingPatch } from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
-import { calcPendingBalance, isFeePaymentEntry, sumPaidPaymentAmount } from '../utils/paymentTotals';
+import { calcPendingBalance, getPaytrackFeeBreakdown, isFeePaymentEntry, sumPaidPaymentAmount, sumServiceFeeAmount } from '../utils/paymentTotals';
+
+type PaytrackEntryType = 'payment' | 'honorario' | 'service_fee';
+
+function paytrackFeeMethodLabel(type: 'honorario' | 'service_fee'): string {
+  return type === 'honorario' ? 'Honorarios' : 'Service fee';
+}
 
 interface DashboardProps {
   onNavigate?: (view: 'templates' | 'clients' | 'team') => void;
@@ -503,7 +509,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [paytrackClientView, setPaytrackClientView] = useState<Client | null>(null);
   const [paytrackClientEntry, setPaytrackClientEntry] = useState<{
     amount: string;
-    type: 'payment' | 'honorario';
+    type: PaytrackEntryType;
     note: string;
     date: string;
   }>({
@@ -652,10 +658,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return Number.isFinite(amount) && amount > 0 ? amount : null;
   };
 
-  const detectQuickNoteType = (text: string): 'payment' | 'honorario' | 'pending' => {
+  const detectQuickNoteType = (text: string): PaytrackEntryType => {
     const normalized = text.toLowerCase();
-    if (/honorario|fee/.test(normalized)) return 'honorario';
-    if (/pending|pendiente|due/.test(normalized)) return 'pending';
+    if (/honorario|honorarios/.test(normalized)) return 'honorario';
+    if (/service|servicio|extra|additional|pending|pendiente|due/.test(normalized)) return 'service_fee';
+    if (/paid|pago|payment/.test(normalized)) return 'payment';
     return 'payment';
   };
 
@@ -767,7 +774,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {
                 amount,
                 date: new Date().toISOString(),
-                method: entryType === 'honorario' ? 'Honorario' : 'Additional fee',
+                method: entryType === 'honorario' ? 'Honorarios' : 'Service fee',
                 note,
                 entryType: 'fee' as const,
               },
@@ -792,11 +799,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const getPaytrackClientTotals = (client: Client | null) => {
     const totalFee = client?.payment?.totalFee || 0;
-    const paidAmount = client?.payment?.payments?.length
-      ? sumPaidPaymentAmount(client.payment.payments)
+    const payments = client?.payment?.payments;
+    const paidAmount = payments?.length
+      ? sumPaidPaymentAmount(payments)
       : client?.payment?.paidAmount || 0;
+    const { honorarios, serviceFees } = getPaytrackFeeBreakdown(totalFee, payments);
     const pending = calcPendingBalance(totalFee, paidAmount);
-    return { totalFee, paidAmount, pending };
+    return { totalFee, honorarios, serviceFees, paidAmount, pending };
   };
 
   const openPaytrackClient = (client: Client, options?: { prefillPending?: boolean }) => {
@@ -860,7 +869,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       ...existingEntry,
       amount,
       date: paytrackDateToIso(paytrackPaymentDraft.date),
-      method: paytrackPaymentDraft.method.trim() || (isFeeEntry ? 'Honorario' : 'Payment'),
+      method: paytrackPaymentDraft.method.trim() || (isFeeEntry ? 'Honorarios' : 'Payment'),
       note: paytrackPaymentDraft.note.trim() || undefined,
     };
     const totalFeeAdjust = isFeeEntry
@@ -906,16 +915,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const handlePaytrackTotalFeeSave = async () => {
     if (!paytrackClientView) return;
-    const totalFee = parseFloat(paytrackTotalFeeDraft.replace(',', '.'));
-    if (!Number.isFinite(totalFee) || totalFee < 0) {
+    const honorarios = parseFloat(paytrackTotalFeeDraft.replace(',', '.'));
+    if (!Number.isFinite(honorarios) || honorarios < 0) {
       showToast('Please enter a valid honorarios amount', 'error');
       return;
     }
     try {
       setPaytrackClientSaving(true);
       const current = paytrackClientView.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+      const serviceFees = sumServiceFeeAmount(current.payments);
       await api.updateClient(paytrackClientView.id, {
-        payment: { ...current, totalFee },
+        payment: { ...current, totalFee: honorarios + serviceFees },
       });
       await refreshPaytrackClient(paytrackClientView.id);
       setPaytrackEditingTotalFee(false);
@@ -1051,8 +1061,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         const pending = calcPendingBalance(refreshed.payment?.totalFee || 0, sumPaidPaymentAmount(refreshed.payment?.payments));
         showToast(`Payment €${amount.toFixed(2)} recorded · Pending €${pending.toFixed(2)}`, 'success');
       } else {
+        const feeType = paytrackClientEntry.type as 'honorario' | 'service_fee';
         const newTotalFee = (current.totalFee || 0) + amount;
-        const feeLabel = 'Additional fee';
+        const feeLabel = paytrackFeeMethodLabel(feeType);
         const feeEntry = {
           amount,
           date: paytrackDateToIso(paytrackClientEntry.date),
@@ -1073,7 +1084,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         }
         const pending = calcPendingBalance(newTotalFee, paidAmount);
         showToast(
-          `Additional fee €${amount.toFixed(2)} added · Pending now €${pending.toFixed(2)}`,
+          `${feeLabel} €${amount.toFixed(2)} added · Pending now €${pending.toFixed(2)}`,
           'success'
         );
       }
@@ -5267,11 +5278,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className="text-amber-700 text-3xl font-semibold">€{totals.totalFee.toFixed(0)}</span>
+                        <span className="text-amber-700 text-3xl font-semibold">€{totals.honorarios.toFixed(0)}</span>
                         <button
                           type="button"
                           onClick={() => {
-                            setPaytrackTotalFeeDraft(String(totals.totalFee));
+                            setPaytrackTotalFeeDraft(String(totals.honorarios));
                             setPaytrackEditingTotalFee(true);
                           }}
                           className="p-1 text-amber-700 hover:text-amber-900"
@@ -5281,6 +5292,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         </button>
                       </div>
                     )}
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-amber-200">
+                    <span className="text-amber-700 tracking-wide">EXTRA SERVICES FEE</span>
+                    <span className="text-amber-800 text-2xl font-semibold">€{totals.serviceFees.toFixed(0)}</span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-amber-200">
                     <span className="text-amber-700 tracking-wide">PAGADO</span>
@@ -5320,9 +5335,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <form onSubmit={handlePaytrackClientAddEntry} className="mt-5 glass-gold border border-amber-200 rounded-3xl p-5">
               <p className="text-xl font-semibold text-slate-900 mb-1">Add payment or fee</p>
               <p className="text-xs text-amber-800/80 mb-4">
-                Payment = money received. Additional fee = extra service (adds to honorarios and pending).
+                Payment = money received. Honorarios = case fee. Service fee = extra work (both increase pending).
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   value={paytrackClientEntry.amount}
                   onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, amount: e.target.value }))}
@@ -5335,13 +5350,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   onChange={(e) =>
                     setPaytrackClientEntry((s) => ({
                       ...s,
-                      type: e.target.value as 'payment' | 'honorario',
+                      type: e.target.value as PaytrackEntryType,
                     }))
                   }
-                  className="bg-white border border-amber-200 rounded-2xl px-3 py-3 min-w-[130px] outline-none focus:ring-2 focus:ring-amber-400"
+                  className="bg-white border border-amber-200 rounded-2xl px-3 py-3 sm:min-w-[180px] outline-none focus:ring-2 focus:ring-amber-400"
                 >
                   <option value="payment">PAYMENT</option>
-                  <option value="honorario">ADD FEE</option>
+                  <option value="honorario">HONORARIOS</option>
+                  <option value="service_fee">SERVICE FEE</option>
                 </select>
               </div>
               <input
@@ -5350,7 +5366,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 placeholder={
                   paytrackClientEntry.type === 'payment'
                     ? 'Notes (optional)'
-                    : 'Service description (optional) — e.g. extra document review'
+                    : paytrackClientEntry.type === 'honorario'
+                      ? 'Honorarios note (optional) — e.g. initial case fee'
+                      : 'Service description (optional) — e.g. extra document review'
                 }
                 className="mt-3 w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
               />
