@@ -112,9 +112,22 @@ export function parseDeadlineFromNote(text: string, ref = new Date()): Date | nu
     return d;
   }
 
-  if (/\b(next week|próxima semana|proxima semana|java e ardhshme)\b/i.test(lower)) {
+  const inWeeks = lower.match(/\b(?:in|en|dentro de|pas)\s+(\d{1,2})\s+(?:weeks?|semanas?)\b/i);
+  if (inWeeks) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + parseInt(inWeeks[1], 10) * 7);
+    return d;
+  }
+
+  if (/\b(next week|próxima semana|proxima semana|java e ardhshme|semana que viene)\b/i.test(lower)) {
     const d = new Date(today);
     d.setDate(d.getDate() + 7);
+    return d;
+  }
+
+  if (/\b(next month|próximo mes|proximo mes|mes que viene)\b/i.test(lower)) {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() + 1);
     return d;
   }
 
@@ -130,7 +143,8 @@ export function parseDeadlineFromNote(text: string, ref = new Date()): Date | nu
     return safeDate(parseInt(iso[1], 10), parseInt(iso[2], 10) - 1, parseInt(iso[3], 10));
   }
 
-  const dmy = raw.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d{2})\b/);
+  // Skip [DD-MM-YYYY] note stamps — only match standalone calendar dates.
+  const dmy = raw.match(/(?<!\[)\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d{2})\b(?!\])/);
   if (dmy) {
     return safeDate(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10));
   }
@@ -259,21 +273,44 @@ export function hasUrgentLanguage(text: string): boolean {
   return /\b(urgent|urgente|asap|72\s*h|72h|inmediat|lo antes posible)\b/i.test(text);
 }
 
-export interface UrgentReminderPayload {
+export interface ReminderPayload {
   client_id: string;
   client_name: string;
   client_surname: string;
   phone?: string;
   reminder_date: string;
   notes: string;
-  reminder_type: 'URGENTES';
+  reminder_type: string;
 }
+
+export type UrgentReminderPayload = ReminderPayload & { reminder_type: 'URGENTES' };
+export type CalendarReminderPayload = ReminderPayload & { reminder_type: 'RECORDATORIO' };
 
 export interface NoteSchedulingPatch {
   notes: string;
   custom_reminder_date?: string;
   urgentReminder?: UrgentReminderPayload;
+  calendarReminder?: CalendarReminderPayload;
   followUpDate?: Date;
+}
+
+function buildReminderPayload(
+  client: Pick<Client, 'id' | 'first_name' | 'last_name' | 'phone'>,
+  deadline: Date,
+  noteText: string,
+  reminderType: 'URGENTES' | 'RECORDATORIO'
+): ReminderPayload {
+  const reminderAt = new Date(deadline);
+  reminderAt.setHours(9, 0, 0, 0);
+  return {
+    client_id: client.id,
+    client_name: client.first_name,
+    client_surname: client.last_name,
+    phone: client.phone,
+    reminder_date: reminderAt.toISOString(),
+    notes: noteText,
+    reminder_type: reminderType,
+  };
 }
 
 export function buildNoteSchedulingPatch(
@@ -305,17 +342,14 @@ export function buildNoteSchedulingPatch(
     isWithinUrgentWindow(deadline) || hasUrgentLanguage(trimmed);
 
   if (shouldCreateUrgentReminder) {
-    const reminderAt = new Date(deadline);
-    reminderAt.setHours(9, 0, 0, 0);
-    patch.urgentReminder = {
-      client_id: client.id,
-      client_name: client.first_name,
-      client_surname: client.last_name,
-      phone: client.phone,
-      reminder_date: reminderAt.toISOString(),
-      notes: trimmed,
-      reminder_type: 'URGENTES',
-    };
+    patch.urgentReminder = buildReminderPayload(client, deadline, trimmed, 'URGENTES') as UrgentReminderPayload;
+  } else {
+    patch.calendarReminder = buildReminderPayload(
+      client,
+      deadline,
+      `Important note: ${trimmed}`,
+      'RECORDATORIO'
+    ) as CalendarReminderPayload;
   }
 
   return patch;
@@ -328,6 +362,11 @@ export function getNoteFollowUpDeadline(client: Pick<Client, 'notes' | 'custom_r
     if (!Number.isNaN(d.getTime())) return startOfDay(d);
   }
   if (client.notes?.trim()) {
+    const entries = parseImportantNotes(client.notes);
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const parsed = parseDeadlineFromNote(entries[i].text);
+      if (parsed) return parsed;
+    }
     return parseDeadlineFromNote(client.notes);
   }
   return null;

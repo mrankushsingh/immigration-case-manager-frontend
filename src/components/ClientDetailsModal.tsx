@@ -1496,6 +1496,9 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     if (patch.urgentReminder) {
       await api.createReminder(patch.urgentReminder);
       await refreshReminders();
+    } else if (patch.calendarReminder) {
+      await api.createReminder(patch.calendarReminder);
+      await refreshReminders();
     }
 
     return patch;
@@ -1519,7 +1522,9 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       if (patch.followUpDate) {
         const dateLabel = patch.followUpDate.toLocaleDateString();
         if (patch.urgentReminder) {
-          showToast(`Note added. Follow-up ${dateLabel} — added to URGENT.`, 'success');
+          showToast(`Note added. Follow-up ${dateLabel} — added to URGENT and calendar.`, 'success');
+        } else if (patch.calendarReminder) {
+          showToast(`Note added. Follow-up ${dateLabel} — added to calendar.`, 'success');
         } else {
           showToast(`Note added. Follow-up date set for ${dateLabel}.`, 'success');
         }

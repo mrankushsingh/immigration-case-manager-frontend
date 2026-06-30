@@ -15,7 +15,7 @@ import {
   splitReminderFullName,
 } from '../utils/reminderNames';
 import { formatClientFullName } from '../utils/clientNames';
-import { getNoteFollowUpDeadline, buildNoteSchedulingPatch } from '../utils/clientNoteScheduling';
+import { getNoteFollowUpDeadline, buildNoteSchedulingPatch, parseImportantNotes, toISODateOnly } from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
 import { calcPendingBalance, getPaytrackFeeBreakdown, isFeePaymentEntry, sumPaidPaymentAmount, sumServiceFeeAmount } from '../utils/paymentTotals';
@@ -289,6 +289,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       }
       if (patch.urgentReminder) {
         await api.createReminder(patch.urgentReminder);
+        await refreshReminders();
+      } else if (patch.calendarReminder) {
+        await api.createReminder(patch.calendarReminder);
         await refreshReminders();
       }
     },
@@ -1421,8 +1424,41 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       if (list) list.push(reminder);
       else map.set(key, [reminder]);
     }
+
+    for (const client of clients) {
+      const followUp = getNoteFollowUpDeadline(client);
+      if (!followUp) continue;
+      const key = toISODateOnly(followUp);
+      const existing = map.get(key) || [];
+      if (existing.some((r) => r.client_id === client.id)) continue;
+
+      const entries = parseImportantNotes(client.notes || '');
+      const latestNote = entries.length > 0 ? entries[entries.length - 1].text : '';
+      const reminderAt = new Date(followUp);
+      reminderAt.setHours(9, 0, 0, 0);
+
+      const synthetic: Reminder = {
+        id: `note-followup-${client.id}-${key}`,
+        client_id: client.id,
+        client_name: client.first_name,
+        client_surname: client.last_name,
+        phone: client.phone,
+        reminder_date: reminderAt.toISOString(),
+        notes: latestNote ? `Important note: ${latestNote}` : 'Follow-up from Important Notes',
+        reminder_type: 'RECORDATORIO',
+        created_at: '',
+        updated_at: '',
+      };
+
+      if (existing.length > 0) {
+        map.set(key, [...existing, synthetic]);
+      } else {
+        map.set(key, [synthetic]);
+      }
+    }
+
     return map;
-  }, [reminders]);
+  }, [reminders, clients]);
 
   const calendarModalCells = useMemo(
     () => buildCalendarCells(calendarViewYear, calendarViewMonth),
