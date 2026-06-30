@@ -23,7 +23,7 @@ import { calcPendingBalance, getPaytrackFeeBreakdown, isFeePaymentEntry, sumPaid
 type PaytrackEntryType = 'payment' | 'honorario' | 'service_fee';
 
 function paytrackFeeMethodLabel(type: 'honorario' | 'service_fee'): string {
-  return type === 'honorario' ? 'Honorarios' : 'Service fee';
+  return type === 'honorario' ? 'Honorarios' : 'Extra fee';
 }
 
 interface DashboardProps {
@@ -774,7 +774,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {
                 amount,
                 date: new Date().toISOString(),
-                method: entryType === 'honorario' ? 'Honorarios' : 'Service fee',
+                method: entryType === 'honorario' ? 'Honorarios' : 'Extra fee',
                 note,
                 entryType: 'fee' as const,
               },
@@ -5294,7 +5294,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     )}
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-amber-200">
-                    <span className="text-amber-700 tracking-wide">EXTRA SERVICES FEE</span>
+                    <span className="text-amber-700 tracking-wide">EXTRA FEE</span>
                     <span className="text-amber-800 text-2xl font-semibold">€{totals.serviceFees.toFixed(0)}</span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-amber-200">
@@ -5335,7 +5335,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <form onSubmit={handlePaytrackClientAddEntry} className="mt-5 glass-gold border border-amber-200 rounded-3xl p-5">
               <p className="text-xl font-semibold text-slate-900 mb-1">Add payment or fee</p>
               <p className="text-xs text-amber-800/80 mb-4">
-                Payment = money received. Honorarios = case fee. Service fee = extra work (both increase pending).
+                Payment = money received. Honorarios = case fee. Extra fee = additional work (both increase pending).
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
@@ -5357,7 +5357,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 >
                   <option value="payment">PAYMENT</option>
                   <option value="honorario">HONORARIOS</option>
-                  <option value="service_fee">SERVICE FEE</option>
+                  <option value="service_fee">EXTRA FEE</option>
                 </select>
               </div>
               <input
@@ -5368,7 +5368,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     ? 'Notes (optional)'
                     : paytrackClientEntry.type === 'honorario'
                       ? 'Honorarios note (optional) — e.g. initial case fee'
-                      : 'Service description (optional) — e.g. extra document review'
+                      : 'Extra fee note (optional) — e.g. extra document review'
                 }
                 className="mt-3 w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
               />
