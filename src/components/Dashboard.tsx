@@ -262,6 +262,31 @@ function DashboardModalSearchInput({
 export default function Dashboard({ onNavigate }: DashboardProps) {
   // Use shared data from context (loaded once at app startup)
   const { clients, templates, reminders, teamMembers, loading, refreshAll, refreshReminders, refreshClients } = useData();
+
+  const syncClientNoteToImportant = useCallback(
+    async (client: Client, noteText: string) => {
+      const trimmed = noteText.trim();
+      if (!trimmed) return;
+      let latest = client;
+      try {
+        latest = await api.getClient(client.id);
+      } catch {
+        // use snapshot if fetch fails
+      }
+      const patch = buildNoteSchedulingPatch(trimmed, latest.notes || '', latest, 'details');
+      const updates: { notes?: string; custom_reminder_date?: string } = {};
+      if (patch.notes !== (latest.notes || '')) updates.notes = patch.notes;
+      if (patch.custom_reminder_date) updates.custom_reminder_date = patch.custom_reminder_date;
+      if (Object.keys(updates).length > 0) {
+        await api.updateClient(client.id, updates);
+      }
+      if (patch.urgentReminder) {
+        await api.createReminder(patch.urgentReminder);
+        await refreshReminders();
+      }
+    },
+    [refreshReminders]
+  );
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [returnToRequerimiento, setReturnToRequerimiento] = useState(false);
   const [showReadyToSubmitModal, setShowReadyToSubmitModal] = useState(false);
@@ -691,7 +716,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         payments,
       },
       true
-    );
+    ).then(() => syncClientNoteToImportant(client, note));
   };
 
   const handlePaytrackQuickNote = async () => {
@@ -719,7 +744,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           await refreshPaytrackClient(client.id);
         }
         setPaytrackQuickNote('');
-        showToast(`${client.first_name} ${client.last_name}: note saved to history`, 'success');
+        showToast(`${client.first_name} ${client.last_name}: note saved to Important Notes`, 'success');
         return;
       }
 
@@ -736,6 +761,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         });
       }
 
+      await syncClientNoteToImportant(client, note);
       await refreshClients();
       setPaytrackQuickNote('');
       showToast(
@@ -821,6 +847,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     try {
       setPaytrackClientSaving(true);
       await savePaytrackPayments(paytrackClientView.id, payments);
+      if (paytrackPaymentDraft.note.trim()) {
+        await syncClientNoteToImportant(paytrackClientView, paytrackPaymentDraft.note);
+      }
       await refreshPaytrackClient(paytrackClientView.id);
       setPaytrackEditingPaymentIdx(null);
       showToast('Payment updated', 'success');
@@ -934,15 +963,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       }
       const clientNote = paytrackAddClientForm.notes.trim();
       if (clientNote) {
-        const patch = buildNoteSchedulingPatch(clientNote, '', created, 'details');
-        await api.updateClient(created.id, {
-          notes: patch.notes,
-          ...(patch.custom_reminder_date ? { custom_reminder_date: patch.custom_reminder_date } : {}),
-        });
-        if (patch.urgentReminder) {
-          await api.createReminder(patch.urgentReminder);
-          await refreshReminders();
-        }
+        await syncClientNoteToImportant(created, clientNote);
       }
       await refreshClients();
       closePaytrackAddClient();
@@ -1001,6 +1022,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         });
       }
 
+      if (paytrackClientEntry.note?.trim()) {
+        await syncClientNoteToImportant(paytrackClientView, paytrackClientEntry.note);
+      }
+
       await refreshPaytrackClient(paytrackClientView.id);
       setPaytrackClientEntry({ amount: '', type: 'payment', note: '', date: paytrackDefaultDateLocal() });
       showToast('Payment details updated', 'success');
@@ -1057,14 +1082,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         const clientNote = paymentForm.notes?.trim();
         if (clientNote) {
-          const patch = buildNoteSchedulingPatch(clientNote, existingClient.notes || '', existingClient, 'details');
-          await api.updateClient(existingClient.id, {
-            notes: patch.notes,
-            ...(patch.custom_reminder_date ? { custom_reminder_date: patch.custom_reminder_date } : {}),
-          });
-          if (patch.urgentReminder) {
-            await api.createReminder(patch.urgentReminder);
-          }
+          await syncClientNoteToImportant(existingClient, clientNote);
         }
         
         showToast('Payment added successfully', 'success');
@@ -1090,17 +1108,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           );
         }
         
-        // Save client note to Important Notes
         if (paymentForm.notes?.trim()) {
-          const clientNote = paymentForm.notes.trim();
-          const patch = buildNoteSchedulingPatch(clientNote, '', createdClient, 'details');
-          await api.updateClient(createdClient.id, {
-            notes: patch.notes,
-            ...(patch.custom_reminder_date ? { custom_reminder_date: patch.custom_reminder_date } : {}),
-          });
-          if (patch.urgentReminder) {
-            await api.createReminder(patch.urgentReminder);
-          }
+          await syncClientNoteToImportant(createdClient, paymentForm.notes.trim());
         }
         
         showToast('Client and payment created successfully', 'success');
@@ -5285,7 +5294,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <input
                 value={paytrackClientEntry.note}
                 onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, note: e.target.value }))}
-                placeholder="Notes (optional)"
+                placeholder="Notes (optional) — also saved to Important Notes"
                 className="mt-3 w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
               />
               {paytrackClientEntry.type === 'payment' && (
