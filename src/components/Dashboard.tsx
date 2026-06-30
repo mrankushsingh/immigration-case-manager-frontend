@@ -15,7 +15,7 @@ import {
   splitReminderFullName,
 } from '../utils/reminderNames';
 import { formatClientFullName } from '../utils/clientNames';
-import { getNoteFollowUpDeadline } from '../utils/clientNoteScheduling';
+import { getNoteFollowUpDeadline, buildNoteSchedulingPatch } from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
 
@@ -263,6 +263,31 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   // Use shared data from context (loaded once at app startup)
   const { clients, templates, reminders, teamMembers, loading, refreshAll, refreshReminders, refreshClients } = useData();
 
+  const syncClientNoteToImportant = useCallback(
+    async (client: Client, noteText: string) => {
+      const trimmed = noteText.trim();
+      if (!trimmed) return;
+      let latest = client;
+      try {
+        latest = await api.getClient(client.id);
+      } catch {
+        // use snapshot if fetch fails
+      }
+      const patch = buildNoteSchedulingPatch(trimmed, latest.notes || '', latest, 'details');
+      const updates: { notes?: string; custom_reminder_date?: string } = {};
+      if (patch.notes !== (latest.notes || '')) updates.notes = patch.notes;
+      if (patch.custom_reminder_date) updates.custom_reminder_date = patch.custom_reminder_date;
+      if (Object.keys(updates).length > 0) {
+        await api.updateClient(client.id, updates);
+      }
+      if (patch.urgentReminder) {
+        await api.createReminder(patch.urgentReminder);
+        await refreshReminders();
+      }
+    },
+    [refreshReminders]
+  );
+
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [returnToRequerimiento, setReturnToRequerimiento] = useState(false);
   const [showReadyToSubmitModal, setShowReadyToSubmitModal] = useState(false);
@@ -478,13 +503,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [paytrackClientEntry, setPaytrackClientEntry] = useState<{
     amount: string;
     type: 'payment' | 'honorario' | 'pending';
+    note: string;
     date: string;
   }>({
     amount: '',
     type: 'payment',
+    note: '',
     date: paytrackDefaultDateLocal(),
   });
   const [paytrackClientSaving, setPaytrackClientSaving] = useState(false);
+  const [paytrackQuickNote, setPaytrackQuickNote] = useState('');
+  const [paytrackQuickNoteSaving, setPaytrackQuickNoteSaving] = useState(false);
   const [showPaytrackAddClient, setShowPaytrackAddClient] = useState(false);
   const [paytrackAddClientSaving, setPaytrackAddClientSaving] = useState(false);
   const [paytrackAddClientForm, setPaytrackAddClientForm] = useState({
@@ -492,11 +521,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     phone: '',
     totalFee: '',
     amountPaid: '',
+    notes: '',
   });
   const [paytrackEditingPaymentIdx, setPaytrackEditingPaymentIdx] = useState<number | null>(null);
   const [paytrackPaymentDraft, setPaytrackPaymentDraft] = useState({
     amount: '',
     method: '',
+    note: '',
     date: paytrackDefaultDateLocal(),
   });
   const [paytrackEditingTotalFee, setPaytrackEditingTotalFee] = useState(false);
@@ -507,6 +538,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     amount_paid: '',
     total_amount: '',
     pending_extra: '',
+    notes: '',
     caseTemplateId: '',
   });
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
@@ -612,6 +644,138 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }
   }, [passcodeInput, unlockingFeature]);
 
+  const parseQuickNoteAmount = (text: string): number | null => {
+    const match = text.match(/(\d+(?:[.,]\d{1,2})?)/);
+    if (!match) return null;
+    const amount = Number(match[1].replace(',', '.'));
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+  };
+
+  const detectQuickNoteType = (text: string): 'payment' | 'honorario' | 'pending' => {
+    const normalized = text.toLowerCase();
+    if (/honorario|fee/.test(normalized)) return 'honorario';
+    if (/pending|pendiente|due/.test(normalized)) return 'pending';
+    return 'payment';
+  };
+
+  const resolveClientFromQuickNote = (text: string): Client | null => {
+    const words = (text.toLowerCase().match(/[a-zA-ZÀ-ÿ]{3,}/g) || []).filter(
+      (w) =>
+        ![
+          'paid',
+          'pago',
+          'payment',
+          'hoy',
+          'today',
+          'quick',
+          'note',
+          'nota',
+          'honorario',
+          'honorarios',
+          'pending',
+          'pendiente',
+          'due',
+          'fees',
+          'fee',
+          'will',
+          'call',
+          'about',
+        ].includes(w)
+    );
+    if (!words.length) return null;
+
+    let best: { client: Client; score: number } | null = null;
+    for (const client of clients) {
+      const fullName = `${client.first_name} ${client.last_name}`.toLowerCase();
+      let score = 0;
+      for (const word of words) {
+        if (fullName.includes(word)) score += word.length;
+      }
+      if (score > 0 && (!best || score > best.score)) {
+        best = { client, score };
+      }
+    }
+    return best?.client || null;
+  };
+
+  const appendPaytrackHistoryNote = async (client: Client, note: string) => {
+    const current = client.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+    const payments = [
+      ...(current.payments || []),
+      {
+        amount: 0,
+        date: new Date().toISOString(),
+        method: 'Quick Note',
+        note,
+      },
+    ];
+    return api.updateClientPayment(
+      client.id,
+      {
+        ...current,
+        paidAmount: current.paidAmount || 0,
+        payments,
+      },
+      true
+    ).then(() => syncClientNoteToImportant(client, note));
+  };
+
+  const handlePaytrackQuickNote = async () => {
+    const note = paytrackQuickNote.trim();
+    if (!note) {
+      showToast('Please enter a quick note', 'error');
+      return;
+    }
+
+    const client = resolveClientFromQuickNote(note);
+    if (!client) {
+      showToast('Could not match client from note', 'error');
+      return;
+    }
+
+    const amount = parseQuickNoteAmount(note);
+
+    try {
+      setPaytrackQuickNoteSaving(true);
+
+      if (!amount) {
+        await appendPaytrackHistoryNote(client, note);
+        await refreshClients();
+        if (paytrackClientView?.id === client.id) {
+          await refreshPaytrackClient(client.id);
+        }
+        setPaytrackQuickNote('');
+        showToast(`${client.first_name} ${client.last_name}: note saved to Important Notes`, 'success');
+        return;
+      }
+
+      const entryType = detectQuickNoteType(note);
+      if (entryType === 'payment') {
+        await api.addPayment(client.id, amount, 'Quick Note', note);
+      } else {
+        const current = client.payment || { totalFee: 0, paidAmount: 0, payments: [] };
+        await api.updateClient(client.id, {
+          payment: {
+            ...current,
+            totalFee: (current.totalFee || 0) + amount,
+          },
+        });
+      }
+
+      await syncClientNoteToImportant(client, note);
+      await refreshClients();
+      setPaytrackQuickNote('');
+      showToast(
+        `${client.first_name} ${client.last_name}: ${entryType === 'payment' ? 'payment' : 'fee'} €${amount.toFixed(2)} added`,
+        'success'
+      );
+    } catch (error: any) {
+      showToast(error.message || 'Failed to save quick note', 'error');
+    } finally {
+      setPaytrackQuickNoteSaving(false);
+    }
+  };
+
   const getPaytrackClientTotals = (client: Client | null) => {
     const totalFee = client?.payment?.totalFee || 0;
     const paidAmount = client?.payment?.paidAmount || 0;
@@ -627,6 +791,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     setPaytrackClientEntry({
       amount: options?.prefillPending && pending > 0 ? pending.toFixed(2) : '',
       type: 'payment',
+      note: '',
       date: paytrackDefaultDateLocal(),
     });
   };
@@ -658,6 +823,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     setPaytrackPaymentDraft({
       amount: String(entry.amount ?? ''),
       method: entry.method || '',
+      note: entry.note || '',
       date: toPaytrackDateLocal(entry.date),
     });
   };
@@ -666,7 +832,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     if (!paytrackClientView || paytrackEditingPaymentIdx === null) return;
     const payments = [...(paytrackClientView.payment?.payments || [])];
     const amount = parseFloat(paytrackPaymentDraft.amount.replace(',', '.'));
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const isNoteEntry = (payments[paytrackEditingPaymentIdx]?.amount || 0) === 0;
+    if (!Number.isFinite(amount) || amount < 0 || (!isNoteEntry && amount <= 0)) {
       showToast('Please enter a valid amount', 'error');
       return;
     }
@@ -676,10 +843,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       amount,
       date: paytrackDateToIso(paytrackPaymentDraft.date),
       method: paytrackPaymentDraft.method.trim() || 'Payment',
+      note: paytrackPaymentDraft.note.trim() || undefined,
     };
     try {
       setPaytrackClientSaving(true);
       await savePaytrackPayments(paytrackClientView.id, payments);
+      if (paytrackPaymentDraft.note.trim()) {
+        await syncClientNoteToImportant(paytrackClientView, paytrackPaymentDraft.note);
+      }
       await refreshPaytrackClient(paytrackClientView.id);
       setPaytrackEditingPaymentIdx(null);
       showToast('Payment updated', 'success');
@@ -742,7 +913,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const closePaytrackAddClient = () => {
     setShowPaytrackAddClient(false);
-    setPaytrackAddClientForm({ fullName: '', phone: '', totalFee: '', amountPaid: '' });
+    setPaytrackAddClientForm({ fullName: '', phone: '', totalFee: '', amountPaid: '', notes: '' });
   };
 
   const parsePaytrackMoney = (raw: string): number | null => {
@@ -781,13 +952,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         lastName,
         phone: paytrackAddClientForm.phone.trim() || undefined,
         totalFee: totalFee ?? undefined,
+        details: paytrackAddClientForm.notes.trim() || undefined,
       });
       if (amountPaid != null && amountPaid > 0) {
         await api.addPayment(
           created.id,
           amountPaid,
-          'PayTrack'
+          'PayTrack',
+          paytrackAddClientForm.notes.trim() || undefined
         );
+      }
+      const clientNote = paytrackAddClientForm.notes.trim();
+      if (clientNote) {
+        await syncClientNoteToImportant(created, clientNote);
       }
       await refreshClients();
       closePaytrackAddClient();
@@ -833,7 +1010,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           paytrackClientView.id,
           amount,
           'PayTrack',
-          undefined,
+          paytrackClientEntry.note || undefined,
           paytrackDateToIso(paytrackClientEntry.date)
         );
       } else {
@@ -846,8 +1023,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         });
       }
 
+      if (paytrackClientEntry.note?.trim()) {
+        await syncClientNoteToImportant(paytrackClientView, paytrackClientEntry.note);
+      }
+
       await refreshPaytrackClient(paytrackClientView.id);
-      setPaytrackClientEntry({ amount: '', type: 'payment', date: paytrackDefaultDateLocal() });
+      setPaytrackClientEntry({ amount: '', type: 'payment', note: '', date: paytrackDefaultDateLocal() });
       showToast('Payment details updated', 'success');
     } catch (error: any) {
       showToast(error.message || 'Failed to add entry', 'error');
@@ -885,7 +1066,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         await api.addPayment(
           existingClient.id,
           amountPaid + pendingExtra,
-          'Manual Entry'
+          'Manual Entry',
+          paymentForm.notes || undefined
         );
         
         // Update total fee if provided
@@ -897,6 +1079,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               paidAmount: newPaidAmount,
             },
           });
+        }
+
+        const clientNote = paymentForm.notes?.trim();
+        if (clientNote) {
+          await syncClientNoteToImportant(existingClient, clientNote);
         }
         
         showToast('Payment added successfully', 'success');
@@ -917,8 +1104,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           await api.addPayment(
             createdClient.id,
             amountPaid + pendingExtra,
-            'Manual Entry'
+            'Manual Entry',
+            paymentForm.notes || undefined
           );
+        }
+        
+        if (paymentForm.notes?.trim()) {
+          await syncClientNoteToImportant(createdClient, paymentForm.notes.trim());
         }
         
         showToast('Client and payment created successfully', 'success');
@@ -931,6 +1123,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         amount_paid: '',
         total_amount: '',
         pending_extra: '',
+        notes: '',
         caseTemplateId: '',
       });
       setShowTemplateDropdown(false);
@@ -3989,6 +4182,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       />
                       <p className="text-xs text-gray-500 mt-1">Add pending or extra payment directly</p>
                     </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <textarea
+                        value={paymentForm.notes}
+                        onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                        rows={3}
+                        placeholder="Additional notes (optional)"
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center justify-end space-x-3 mt-4">
                     <button
@@ -4001,6 +4204,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           amount_paid: '',
                           total_amount: '',
                           pending_extra: '',
+                          notes: '',
                           caseTemplateId: '',
                         });
                         setShowTemplateDropdown(false);
@@ -4144,6 +4348,27 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </div>
 
               <div className="mb-4">
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <p className="text-sm font-semibold text-amber-900">{t('dashboard.paytrackQuickNote')}</p>
+                    <span className="text-[11px] text-amber-700 text-right">{t('dashboard.paytrackQuickNoteHint')}</span>
+                  </div>
+                  <textarea
+                    value={paytrackQuickNote}
+                    onChange={(e) => setPaytrackQuickNote(e.target.value)}
+                    rows={2}
+                    placeholder={t('dashboard.paytrackQuickNotePlaceholder')}
+                    className="w-full bg-white rounded-xl px-3 py-2 outline-none resize-none border border-amber-200 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                  />
+                  <button
+                    onClick={handlePaytrackQuickNote}
+                    disabled={paytrackQuickNoteSaving || !paytrackQuickNote.trim()}
+                    className="mt-2 w-full sm:w-auto px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {paytrackQuickNoteSaving ? t('common.loading') : t('dashboard.paytrackQuickNoteSave')}
+                  </button>
+                </div>
+
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600/70 w-4 h-4" />
                   <input
@@ -5067,6 +5292,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   <option value="pending">PENDING</option>
                 </select>
               </div>
+              <input
+                value={paytrackClientEntry.note}
+                onChange={(e) => setPaytrackClientEntry((s) => ({ ...s, note: e.target.value }))}
+                placeholder="Notes (optional) — also saved to Important Notes"
+                className="mt-3 w-full bg-white border border-amber-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-400"
+              />
               {paytrackClientEntry.type === 'payment' && (
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-amber-800 mb-1">
@@ -5093,16 +5324,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xl font-semibold text-slate-900">History</p>
                 <span className="text-xs text-amber-700">
-                  {(paytrackClientView.payment?.payments || []).filter((p) => (p.amount || 0) > 0).length} entries
+                  {(paytrackClientView.payment?.payments || []).length} entries
                 </span>
               </div>
-              {(paytrackClientView.payment?.payments || []).filter((p) => (p.amount || 0) > 0).length === 0 ? (
+              {(paytrackClientView.payment?.payments || []).length === 0 ? (
                 <p className="text-sm text-slate-500 py-3">No payment history yet.</p>
               ) : (
                 <div className="space-y-2 max-h-80 overflow-auto">
                   {(paytrackClientView.payment?.payments || [])
                     .map((entry, index) => ({ entry, index }))
-                    .filter(({ entry }) => (entry.amount || 0) > 0)
                     .sort(
                       (a, b) =>
                         new Date(b.entry.date).getTime() - new Date(a.entry.date).getTime()
@@ -5132,6 +5362,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 className="flex-1 bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-400"
                               />
                             </div>
+                            <input
+                              value={paytrackPaymentDraft.note}
+                              onChange={(e) =>
+                                setPaytrackPaymentDraft((s) => ({ ...s, note: e.target.value }))
+                              }
+                              placeholder="Note (optional)"
+                              className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                            />
                             <input
                               type="date"
                               value={paytrackPaymentDraft.date}
@@ -5165,11 +5403,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 {formatPaytrackPaymentDate(entry.date)}
                               </p>
                               <p className="text-sm font-semibold text-slate-800">{entry.method || 'Payment'}</p>
+                              {entry.note ? (
+                                <p className="text-xs text-slate-500 mt-0.5">{entry.note}</p>
+                              ) : null}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold text-green-700">
-                                €{(entry.amount || 0).toFixed(2)}
-                              </span>
+                              {(entry.amount || 0) > 0 ? (
+                                <span className="text-sm font-semibold text-green-700">
+                                  €{(entry.amount || 0).toFixed(2)}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-semibold text-amber-700 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">
+                                  Note
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => startPaytrackPaymentEdit(index)}
@@ -5302,6 +5549,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
                 </div>
               )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {t('dashboard.paytrackNotes')}{' '}
+                  <span className="text-slate-400 font-normal">({t('dashboard.paytrackOptional')})</span>
+                </label>
+                <textarea
+                  value={paytrackAddClientForm.notes}
+                  onChange={(e) =>
+                    setPaytrackAddClientForm((s) => ({ ...s, notes: e.target.value }))
+                  }
+                  placeholder={t('dashboard.paytrackNotesPlaceholder')}
+                  rows={3}
+                  className="w-full bg-white border border-amber-200 rounded-xl px-4 py-3 outline-none resize-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
                   </>
                 );
               })()}
