@@ -13,7 +13,7 @@ import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { useData } from '../context/DataContext';
 import { formatClientFullName } from '../utils/clientNames';
-import { buildNoteSchedulingPatch } from '../utils/clientNoteScheduling';
+import { buildNoteSchedulingPatch, normalizeClientNoteText } from '../utils/clientNoteScheduling';
 
 interface Props {
   client: Client;
@@ -125,9 +125,9 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [additionalDocForm, setAdditionalDocForm] = useState({ name: '', description: '', file: null as File | null, reminder_days: 10 });
   const [editingAdditionalDoc, setEditingAdditionalDoc] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('');
-  const [notes, setNotes] = useState(client.notes || '');
+  const [notes, setNotes] = useState(() => normalizeClientNoteText(client.notes));
   const [savingNotes, setSavingNotes] = useState(false);
-  const [details, setDetails] = useState(client.details || '');
+  const [details, setDetails] = useState(() => normalizeClientNoteText(client.details));
   const [savingDetails, setSavingDetails] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -223,8 +223,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   useEffect(() => {
-    setNotes(clientData.notes || '');
-    setDetails(clientData.details || '');
+    setNotes(normalizeClientNoteText(clientData.notes));
+    setDetails(normalizeClientNoteText(clientData.details));
     setCustomReminderDate(clientData.custom_reminder_date || '');
     setClientInfoForm({
       first_name: clientData.first_name || '',

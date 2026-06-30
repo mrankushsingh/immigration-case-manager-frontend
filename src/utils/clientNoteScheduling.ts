@@ -160,14 +160,40 @@ export function parseDeadlineFromNote(text: string, ref = new Date()): Date | nu
   return null;
 }
 
+export function formatImportantNoteDate(d = new Date()): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const y = d.getFullYear();
+  return `${day}-${m}-${y}`;
+}
+
+/** Fix dates stored as [6&#x2F;30&#x2F;2026] from older HTML escaping. */
+export function decodeHtmlEntities(input: string): string {
+  if (!input) return input;
+  return input
+    .replace(/&#x2F;/gi, '/')
+    .replace(/&#47;/g, '/')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'");
+}
+
+export function normalizeClientNoteText(text: string | undefined | null): string {
+  return decodeHtmlEntities(text || '');
+}
+
 /** Append a line into Important Notes (deduped, timestamped). */
 export function appendImportantNote(existing: string, line: string): string {
   const trimmed = line.trim();
-  if (!trimmed) return existing;
-  if (existing.toLowerCase().includes(trimmed.toLowerCase())) return existing;
-  const stamp = new Date().toLocaleDateString();
-  return existing.trim()
-    ? `${existing.trim()}\n\n[${stamp}] ${trimmed}`
+  if (!trimmed) return normalizeClientNoteText(existing);
+  const existingNorm = normalizeClientNoteText(existing);
+  if (existingNorm.toLowerCase().includes(trimmed.toLowerCase())) return existingNorm;
+  const stamp = formatImportantNoteDate();
+  return existingNorm.trim()
+    ? `${existingNorm.trim()}\n\n[${stamp}] ${trimmed}`
     : `[${stamp}] ${trimmed}`;
 }
 
