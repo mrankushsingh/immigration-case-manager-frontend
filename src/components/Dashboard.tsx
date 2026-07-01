@@ -4634,7 +4634,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {formatClientFullName(client)}
                             </p>
                             {client.phone ? (
-                              <p className="text-xs text-amber-300/90 mt-0.5 truncate">{client.phone}</p>
+                              <p className="text-xs text-amber-400 mt-0.5 truncate">{client.phone}</p>
                             ) : null}
                             {lastPaid ? (
                               <p className="text-xs text-slate-500 mt-0.5 truncate">
@@ -5292,58 +5292,60 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </button>
             </div>
 
-            <h2 className="text-3xl font-semibold text-amber-800 break-words">
-              {formatClientFullName(paytrackClientView)}
-            </h2>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {paytrackEditingPhone ? (
-                <>
-                  <input
-                    type="tel"
-                    value={paytrackPhoneDraft}
-                    onChange={(e) => setPaytrackPhoneDraft(e.target.value)}
-                    placeholder="Phone number"
-                    className="flex-1 min-w-[200px] max-w-sm bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-lg text-amber-900 outline-none focus:ring-2 focus:ring-amber-400"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    disabled={paytrackClientSaving}
-                    onClick={handlePaytrackPhoneSave}
-                    className="text-xs px-2 py-1 rounded-lg bg-amber-600 text-white disabled:opacity-60"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaytrackEditingPhone(false)}
-                    className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-700"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-lg text-amber-700">
-                    {paytrackClientView.phone || 'No phone'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaytrackPhoneDraft(paytrackClientView.phone || '');
-                      setPaytrackEditingPhone(true);
-                    }}
-                    className="p-1 text-amber-600 hover:text-amber-800"
-                    title="Edit phone"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </>
-              )}
+            <div className="glass-gold border border-amber-200 rounded-3xl p-5 sm:p-6">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-900 via-amber-700 to-amber-600 bg-clip-text text-transparent break-words">
+                {formatClientFullName(paytrackClientView)}
+              </h2>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {paytrackEditingPhone ? (
+                  <>
+                    <input
+                      type="tel"
+                      value={paytrackPhoneDraft}
+                      onChange={(e) => setPaytrackPhoneDraft(e.target.value)}
+                      placeholder="Phone number"
+                      className="flex-1 min-w-[200px] max-w-sm bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-lg text-amber-900 outline-none focus:ring-2 focus:ring-amber-400"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      disabled={paytrackClientSaving}
+                      onClick={handlePaytrackPhoneSave}
+                      className="text-xs px-2 py-1 rounded-lg bg-amber-600 text-white disabled:opacity-60"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaytrackEditingPhone(false)}
+                      className="text-xs px-2 py-1 rounded-lg border border-amber-200 text-amber-800"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xl font-semibold text-amber-600">
+                      {paytrackClientView.phone || 'No phone'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaytrackPhoneDraft(paytrackClientView.phone || '');
+                        setPaytrackEditingPhone(true);
+                      }}
+                      className="p-1 text-amber-600 hover:text-amber-800"
+                      title="Edit phone"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+              <p className="text-xs text-amber-700/80 mt-2">
+                Created by {paytrackClientView.parent_name || '-'} · {new Date(paytrackClientView.created_at).toLocaleDateString('en-GB')}
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Created by {paytrackClientView.parent_name || '-'} · {new Date(paytrackClientView.created_at).toLocaleDateString('en-GB')}
-            </p>
 
             {(() => {
               const totals = getPaytrackClientTotals(paytrackClientView);
