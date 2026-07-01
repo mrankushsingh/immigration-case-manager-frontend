@@ -4630,11 +4630,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 py-3 border-b border-slate-800/80 last:border-b-0 hover:bg-white/[0.04] transition-colors text-left"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-white break-words">
+                            <p className="font-semibold text-amber-400 break-words">
                               {formatClientFullName(client)}
                             </p>
                             {client.phone ? (
-                              <p className="text-xs text-slate-400 mt-0.5 truncate">{client.phone}</p>
+                              <p className="text-xs text-amber-300/90 mt-0.5 truncate">{client.phone}</p>
                             ) : null}
                             {lastPaid ? (
                               <p className="text-xs text-slate-500 mt-0.5 truncate">
@@ -5292,7 +5292,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </button>
             </div>
 
-            <h2 className="text-3xl font-semibold text-slate-900 break-words">
+            <h2 className="text-3xl font-semibold text-amber-800 break-words">
               {formatClientFullName(paytrackClientView)}
             </h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -5303,7 +5303,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     value={paytrackPhoneDraft}
                     onChange={(e) => setPaytrackPhoneDraft(e.target.value)}
                     placeholder="Phone number"
-                    className="flex-1 min-w-[200px] max-w-sm bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-lg text-slate-900 outline-none focus:ring-2 focus:ring-amber-400"
+                    className="flex-1 min-w-[200px] max-w-sm bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-lg text-amber-900 outline-none focus:ring-2 focus:ring-amber-400"
                     autoFocus
                   />
                   <button
@@ -5324,7 +5324,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </>
               ) : (
                 <>
-                  <p className="text-lg text-slate-600">
+                  <p className="text-lg text-amber-700">
                     {paytrackClientView.phone || 'No phone'}
                   </p>
                   <button
@@ -5333,7 +5333,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       setPaytrackPhoneDraft(paytrackClientView.phone || '');
                       setPaytrackEditingPhone(true);
                     }}
-                    className="p-1 text-slate-500 hover:text-slate-800"
+                    className="p-1 text-amber-600 hover:text-amber-800"
                     title="Edit phone"
                   >
                     <Edit2 className="w-4 h-4" />
