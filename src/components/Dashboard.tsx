@@ -542,6 +542,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   });
   const [paytrackEditingTotalFee, setPaytrackEditingTotalFee] = useState(false);
   const [paytrackTotalFeeDraft, setPaytrackTotalFeeDraft] = useState('');
+  const [paytrackEditingPhone, setPaytrackEditingPhone] = useState(false);
+  const [paytrackPhoneDraft, setPaytrackPhoneDraft] = useState('');
   const [paymentForm, setPaymentForm] = useState({
     fullName: '',
     phone: '',
@@ -815,6 +817,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     setPaytrackClientView(client);
     setPaytrackEditingPaymentIdx(null);
     setPaytrackEditingTotalFee(false);
+    setPaytrackEditingPhone(false);
     const pending = Math.max(0, (client.payment?.totalFee || 0) - (client.payment?.paidAmount || 0));
     setPaytrackClientEntry({
       amount: options?.prefillPending && pending > 0 ? pending.toFixed(2) : '',
@@ -935,6 +938,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       showToast('Honorarios updated', 'success');
     } catch (error: any) {
       showToast(error.message || 'Failed to update honorarios', 'error');
+    } finally {
+      setPaytrackClientSaving(false);
+    }
+  };
+
+  const handlePaytrackPhoneSave = async () => {
+    if (!paytrackClientView) return;
+    const phone = paytrackPhoneDraft.trim();
+    try {
+      setPaytrackClientSaving(true);
+      await api.updateClient(paytrackClientView.id, { phone: phone || undefined });
+      await refreshPaytrackClient(paytrackClientView.id);
+      setPaytrackEditingPhone(false);
+      showToast('Phone updated', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Failed to update phone', 'error');
     } finally {
       setPaytrackClientSaving(false);
     }
@@ -5276,9 +5295,52 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <h2 className="text-3xl font-semibold text-slate-900 break-words">
               {formatClientFullName(paytrackClientView)}
             </h2>
-            {paytrackClientView.phone && (
-              <p className="text-lg text-slate-600 mt-1">{paytrackClientView.phone}</p>
-            )}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {paytrackEditingPhone ? (
+                <>
+                  <input
+                    type="tel"
+                    value={paytrackPhoneDraft}
+                    onChange={(e) => setPaytrackPhoneDraft(e.target.value)}
+                    placeholder="Phone number"
+                    className="flex-1 min-w-[200px] max-w-sm bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-lg text-slate-900 outline-none focus:ring-2 focus:ring-amber-400"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    disabled={paytrackClientSaving}
+                    onClick={handlePaytrackPhoneSave}
+                    className="text-xs px-2 py-1 rounded-lg bg-amber-600 text-white disabled:opacity-60"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaytrackEditingPhone(false)}
+                    className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg text-slate-600">
+                    {paytrackClientView.phone || 'No phone'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaytrackPhoneDraft(paytrackClientView.phone || '');
+                      setPaytrackEditingPhone(true);
+                    }}
+                    className="p-1 text-slate-500 hover:text-slate-800"
+                    title="Edit phone"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
             <p className="text-xs text-slate-500 mt-1">
               Created by {paytrackClientView.parent_name || '-'} · {new Date(paytrackClientView.created_at).toLocaleDateString('en-GB')}
             </p>
