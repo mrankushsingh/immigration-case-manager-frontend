@@ -2376,7 +2376,6 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">File Name</label>
-                  <p className="text-xs text-gray-500 mb-1">Used for document folders and ZIP downloads.</p>
                   <input
                     type="text"
                     id="client-file-name"

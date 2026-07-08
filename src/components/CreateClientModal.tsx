@@ -166,9 +166,6 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       File Name
                     </label>
-                    <p className="text-xs text-gray-500 mb-2">
-                      Used for document folders and ZIP file names.
-                    </p>
                     <input
                       type="text"
                       value={formData.fileName}
