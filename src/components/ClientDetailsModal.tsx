@@ -304,8 +304,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   const handleSaveClientInfo = async () => {
-    if (!clientInfoForm.fullName.trim() || !clientInfoForm.file_name.trim()) {
-      showToast('Full name and file name are required', 'error');
+    if (!clientInfoForm.fullName.trim()) {
+      showToast('Full name is required', 'error');
       return;
     }
 
@@ -315,7 +315,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
       await api.updateClient(clientData.id, {
         first_name,
         last_name,
-        file_name: clientInfoForm.file_name.trim(),
+        file_name: clientInfoForm.file_name.trim() || null,
         email: clientInfoForm.email.trim() || undefined,
         phone: clientInfoForm.phone.trim() || undefined,
         parent_name: clientInfoForm.parent_name.trim() || undefined,
@@ -2360,7 +2360,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           
           {editingClientInfo ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                   <input
@@ -2375,13 +2375,12 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">File Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">File Name</label>
                   <p className="text-xs text-gray-500 mb-1">Used for document folders and ZIP downloads.</p>
                   <input
                     type="text"
                     id="client-file-name"
                     name="file_name"
-                    required
                     value={clientInfoForm.file_name}
                     onChange={(e) => setClientInfoForm({ ...clientInfoForm, file_name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
@@ -2455,11 +2454,11 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-4">
-              <div className="sm:col-span-2">
+              <div>
                 <span className="text-gray-600">Full Name:</span>
                 <span className="ml-2 text-gray-900 font-medium">{formatClientFullName(clientData)}</span>
               </div>
-              <div className="sm:col-span-2">
+              <div>
                 <span className="text-gray-600">File Name:</span>
                 <span className="ml-2 text-gray-900">{getClientFileName(clientData) || 'N/A'}</span>
               </div>

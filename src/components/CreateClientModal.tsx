@@ -62,8 +62,8 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
     e.preventDefault();
     setError('');
 
-    if (!formData.fullName.trim() || !formData.fileName.trim()) {
-      setError('Full name and file name are required');
+    if (!formData.fullName.trim()) {
+      setError('Full name is required');
       return;
     }
 
@@ -74,7 +74,7 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
       await api.createClient({
         firstName: first_name,
         lastName: last_name,
-        fileName: formData.fileName.trim(),
+        fileName: formData.fileName.trim() || undefined,
         parentName: formData.parentName.trim() || undefined,
         email: formData.email.trim() || undefined,
         phone: formData.phone.trim() || undefined,
@@ -148,7 +148,7 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
                   <div className="w-1 h-6 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></div>
                   <span>Personal Information</span>
                 </h3>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Full Name <span className="text-red-500">*</span>
@@ -164,14 +164,13 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      File Name <span className="text-red-500">*</span>
+                      File Name
                     </label>
                     <p className="text-xs text-gray-500 mb-2">
                       Used for document folders and ZIP file names.
                     </p>
                     <input
                       type="text"
-                      required
                       value={formData.fileName}
                       onChange={(e) => setFormData({ ...formData, fileName: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm hover:shadow-md"
