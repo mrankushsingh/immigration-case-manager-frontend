@@ -14,7 +14,7 @@ import {
   reminderDisplayName,
   splitReminderFullName,
 } from '../utils/reminderNames';
-import { formatClientFullName } from '../utils/clientNames';
+import { clientMatchesNameSearch, formatClientFullName } from '../utils/clientNames';
 import { getNoteFollowUpDeadline, buildNoteSchedulingPatch, parseImportantNotes, toISODateOnly } from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
@@ -34,9 +34,8 @@ interface DashboardProps {
 function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
   const q = raw.trim().toLowerCase();
   if (!q) return true;
-  const fullName = formatClientFullName(client).toLowerCase();
   return (
-    fullName.includes(q) ||
+    clientMatchesNameSearch(client, raw) ||
     (client.email || '').toLowerCase().includes(q) ||
     (client.phone || '').toLowerCase().includes(q) ||
     (client.case_type || '').toLowerCase().includes(q) ||
@@ -1858,7 +1857,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
       if (!q) return true;
       return (
-        `${client.first_name} ${client.last_name}`.toLowerCase().includes(q) ||
+        clientMatchesNameSearch(client, paytrackQuery) ||
         (client.phone || '').toLowerCase().includes(q) ||
         (client.case_type || '').toLowerCase().includes(q)
       );

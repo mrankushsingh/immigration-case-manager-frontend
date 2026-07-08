@@ -7,7 +7,7 @@ import ClientDetailsModal from './ClientDetailsModal';
 import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { t } from '../utils/i18n';
-import { formatClientFullName } from '../utils/clientNames';
+import { clientMatchesNameSearch, formatClientFullName } from '../utils/clientNames';
 import { SkeletonClientCard } from './Skeleton';
 import { useData } from '../context/DataContext';
 
@@ -105,13 +105,9 @@ export default function Clients() {
         return;
       }
 
-      // Search from cached data by name only (no API call)
-      // Match from the start of the name (starts with)
-      const searchTerm = searchQuery.trim().toLowerCase();
-      const filtered = cachedClients.filter(client => {
-        const fullName = formatClientFullName(client).toLowerCase();
-        return fullName.startsWith(searchTerm);
-      });
+      const filtered = cachedClients.filter((client) =>
+        clientMatchesNameSearch(client, searchQuery)
+      );
 
       setOffset(0);
       const initialFiltered = filtered.slice(0, LIMIT);
@@ -133,11 +129,9 @@ export default function Clients() {
   const handleLoadMore = () => {
     if (searchQuery.trim()) {
       // If searching, load more from filtered results
-      const searchTerm = searchQuery.trim().toLowerCase();
-      const filtered = cachedClients.filter(client => {
-        const fullName = formatClientFullName(client).toLowerCase();
-        return fullName.startsWith(searchTerm);
-      });
+      const filtered = cachedClients.filter((client) =>
+        clientMatchesNameSearch(client, searchQuery)
+      );
       const nextClients = filtered.slice(offset, offset + LIMIT);
       if (nextClients.length > 0) {
         setClients(prev => [...prev, ...nextClients]);
@@ -222,7 +216,7 @@ export default function Clients() {
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-amber-600" />
           <input
             type="text"
-            placeholder="Search clients by name..."
+            placeholder="Search by name or surname..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
