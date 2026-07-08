@@ -4,6 +4,7 @@ import { api } from '../utils/api';
 import { CaseTemplate } from '../types';
 import { showToast } from './Toast';
 import { useData } from '../context/DataContext';
+import { splitClientFullName } from '../utils/clientNames';
 
 interface Props {
   onClose: () => void;
@@ -14,8 +15,8 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
   // Use cached templates from DataContext (no API call needed)
   const { templates } = useData();
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
+    fileName: '',
     parentName: '',
     email: '',
     phone: '',
@@ -61,16 +62,19 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
     e.preventDefault();
     setError('');
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError('First name and last name are required');
+    if (!formData.fullName.trim() || !formData.fileName.trim()) {
+      setError('Full name and file name are required');
       return;
     }
 
     setLoading(true);
     try {
+      const fullName = formData.fullName.trim();
+      const { first_name, last_name } = splitClientFullName(fullName);
       await api.createClient({
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
+        firstName: first_name,
+        lastName: last_name,
+        fileName: formData.fileName.trim(),
         parentName: formData.parentName.trim() || undefined,
         email: formData.email.trim() || undefined,
         phone: formData.phone.trim() || undefined,
@@ -78,7 +82,7 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
         totalFee: formData.totalFee ? parseFloat(formData.totalFee) : undefined,
         details: formData.details.trim() || undefined,
       });
-      showToast(`Client ${formData.firstName} ${formData.lastName} created successfully`, 'success');
+      showToast(`Client ${fullName} created successfully`, 'success');
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -144,31 +148,34 @@ export default function CreateClientModal({ onClose, onSuccess }: Props) {
                   <div className="w-1 h-6 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></div>
                   <span>Personal Information</span>
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      First Name <span className="text-red-500">*</span>
+                      Full Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      value={formData.firstName}
-                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm hover:shadow-md"
-                      placeholder="John"
+                      placeholder="e.g. PERLAT MYRTAJ"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Last Name <span className="text-red-500">*</span>
+                      File Name <span className="text-red-500">*</span>
                     </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Used for document folders and ZIP file names.
+                    </p>
                     <input
                       type="text"
                       required
-                      value={formData.lastName}
-                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      value={formData.fileName}
+                      onChange={(e) => setFormData({ ...formData, fileName: e.target.value })}
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-sm hover:shadow-md"
-                      placeholder="Doe"
+                      placeholder="e.g. MYRTAJ_PERLAT"
                     />
                   </div>
                 </div>

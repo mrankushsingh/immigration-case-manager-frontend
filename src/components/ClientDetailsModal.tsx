@@ -12,7 +12,7 @@ import { Client, RequiredDocument, AdditionalDocument, RequestedDocument } from 
 import ConfirmDialog from './ConfirmDialog';
 import { showToast } from './Toast';
 import { useData } from '../context/DataContext';
-import { formatClientFullName } from '../utils/clientNames';
+import { formatClientFullName, getClientFileName, getClientFileStorageSlug, splitClientFullName } from '../utils/clientNames';
 import {
   buildNoteSchedulingPatch,
   normalizeClientNoteText,
@@ -175,8 +175,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   const [editingClientInfo, setEditingClientInfo] = useState(false);
   const [savingClientInfo, setSavingClientInfo] = useState(false);
   const [clientInfoForm, setClientInfoForm] = useState({
-    first_name: '',
-    last_name: '',
+    fullName: '',
+    file_name: '',
     email: '',
     phone: '',
     parent_name: '',
@@ -232,8 +232,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     setNotes(normalizeClientNoteText(clientData.notes));
     setCustomReminderDate(clientData.custom_reminder_date || '');
     setClientInfoForm({
-      first_name: clientData.first_name || '',
-      last_name: clientData.last_name || '',
+      fullName: formatClientFullName(clientData),
+      file_name: clientData.file_name || '',
       email: clientData.email || '',
       phone: clientData.phone || '',
       parent_name: clientData.parent_name || '',
@@ -304,16 +304,18 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   const handleSaveClientInfo = async () => {
-    if (!clientInfoForm.first_name.trim() || !clientInfoForm.last_name.trim()) {
-      showToast('First name and last name are required', 'error');
+    if (!clientInfoForm.fullName.trim() || !clientInfoForm.file_name.trim()) {
+      showToast('Full name and file name are required', 'error');
       return;
     }
 
     setSavingClientInfo(true);
     try {
+      const { first_name, last_name } = splitClientFullName(clientInfoForm.fullName);
       await api.updateClient(clientData.id, {
-        first_name: clientInfoForm.first_name.trim(),
-        last_name: clientInfoForm.last_name.trim(),
+        first_name,
+        last_name,
+        file_name: clientInfoForm.file_name.trim(),
         email: clientInfoForm.email.trim() || undefined,
         phone: clientInfoForm.phone.trim() || undefined,
         parent_name: clientInfoForm.parent_name.trim() || undefined,
@@ -1771,7 +1773,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
 
     try {
       const zip = new JSZip();
-      const clientName = `${clientData.first_name}_${clientData.last_name}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const clientName = getClientFileStorageSlug(clientData);
       
       // Collect all submitted required documents
       const submittedRequiredDocs = clientData.required_documents?.filter(
@@ -1881,7 +1883,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
   };
 
   const handleDeleteClient = async () => {
-    const confirmMessage = `Are you sure you want to delete ${clientData.first_name} ${clientData.last_name}? This action cannot be undone and will permanently remove all client data, documents, and records.`;
+    const confirmMessage = `Are you sure you want to delete ${formatClientFullName(clientData)}? This action cannot be undone and will permanently remove all client data, documents, and records.`;
     
     setConfirmDialog({
       isOpen: true,
@@ -1893,7 +1895,7 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
     setError('');
     try {
       await api.deleteClient(client.id);
-          showToast(`Client ${clientData.first_name} ${clientData.last_name} deleted successfully`, 'success');
+          showToast(`Client ${formatClientFullName(clientData)} deleted successfully`, 'success');
       onSuccess();
       onClose();
           setConfirmDialog({ ...confirmDialog, isOpen: false });
@@ -2358,68 +2360,71 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
           
           {editingClientInfo ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                   <input
                     type="text"
-                    id="client-first-name"
-                    name="first_name"
+                    id="client-full-name"
+                    name="fullName"
                     required
-                    value={clientInfoForm.first_name}
-                    onChange={(e) => setClientInfoForm({ ...clientInfoForm, first_name: e.target.value })}
+                    value={clientInfoForm.fullName}
+                    onChange={(e) => setClientInfoForm({ ...clientInfoForm, fullName: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="First Name"
+                    placeholder="e.g. PERLAT MYRTAJ"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">File Name *</label>
+                  <p className="text-xs text-gray-500 mb-1">Used for document folders and ZIP downloads.</p>
                   <input
                     type="text"
-                    id="client-last-name"
-                    name="last_name"
+                    id="client-file-name"
+                    name="file_name"
                     required
-                    value={clientInfoForm.last_name}
-                    onChange={(e) => setClientInfoForm({ ...clientInfoForm, last_name: e.target.value })}
+                    value={clientInfoForm.file_name}
+                    onChange={(e) => setClientInfoForm({ ...clientInfoForm, file_name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="Last Name"
+                    placeholder="e.g. MYRTAJ_PERLAT"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    id="client-email"
-                    name="email"
-                    value={clientInfoForm.email}
-                    onChange={(e) => setClientInfoForm({ ...clientInfoForm, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="Email (optional)"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                  <input
-                    type="tel"
-                    id="client-phone"
-                    name="phone"
-                    value={clientInfoForm.phone}
-                    onChange={(e) => setClientInfoForm({ ...clientInfoForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="Phone (optional)"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Parent Name</label>
-                  <input
-                    type="text"
-                    id="client-parent-name"
-                    name="parent_name"
-                    value={clientInfoForm.parent_name}
-                    onChange={(e) => setClientInfoForm({ ...clientInfoForm, parent_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="Parent Name (optional)"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      id="client-email"
+                      name="email"
+                      value={clientInfoForm.email}
+                      onChange={(e) => setClientInfoForm({ ...clientInfoForm, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Email (optional)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      id="client-phone"
+                      name="phone"
+                      value={clientInfoForm.phone}
+                      onChange={(e) => setClientInfoForm({ ...clientInfoForm, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Phone (optional)"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Parent Name</label>
+                    <input
+                      type="text"
+                      id="client-parent-name"
+                      name="parent_name"
+                      value={clientInfoForm.parent_name}
+                      onChange={(e) => setClientInfoForm({ ...clientInfoForm, parent_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Parent Name (optional)"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex items-center justify-end space-x-3 pt-2">
@@ -2427,8 +2432,8 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
                   onClick={() => {
                     setEditingClientInfo(false);
                     setClientInfoForm({
-                      first_name: clientData.first_name || '',
-                      last_name: clientData.last_name || '',
+                      fullName: formatClientFullName(clientData),
+                      file_name: clientData.file_name || '',
                       email: clientData.email || '',
                       phone: clientData.phone || '',
                       parent_name: clientData.parent_name || '',
@@ -2450,6 +2455,14 @@ function ClientDetailsModal({ client, onClose, onSuccess }: Props) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-4">
+              <div className="sm:col-span-2">
+                <span className="text-gray-600">Full Name:</span>
+                <span className="ml-2 text-gray-900 font-medium">{formatClientFullName(clientData)}</span>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-gray-600">File Name:</span>
+                <span className="ml-2 text-gray-900">{getClientFileName(clientData) || 'N/A'}</span>
+              </div>
               <div>
                 <span className="text-gray-600">Email:</span>
                 <span className="ml-2 text-gray-900">{clientData.email || 'N/A'}</span>

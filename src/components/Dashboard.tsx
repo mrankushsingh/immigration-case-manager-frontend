@@ -36,6 +36,7 @@ function dashboardClientMatchesSearch(client: Client, raw: string): boolean {
   if (!q) return true;
   return (
     clientMatchesNameSearch(client, raw) ||
+    (client.file_name || '').toLowerCase().includes(q) ||
     (client.email || '').toLowerCase().includes(q) ||
     (client.phone || '').toLowerCase().includes(q) ||
     (client.case_type || '').toLowerCase().includes(q) ||
@@ -1003,11 +1004,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       return;
     }
     const { firstName, lastName } = splitPaytrackFullName(fullName);
+    const defaultFileName = `${firstName}_${lastName}`.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || firstName;
     try {
       setPaytrackAddClientSaving(true);
       const created = await api.createClient({
         firstName,
         lastName,
+        fileName: defaultFileName,
         phone: paytrackAddClientForm.phone.trim() || undefined,
         totalFee: totalFee ?? undefined,
         details: paytrackAddClientForm.notes.trim() || undefined,

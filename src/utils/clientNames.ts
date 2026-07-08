@@ -1,10 +1,32 @@
-import { formatReminderFullName } from './reminderNames';
+import { formatReminderFullName, splitReminderFullName } from './reminderNames';
+
+export function splitClientFullName(fullName: string): { first_name: string; last_name: string } {
+  const { client_name, client_surname } = splitReminderFullName(fullName);
+  return { first_name: client_name, last_name: client_surname };
+}
 
 export function formatClientFullName(
   client: { first_name?: string; last_name?: string } | null | undefined
 ): string {
   if (!client) return '';
   return formatReminderFullName(client.first_name, client.last_name);
+}
+
+export function getClientFileName(
+  client: { file_name?: string } | null | undefined
+): string {
+  return (client?.file_name || '').trim();
+}
+
+export function getClientFileStorageSlug(
+  client: { first_name?: string; last_name?: string; file_name?: string } | null | undefined
+): string {
+  const fileName = getClientFileName(client);
+  if (fileName) {
+    return fileName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  }
+  const display = formatClientFullName(client) || 'client';
+  return display.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 }
 
 function normalizeSearchText(value: string): string {
@@ -42,23 +64,29 @@ function nameTokenMatches(token: string, query: string): boolean {
   return token.startsWith(query) || token.includes(query);
 }
 
-/** Match client by first name, surname, or any alphabetical substring in any name word. */
+/** Match client by first name, surname, file name, or any alphabetical substring in any name word. */
 export function clientMatchesNameSearch(
-  client: { first_name?: string; last_name?: string } | null | undefined,
+  client: { first_name?: string; last_name?: string; file_name?: string } | null | undefined,
   raw: string
 ): boolean {
   const query = normalizeSearchText(raw);
   if (!query) return true;
 
   const nameTokens = getClientSearchNameTokens(client);
-  if (nameTokens.length === 0) return false;
+  const fileName = normalizeSearchText(client?.file_name || '');
 
   const queryTokens = query.split(/\s+/).filter(Boolean);
   if (queryTokens.length > 1) {
-    return queryTokens.every((part) =>
-      nameTokens.some((token) => nameTokenMatches(token, part))
+    return queryTokens.every(
+      (part) =>
+        nameTokens.some((token) => nameTokenMatches(token, part)) ||
+        (fileName && fileName.includes(part))
     );
   }
 
-  return nameTokens.some((token) => nameTokenMatches(token, query));
+  if (nameTokens.some((token) => nameTokenMatches(token, query))) {
+    return true;
+  }
+
+  return Boolean(fileName && fileName.includes(query));
 }
