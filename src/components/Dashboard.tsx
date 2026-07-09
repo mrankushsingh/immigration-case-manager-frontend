@@ -15,7 +15,13 @@ import {
   splitReminderFullName,
 } from '../utils/reminderNames';
 import { clientMatchesNameSearch, formatClientFullName } from '../utils/clientNames';
-import { getNoteFollowUpDeadline, buildNoteSchedulingPatch, parseImportantNotes, toISODateOnly } from '../utils/clientNoteScheduling';
+import {
+  getNoteFollowUpDeadline,
+  buildNoteSchedulingPatch,
+  parseImportantNotes,
+  toISODateOnly,
+  isWithinUrgentWindow,
+} from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
 import TeamMemberSelect from './TeamMemberSelect';
 import ReminderTeamMemberAssign from './ReminderTeamMemberAssign';
@@ -235,9 +241,17 @@ function buildReminderPayload(
 function isWithinUrgentReminderWindow(reminderDate: string): boolean {
   const now = new Date();
   const date = new Date(reminderDate);
+  if (Number.isNaN(date.getTime())) return false;
   const days3 = 3 * 24 * 60 * 60 * 1000;
   const timeDiff = date.getTime() - now.getTime();
-  return timeDiff > 0 && timeDiff <= days3;
+  // Keep reminders in URGENTES once they have entered the urgent window.
+  return timeDiff <= days3;
+}
+
+/** Items that belong in URGENTES — not in RECORDATORIO. */
+function shouldAppearInUrgentSection(reminder: Reminder): boolean {
+  if (reminder.reminder_type === 'URGENTES') return true;
+  return isWithinUrgentReminderWindow(reminder.reminder_date);
 }
 
 type DashboardModalSearchKey =
@@ -1481,7 +1495,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     () =>
       reminders.filter(
         (reminder) =>
-          reminder.reminder_type !== 'URGENTES' && isWithinUrgentReminderWindow(reminder.reminder_date)
+          reminder.reminder_type !== 'URGENTES' && shouldAppearInUrgentSection(reminder)
+      ),
+    [reminders]
+  );
+
+  const recordatorioReminders = useMemo(
+    () =>
+      reminders.filter(
+        (r) => r.reminder_type !== 'REQUERIMIENTO' && !shouldAppearInUrgentSection(r)
       ),
     [reminders]
   );
@@ -1605,15 +1627,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   
   // URGENTES: Clients with urgent deadlines within 3 days
   const urgentes = useMemo(() => clients.filter((client) => {
-    const now = new Date();
-    const days3 = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
-    
-    // Follow-up from important notes or payment reminder date
     const noteFollowUp = getNoteFollowUpDeadline(client);
-    if (noteFollowUp) {
-      const timeDiff = noteFollowUp.getTime() - now.getTime();
-      if (timeDiff > 0 && timeDiff <= days3) return true;
-    }
+    if (noteFollowUp && isWithinUrgentWindow(noteFollowUp)) return true;
     
     // Check requested documents deadline
     if (client.submitted_to_immigration && client.requested_documents) {
@@ -1629,8 +1644,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         if (lastRequestDate) {
           const deadline = new Date(lastRequestDate);
           deadline.setDate(deadline.getDate() + durationDays);
-          const timeDiff = deadline.getTime() - now.getTime();
-          if (timeDiff > 0 && timeDiff <= days3) return true;
+          if (isWithinUrgentWindow(deadline)) return true;
         }
       }
     }
@@ -1641,8 +1655,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       const silenceDays = client.administrative_silence_days || 60;
       const silenceEndDate = new Date(appDate);
       silenceEndDate.setDate(silenceEndDate.getDate() + silenceDays);
-      const timeDiff = silenceEndDate.getTime() - now.getTime();
-      if (timeDiff > 0 && timeDiff <= days3) return true;
+      if (isWithinUrgentWindow(silenceEndDate)) return true;
     }
     
     return false;
@@ -1744,11 +1757,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   }, [reminders, dashboardModalSearch.urgentes]);
 
   const recordatorioRemindersFiltered = useMemo(() => {
-    const base = reminders.filter((r) => r.reminder_type !== 'REQUERIMIENTO');
     const q = dashboardModalSearch.recordatorio;
-    if (!q.trim()) return base;
-    return base.filter((r) => reminderMatchesDashboardSearch(r, q));
-  }, [reminders, dashboardModalSearch.recordatorio]);
+    if (!q.trim()) return recordatorioReminders;
+    return recordatorioReminders.filter((r) => reminderMatchesDashboardSearch(r, q));
+  }, [recordatorioReminders, dashboardModalSearch.recordatorio]);
 
   const toggleReminderSelection = (group: ReminderSelectionGroup, id: string) => {
     setSelectedReminderIds((prev) => ({
@@ -2189,7 +2201,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
             <span className="text-[10px] sm:text-xs font-semibold text-amber-700/70 uppercase tracking-wider">{t('dashboard.recordatorio')}</span>
           </div>
-          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">{reminders.filter((r) => r.reminder_type !== 'REQUERIMIENTO').length}</p>
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-800 to-amber-600 bg-clip-text text-transparent mb-1 sm:mb-2">{recordatorioReminders.length}</p>
           <p className="text-xs sm:text-sm text-amber-700/70 font-medium leading-relaxed mb-1 sm:mb-2">{t('dashboard.recordatorioDesc')}</p>
         </div>
 
@@ -3701,7 +3713,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               />
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              {reminders.filter((r) => r.reminder_type !== 'REQUERIMIENTO').length === 0 ? (
+              {recordatorioReminders.length === 0 ? (
                 <div className="text-center py-12">
                   <Bell className="w-16 h-16 mx-auto text-amber-400 mb-4" />
                   <p className="text-gray-500 font-medium text-lg">No hay recordatorios</p>
