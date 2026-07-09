@@ -232,6 +232,14 @@ function buildReminderPayload(
   };
 }
 
+function isWithinUrgentReminderWindow(reminderDate: string): boolean {
+  const now = new Date();
+  const date = new Date(reminderDate);
+  const days3 = 3 * 24 * 60 * 60 * 1000;
+  const timeDiff = date.getTime() - now.getTime();
+  return timeDiff > 0 && timeDiff <= days3;
+}
+
 type DashboardModalSearchKey =
   | 'awaiting'
   | 'ready'
@@ -1463,10 +1471,31 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     reminders.filter((reminder) => reminder.reminder_type === 'RECURSO'),
     [reminders]
   );
-  const urgentesReminders = useMemo(() => 
-    reminders.filter((reminder) => reminder.reminder_type === 'URGENTES'),
+  const urgentesReminders = useMemo(
+    () => reminders.filter((reminder) => reminder.reminder_type === 'URGENTES'),
     [reminders]
   );
+
+  // Non-URGENTES reminders due within 3 days (URGENTES has its own list + automatic client follow-ups)
+  const urgentReminders = useMemo(
+    () =>
+      reminders.filter(
+        (reminder) =>
+          reminder.reminder_type !== 'URGENTES' && isWithinUrgentReminderWindow(reminder.reminder_date)
+      ),
+    [reminders]
+  );
+
+  /** Client IDs that already have a URGENTES reminder row — keep automatic client card separate until reminder is deleted. */
+  const urgentesClientIdsWithUrgentesReminder = useMemo(() => {
+    const ids = new Set<string>();
+    for (const reminder of urgentesReminders) {
+      const clientId = reminder.client_id?.trim();
+      if (clientId) ids.add(clientId);
+    }
+    return ids;
+  }, [urgentesReminders]);
+
   const pagosReminders = useMemo(() => 
     reminders.filter((reminder) => reminder.reminder_type === 'PAGOS'),
     [reminders]
@@ -1619,15 +1648,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return false;
   }), [clients]);
 
-  // Also add reminders that are within 3 days to urgent list
-  // Include all reminders including REQUERIMIENTO type
-  const urgentReminders = reminders.filter((reminder) => {
-    const now = new Date();
-    const reminderDate = new Date(reminder.reminder_date);
-    const days3 = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
-    const timeDiff = reminderDate.getTime() - now.getTime();
-    return timeDiff > 0 && timeDiff <= days3;
-  });
+  const urgentesAutomaticClients = useMemo(
+    () => urgentes.filter((client) => !urgentesClientIdsWithUrgentesReminder.has(client.id)),
+    [urgentes, urgentesClientIdsWithUrgentesReminder]
+  );
+
+  const urgentesTotalCount = useMemo(
+    () => urgentesAutomaticClients.length + urgentReminders.length + urgentesReminders.length,
+    [urgentesAutomaticClients, urgentReminders, urgentesReminders]
+  );
 
   const awaitingSubmissionFiltered = useMemo(() => {
     const q = dashboardModalSearch.awaiting;
@@ -1691,9 +1720,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const urgentesFiltered = useMemo(() => {
     const q = dashboardModalSearch.urgentes;
-    if (!q.trim()) return urgentes;
-    return urgentes.filter((c) => dashboardClientMatchesSearch(c, q));
-  }, [urgentes, dashboardModalSearch.urgentes]);
+    if (!q.trim()) return urgentesAutomaticClients;
+    return urgentesAutomaticClients.filter((c) => dashboardClientMatchesSearch(c, q));
+  }, [urgentesAutomaticClients, dashboardModalSearch.urgentes]);
 
   const urgentesRemindersFiltered = useMemo(() => {
     const q = dashboardModalSearch.urgentes;
@@ -2144,7 +2173,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
             <span className="text-xs font-semibold text-red-900 uppercase tracking-wider">{t('dashboard.urgentes')}</span>
           </div>
-          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-red-950 to-red-800 bg-clip-text text-transparent mb-1 sm:mb-2">{urgentes.length + urgentReminders.length + urgentesReminders.length}</p>
+          <p className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-red-950 to-red-800 bg-clip-text text-transparent mb-1 sm:mb-2">{urgentesTotalCount}</p>
           <p className="text-xs sm:text-sm text-red-900 font-medium leading-relaxed mb-1 sm:mb-2">{t('dashboard.urgentesDesc')}</p>
         </div>
 
@@ -3423,6 +3452,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-semibold rounded">URGENTES</span>
+                                {reminder.client_id?.trim() ? (
+                                  <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs font-semibold rounded border border-red-200">
+                                    Auto
+                                  </span>
+                                ) : null}
                                 <h3 className="font-bold text-red-900 text-lg">{reminderDisplayName(reminder)}</h3>
                               </div>
                               {reminder.phone && (
@@ -3481,7 +3515,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               )}
               
-              {urgentes.length === 0 && urgentReminders.length === 0 && urgentesReminders.length === 0 && !showUrgentesReminderForm ? (
+              {urgentesAutomaticClients.length === 0 && urgentReminders.length === 0 && urgentesReminders.length === 0 && !showUrgentesReminderForm ? (
                 <div className="text-center py-12">
                   <AlertTriangle className="w-16 h-16 mx-auto text-red-400 mb-4" />
                   <p className="text-gray-500 font-medium text-lg">No hay trámites urgentes</p>
@@ -3521,7 +3555,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 {reminderDisplayName(reminder)}
                               </h3>
                               <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full">
-                                RECORDATORIO
+                                {(reminder.reminder_type || 'RECORDATORIO').replace(/_/g, ' ')}
                               </span>
                             </div>
                             {reminder.phone && (
@@ -3599,6 +3633,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="font-bold text-red-900 text-lg">{client.first_name} {client.last_name}</h3>
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-800 text-xs font-semibold rounded border border-red-200">
+                            Auto follow-up
+                          </span>
                           <p className="text-sm text-red-700 mt-1">{client.case_type || 'No template'}</p>
                           {notePreview ? (
                             <p className="text-xs text-red-800 mt-2 line-clamp-2">{notePreview}</p>
