@@ -1745,16 +1745,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const urgentRemindersFiltered = useMemo(() => {
     const q = dashboardModalSearch.urgentes;
-    const base = reminders.filter((reminder) => {
-      const now = new Date();
-      const reminderDate = new Date(reminder.reminder_date);
-      const days3 = 3 * 24 * 60 * 60 * 1000;
-      const timeDiff = reminderDate.getTime() - now.getTime();
-      return timeDiff > 0 && timeDiff <= days3;
-    });
-    if (!q.trim()) return base;
-    return base.filter((r) => reminderMatchesDashboardSearch(r, q));
-  }, [reminders, dashboardModalSearch.urgentes]);
+    if (!q.trim()) return urgentReminders;
+    return urgentReminders.filter((r) => reminderMatchesDashboardSearch(r, q));
+  }, [urgentReminders, dashboardModalSearch.urgentes]);
 
   const recordatorioRemindersFiltered = useMemo(() => {
     const q = dashboardModalSearch.recordatorio;
@@ -3527,7 +3520,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               )}
               
-              {urgentesAutomaticClients.length === 0 && urgentReminders.length === 0 && urgentesReminders.length === 0 && !showUrgentesReminderForm ? (
+              {urgentesAutomaticClients.length === 0 &&
+              urgentReminders.length === 0 &&
+              urgentesReminders.length === 0 &&
+              !showUrgentesReminderForm ? (
                 <div className="text-center py-12">
                   <AlertTriangle className="w-16 h-16 mx-auto text-red-400 mb-4" />
                   <p className="text-gray-500 font-medium text-lg">No hay trámites urgentes</p>
