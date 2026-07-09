@@ -132,6 +132,7 @@ export interface Reminder {
   reminder_date: string; // ISO date string
   notes?: string;
   reminder_type?: string; // 'REQUERIMIENTO', 'RECORDATORIO', etc.
+  team_member?: string;
   created_at: string;
   updated_at: string;
 }

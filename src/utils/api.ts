@@ -1104,6 +1104,7 @@ export const api = {
     reminder_date: string;
     notes?: string;
     reminder_type?: string;
+    team_member?: string | null;
   }) {
     const headers = await getAuthHeaders();
     const response = await fetch(`${API_URL}/reminders`, {
@@ -1128,6 +1129,8 @@ export const api = {
     phone?: string;
     reminder_date?: string;
     notes?: string;
+    reminder_type?: string;
+    team_member?: string | null;
   }) {
     const headers = await getAuthHeaders();
     const response = await fetch(`${API_URL}/reminders/${id}`, {

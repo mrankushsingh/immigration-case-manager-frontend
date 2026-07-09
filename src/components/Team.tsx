@@ -10,15 +10,18 @@ import {
   UserPlus,
   Users,
   X,
+  Bell,
 } from 'lucide-react';
 import { api } from '../utils/api';
-import { CaseTemplate, Client } from '../types';
+import { CaseTemplate, Client, Reminder } from '../types';
 import { t } from '../utils/i18n';
 import { showToast } from './Toast';
 import ClientDetailsModal from './ClientDetailsModal';
 import { useData } from '../context/DataContext';
 import { formatClientFullName } from '../utils/clientNames';
+import { reminderDisplayName } from '../utils/reminderNames';
 import { TeamMemberName, normalizeTeamMemberName, validateMemberNameInput } from '../utils/teamMembers';
+import ReminderTeamMemberAssign from './ReminderTeamMemberAssign';
 import {
   TeamMemberTask,
   emptyTeamTasksMap,
@@ -74,13 +77,13 @@ function TeamClientCard({
 }
 
 export default function Team() {
-  const { clients, templates, teamMembers, refreshClients, refreshTemplates, refreshTeamMembers } = useData();
+  const { clients, templates, teamMembers, reminders, refreshClients, refreshTemplates, refreshTeamMembers, refreshReminders } = useData();
   const [teamTasksByMember, setTeamTasksByMember] = useState<Record<string, TeamMemberTask[]>>(() =>
     emptyTeamTasksMap(teamMembers)
   );
   const [teamTasksLoading, setTeamTasksLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMemberName | null>(null);
-  const [activeTab, setActiveTab] = useState<'tasks' | 'clients' | 'templates'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'clients' | 'templates' | 'reminders'>('tasks');
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskFormTitle, setTaskFormTitle] = useState('');
   const [taskFormNotes, setTaskFormNotes] = useState('');
@@ -122,6 +125,13 @@ export default function Team() {
     return map;
   }, [clients]);
 
+  const memberReminders = useMemo(() => {
+    if (!selectedMember) return [];
+    return reminders
+      .filter((reminder) => normalizeTeamMemberName(reminder.team_member, teamMembers) === selectedMember)
+      .sort((a, b) => new Date(a.reminder_date).getTime() - new Date(b.reminder_date).getTime());
+  }, [reminders, selectedMember, teamMembers]);
+
   const memberTemplateSummary = useMemo(() => {
     const summary = {} as Record<string, { templates: CaseTemplate[]; clientCount: number }>;
     for (const member of teamMembers) {
@@ -136,6 +146,16 @@ export default function Team() {
     }
     return summary;
   }, [templates, clientsByTemplateId, teamMembers]);
+
+  const remindersByMember = useMemo(() => {
+    const map: Record<string, Reminder[]> = {};
+    for (const member of teamMembers) {
+      map[member] = reminders.filter(
+        (reminder) => normalizeTeamMemberName(reminder.team_member, teamMembers) === member
+      );
+    }
+    return map;
+  }, [reminders, teamMembers]);
 
   const memberClients = useMemo(() => {
     if (!selectedMember) return [];
@@ -332,6 +352,7 @@ export default function Team() {
                   templates: [],
                   clientCount: 0,
                 };
+                const reminderCount = remindersByMember[name]?.length || 0;
                 return (
                   <div
                     key={name}
@@ -358,6 +379,9 @@ export default function Team() {
                           templates: memberTemplates.length,
                           clients: clientCount,
                         })}
+                      </span>
+                      <span className="text-sm text-amber-700/80 font-medium mt-1">
+                        {t('dashboard.teamsToDoRemindersCount', { count: reminderCount })}
                       </span>
                     </button>
                     {teamMembers.length > 1 ? (
@@ -449,7 +473,7 @@ export default function Team() {
         </div>
 
         <div className="max-w-7xl mx-auto flex flex-wrap gap-2 mt-4">
-          {(['tasks', 'clients', 'templates'] as const).map((tab) => (
+          {(['tasks', 'clients', 'templates', 'reminders'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -464,7 +488,9 @@ export default function Team() {
                 ? t('dashboard.teamsToDoTabTasks')
                 : tab === 'clients'
                   ? t('dashboard.teamsToDoTabClients')
-                  : t('dashboard.teamsToDoTabTemplates')}
+                  : tab === 'reminders'
+                    ? t('dashboard.teamsToDoTabReminders')
+                    : t('dashboard.teamsToDoTabTemplates')}
             </button>
           ))}
         </div>
@@ -655,6 +681,65 @@ export default function Team() {
                     />
                   ))}
                 </div>
+              )}
+            </div>
+          ) : activeTab === 'reminders' ? (
+            <div>
+              <p className="text-sm text-amber-700/80 mb-4">{t('dashboard.teamsToDoRemindersHint')}</p>
+              {memberReminders.length === 0 ? (
+                <div className="text-center py-16 border-2 border-dashed border-amber-200 rounded-2xl bg-white/80">
+                  <Bell className="w-16 h-16 mx-auto text-amber-300 mb-4" />
+                  <p className="text-gray-600 font-medium text-lg">{t('dashboard.teamsToDoNoReminders')}</p>
+                </div>
+              ) : (
+                <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {memberReminders.map((reminder) => {
+                    const reminderDate = new Date(reminder.reminder_date);
+                    return (
+                      <li
+                        key={reminder.id}
+                        className="p-5 rounded-2xl border-2 border-amber-200 bg-white shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-amber-900 text-lg break-words">
+                              {reminderDisplayName(reminder)}
+                            </h3>
+                            {reminder.reminder_type ? (
+                              <p className="text-xs font-semibold text-amber-700/80 mt-1 uppercase">
+                                {reminder.reminder_type}
+                              </p>
+                            ) : null}
+                          </div>
+                          <Bell className="w-5 h-5 text-amber-600 shrink-0" />
+                        </div>
+                        <p className="text-sm text-amber-800 mb-1">
+                          {reminderDate.toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                        {reminder.phone ? (
+                          <p className="text-sm text-amber-700/80 mb-1">{reminder.phone}</p>
+                        ) : null}
+                        {reminder.notes ? (
+                          <p className="text-sm text-gray-600 mt-2 line-clamp-3">{reminder.notes}</p>
+                        ) : null}
+                        <div className="mt-4 pt-4 border-t border-amber-100">
+                          <ReminderTeamMemberAssign
+                            reminderId={reminder.id}
+                            teamMember={reminder.team_member}
+                            members={teamMembers}
+                            onAssigned={refreshReminders}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
           ) : (

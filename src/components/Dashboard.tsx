@@ -17,6 +17,8 @@ import {
 import { clientMatchesNameSearch, formatClientFullName } from '../utils/clientNames';
 import { getNoteFollowUpDeadline, buildNoteSchedulingPatch, parseImportantNotes, toISODateOnly } from '../utils/clientNoteScheduling';
 import AppointmentsCalendar from './AppointmentsCalendar';
+import TeamMemberSelect from './TeamMemberSelect';
+import ReminderTeamMemberAssign from './ReminderTeamMemberAssign';
 import { emptyTeamTasksMap, groupTeamTasksFromApi } from '../utils/teamTasks';
 import { calcPendingBalance, getPaytrackFeeBreakdown, isFeePaymentEntry, sumPaidPaymentAmount, sumServiceFeeAmount } from '../utils/paymentTotals';
 
@@ -187,8 +189,47 @@ function reminderMatchesDashboardSearch(reminder: Reminder, raw: string): boolea
   return (
     name.includes(q) ||
     (reminder.phone || '').toLowerCase().includes(q) ||
-    (reminder.notes || '').toLowerCase().includes(q)
+    (reminder.notes || '').toLowerCase().includes(q) ||
+    (reminder.team_member || '').toLowerCase().includes(q)
   );
+}
+
+type ReminderFormState = {
+  fullName: string;
+  phone: string;
+  reminder_date: string;
+  notes: string;
+  team_member: string;
+};
+
+function reminderToEditForm(reminder: Reminder): ReminderFormState {
+  const date = new Date(reminder.reminder_date);
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return {
+    fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
+    phone: reminder.phone || '',
+    reminder_date: localDate.toISOString().slice(0, 16),
+    notes: reminder.notes || '',
+    team_member: reminder.team_member || '',
+  };
+}
+
+function buildReminderPayload(
+  form: ReminderFormState,
+  options?: { client_id?: string; reminder_type?: string }
+) {
+  const { client_name, client_surname } = splitReminderFullName(form.fullName);
+  const reminderDate = new Date(form.reminder_date);
+  return {
+    client_id: options?.client_id ?? '',
+    client_name,
+    client_surname,
+    phone: form.phone.trim() || undefined,
+    reminder_date: reminderDate.toISOString(),
+    notes: form.notes.trim() || undefined,
+    team_member: form.team_member.trim() || null,
+    ...(options?.reminder_type ? { reminder_type: options.reminder_type } : {}),
+  };
 }
 
 type DashboardModalSearchKey =
@@ -213,11 +254,12 @@ function emptyReminderSelection(): Record<ReminderSelectionGroup, string[]> {
   };
 }
 
-const EMPTY_REMINDER_FORM = {
+const EMPTY_REMINDER_FORM: ReminderFormState = {
   fullName: '',
   phone: '',
   reminder_date: '',
   notes: '',
+  team_member: '',
 };
 
 function DashboardModalSearchInput({
@@ -363,17 +405,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         return;
       }
 
-      const { client_name, client_surname } = splitReminderFullName(genericReminderForm.fullName);
-      const reminderDate = new Date(genericReminderForm.reminder_date);
-      const reminderData = {
-        client_id: '',
-        client_name,
-        client_surname,
-        phone: genericReminderForm.phone.trim() || undefined,
-        reminder_date: reminderDate.toISOString(),
-        notes: genericReminderForm.notes.trim() || undefined,
-        reminder_type: reminderType,
-      };
+      const reminderData = buildReminderPayload(genericReminderForm, { reminder_type: reminderType });
 
       if (editingGenericReminder) {
         await api.updateReminder(editingGenericReminder.id, reminderData);
@@ -452,6 +484,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
             />
           </div>
+          <TeamMemberSelect
+            value={genericReminderForm.team_member}
+            onChange={(team_member) => setGenericReminderForm({ ...genericReminderForm, team_member })}
+            members={teamMembers}
+            id="generic-reminder-team-member"
+            label="Team member"
+            className="sm:col-span-2"
+          />
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
             <textarea
@@ -2536,22 +2576,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {reminder.notes && (
                                 <p className="text-xs text-amber-600 mt-1">Notas: {reminder.notes}</p>
                               )}
+                              <ReminderTeamMemberAssign
+                                reminderId={reminder.id}
+                                teamMember={reminder.team_member}
+                                members={teamMembers}
+                                onAssigned={refreshReminders}
+                                compact
+                              />
                             </div>
                             <div className="flex items-center gap-2 ml-4">
                               <button
-                                onClick={async (e) => {
+                                onClick={(e) => {
                                   e.stopPropagation();
-                                  const dateStr = reminder.reminder_date;
-                                  const date = new Date(dateStr);
-                                  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-                                  const formattedDate = localDate.toISOString().slice(0, 16);
                                   setEditingGenericReminder(reminder);
-                                  setGenericReminderForm({
-                                    fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
-                                    phone: reminder.phone || '',
-                                    reminder_date: formattedDate,
-                                    notes: reminder.notes || '',
-                                  });
+                                  setGenericReminderForm(reminderToEditForm(reminder));
                                   setShowAportarReminderForm(true);
                                 }}
                                 className="p-2 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors"
@@ -2695,17 +2733,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         return;
                       }
 
-                      const { client_name, client_surname } = splitReminderFullName(requerimientoReminderForm.fullName);
-                      const reminderDate = new Date(requerimientoReminderForm.reminder_date);
-                      const reminderData = {
-                        client_id: '', // Optional for standalone reminders
-                        client_name,
-                        client_surname,
-                        phone: requerimientoReminderForm.phone.trim() || undefined,
-                        reminder_date: reminderDate.toISOString(),
-                        notes: requerimientoReminderForm.notes.trim() || undefined,
-                        reminder_type: 'REQUERIMIENTO', // Mark as REQUERIMIENTO reminder
-                      };
+                      const reminderData = buildReminderPayload(requerimientoReminderForm, {
+                        reminder_type: 'REQUERIMIENTO',
+                      });
 
                       if (editingRequerimientoReminder) {
                         await api.updateReminder(editingRequerimientoReminder.id, reminderData);
@@ -2770,6 +2800,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         placeholder="mm/dd/yyyy --:-- --"
                       />
                     </div>
+                    <TeamMemberSelect
+                      value={requerimientoReminderForm.team_member}
+                      onChange={(team_member) =>
+                        setRequerimientoReminderForm({ ...requerimientoReminderForm, team_member })
+                      }
+                      members={teamMembers}
+                      id="requerimiento-reminder-team-member"
+                      label="Team member"
+                      className="sm:col-span-2"
+                    />
                     <div className="sm:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
                       <textarea
@@ -2846,6 +2886,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {reminder.notes && (
                                 <p className="text-xs text-amber-600 mt-1">Notas: {reminder.notes}</p>
                               )}
+                              <ReminderTeamMemberAssign
+                                reminderId={reminder.id}
+                                teamMember={reminder.team_member}
+                                members={teamMembers}
+                                onAssigned={refreshReminders}
+                                compact
+                              />
                             </div>
                             </label>
                             <div className="flex items-center gap-2 ml-4 shrink-0">
@@ -2853,16 +2900,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingRequerimientoReminder(reminder);
-                                  const dateStr = reminder.reminder_date;
-                                  const date = new Date(dateStr);
-                                  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-                                  const formattedDate = localDate.toISOString().slice(0, 16);
-                                  setRequerimientoReminderForm({
-                                    fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
-                                    phone: reminder.phone || '',
-                                    reminder_date: formattedDate,
-                                    notes: reminder.notes || '',
-                                  });
+                                  setRequerimientoReminderForm(reminderToEditForm(reminder));
                                   setShowRequerimientoReminderForm(true);
                                 }}
                                 className="p-2 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors"
@@ -3035,23 +3073,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {reminder.notes && (
                                 <p className="text-xs text-amber-600 mt-1">Notas: {reminder.notes}</p>
                               )}
+                              <ReminderTeamMemberAssign
+                                reminderId={reminder.id}
+                                teamMember={reminder.team_member}
+                                members={teamMembers}
+                                onAssigned={refreshReminders}
+                                compact
+                              />
                             </div>
                             </label>
                             <div className="flex items-center gap-2 ml-4 shrink-0">
                               <button
-            onClick={async (e) => {
+            onClick={(e) => {
               e.stopPropagation();
-              const dateStr = reminder.reminder_date;
-              const date = new Date(dateStr);
-              const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-              const formattedDate = localDate.toISOString().slice(0, 16);
               setEditingGenericReminder(reminder);
-              setGenericReminderForm({
-                fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
-                phone: reminder.phone || '',
-                reminder_date: formattedDate,
-                notes: reminder.notes || '',
-              });
+              setGenericReminderForm(reminderToEditForm(reminder));
               setShowRecursoReminderForm(true);
             }}
                                 className="p-2 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors"
@@ -3404,23 +3440,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {reminder.notes && (
                                 <p className="text-xs text-red-600 mt-1">Notas: {reminder.notes}</p>
                               )}
+                              <ReminderTeamMemberAssign
+                                reminderId={reminder.id}
+                                teamMember={reminder.team_member}
+                                members={teamMembers}
+                                onAssigned={refreshReminders}
+                                compact
+                              />
                             </div>
                             </label>
                             <div className="flex items-center gap-2 ml-4 shrink-0">
                               <button
-            onClick={async (e) => {
+            onClick={(e) => {
               e.stopPropagation();
-              const dateStr = reminder.reminder_date;
-              const date = new Date(dateStr);
-              const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-              const formattedDate = localDate.toISOString().slice(0, 16);
               setEditingGenericReminder(reminder);
-              setGenericReminderForm({
-                fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
-                phone: reminder.phone || '',
-                reminder_date: formattedDate,
-                notes: reminder.notes || '',
-              });
+              setGenericReminderForm(reminderToEditForm(reminder));
               setShowUrgentesReminderForm(true);
             }}
                                 className="p-2 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
@@ -3505,6 +3539,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             {reminder.notes && (
                               <p className="text-sm text-gray-600 mt-1">{reminder.notes}</p>
                             )}
+                            <ReminderTeamMemberAssign
+                              reminderId={reminder.id}
+                              teamMember={reminder.team_member}
+                              members={teamMembers}
+                              onAssigned={refreshReminders}
+                              compact
+                            />
                           </div>
                           <div className="flex items-center gap-2 ml-4 shrink-0">
                             <button
@@ -3512,16 +3553,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditingReminder(reminder);
-                                const dateStr = reminder.reminder_date;
-                                const date = new Date(dateStr);
-                                const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-                                const formattedDate = localDate.toISOString().slice(0, 16);
                                 setReminderForm({
                                   client_id: reminder.client_id || '',
-                                  fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
-                                  phone: reminder.phone || '',
-                                  reminder_date: formattedDate,
-                                  notes: reminder.notes || '',
+                                  ...reminderToEditForm(reminder),
                                 });
                                 setShowReminderForm(true);
                               }}
@@ -3702,6 +3736,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 <span className="font-semibold">Teléfono:</span> {reminder.phone}
                               </p>
                             )}
+                            <ReminderTeamMemberAssign
+                              reminderId={reminder.id}
+                              teamMember={reminder.team_member}
+                              members={teamMembers}
+                              onAssigned={refreshReminders}
+                              compact
+                            />
                             <p className="text-sm text-amber-700 mb-1">
                               <span className="font-semibold">Fecha:</span>{' '}
                               {reminderDate.toLocaleDateString('es-ES', {
@@ -3721,16 +3762,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <button
                               onClick={() => {
                                 setEditingReminder(reminder);
-                                const dateStr = reminder.reminder_date;
-                                const date = new Date(dateStr);
-                                const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-                                const formattedDate = localDate.toISOString().slice(0, 16);
                                 setReminderForm({
                                   client_id: reminder.client_id,
-                                  fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
-                                  phone: reminder.phone || '',
-                                  reminder_date: formattedDate,
-                                  notes: reminder.notes || '',
+                                  ...reminderToEditForm(reminder),
                                 });
                                 setShowReminderForm(true);
                               }}
@@ -3787,16 +3821,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const reminderDate = new Date(reminderForm.reminder_date);
-                  const { client_name, client_surname } = splitReminderFullName(reminderForm.fullName);
-                  const reminderData = {
-                    client_id: reminderForm.client_id || '', // Optional, can be empty for standalone reminders
-                    client_name,
-                    client_surname,
-                    phone: reminderForm.phone.trim() || undefined,
-                    reminder_date: reminderDate.toISOString(),
-                    notes: reminderForm.notes.trim() || undefined,
-                  };
+                  const reminderData = buildReminderPayload(reminderForm, {
+                    client_id: reminderForm.client_id || '',
+                  });
                   if (editingReminder) {
                     await api.updateReminder(editingReminder.id, reminderData);
                   } else {
@@ -3849,6 +3876,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                 />
               </div>
+
+              <TeamMemberSelect
+                value={reminderForm.team_member}
+                onChange={(team_member) => setReminderForm({ ...reminderForm, team_member })}
+                members={teamMembers}
+                id="recordatorio-reminder-team-member"
+                label="Team member"
+                selectClassName="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none bg-white"
+              />
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Notas</label>
@@ -4071,23 +4107,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                               {reminder.notes && (
                                 <p className="text-xs text-amber-600 mt-1">Notas: {reminder.notes}</p>
                               )}
+                              <ReminderTeamMemberAssign
+                                reminderId={reminder.id}
+                                teamMember={reminder.team_member}
+                                members={teamMembers}
+                                onAssigned={refreshReminders}
+                                compact
+                              />
                             </div>
                             </label>
                             <div className="flex items-center gap-2 ml-4 shrink-0">
                               <button
-            onClick={async (e) => {
+            onClick={(e) => {
               e.stopPropagation();
-              const dateStr = reminder.reminder_date;
-              const date = new Date(dateStr);
-              const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-              const formattedDate = localDate.toISOString().slice(0, 16);
               setEditingGenericReminder(reminder);
-              setGenericReminderForm({
-                fullName: formatReminderFullName(reminder.client_name, reminder.client_surname),
-                phone: reminder.phone || '',
-                reminder_date: formattedDate,
-                notes: reminder.notes || '',
-              });
+              setGenericReminderForm(reminderToEditForm(reminder));
               setShowPagosReminderForm(true);
             }}
                                 className="p-2 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors"
@@ -4813,6 +4847,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         {reminder.notes && (
                           <p className="text-sm text-amber-700/90 mt-2 whitespace-pre-wrap">{reminder.notes}</p>
                         )}
+                        <ReminderTeamMemberAssign
+                          reminderId={reminder.id}
+                          teamMember={reminder.team_member}
+                          members={teamMembers}
+                          onAssigned={refreshReminders}
+                          compact
+                        />
                       </li>
                     ))}
                   </ul>
