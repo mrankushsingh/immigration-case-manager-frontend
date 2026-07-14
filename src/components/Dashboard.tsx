@@ -1625,8 +1625,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   /** Post-silence clients shown in the two APPEAL tiles (administrative queue + appeals box). */
   const recursoClientTotal = recursoAdministrativeFile.length + recursoAppeals.length;
 
-  /** Dashboard tile count: both RECURSO lists + RECURSO reminders. */
-  const recursoTotalCount = recursoClientTotal + recursoReminders.length;
+  /** Dashboard tile: only RECURSO reminders created with the + icon. */
+  const recursoTotalCount = recursoReminders.length;
   
   // URGENTES: Clients with urgent deadlines within 3 days
   const urgentes = useMemo(() => clients.filter((client) => {
